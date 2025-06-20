@@ -27,7 +27,7 @@ A detailed presentation of all the Anglerphish features can be found in this art
 ---
 
 ### (Coming Soon...) Sponsored Version Includes: 
-- **Everything the Public Version has**
+- **Everything the Public Version has plus...**
 - **Campaign Sets:** Introduced the Campaign Sets feature, enabling the creation and configuration of multiple campaigns simultaneously. Users can save these campaigns as drafts, make modifications as needed, and launch them all at once.
 - **SMS Campaigns:** Added support for SMS-based campaigns alongside email. Includes dedicated SMS profiles (Twilio and Vonage) and SMS template creation.
 - **Additional Group Variable:** Introduced `{{.Phone}}` as a group variable to support SMS messaging.
