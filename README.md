@@ -5,6 +5,8 @@ Anglerphish
 
 A detailed presentation of all the Anglerphish features can be found in this article - *Coming Soon...*.
 
+---
+
 ### Upgrades Included in the Public version:
 - **Per-Campaign URL Parameters:** Allows unique URL parameters per campaign instead of a global `rid`.
 - **HTTP Basic Auth Landing Pages:** Enables basic authentication landing page campaigns.
@@ -20,7 +22,9 @@ A detailed presentation of all the Anglerphish features can be found in this art
     - Macro-enabled `.doc` or `.xls` files that can’t be tracked directly through traditional campaigns..
     - Custom `POST` requests triggered by landing pages.
 - **QR Email Embedding:** Integrates QR code campaigns, based on based on [Evil-Gophish](https://github.com/fin3ss3g0d/evilgophish.git).
-- **Sneaky Tweaks:** Implements the sneaky gophish tweaks based on the [article](https://www.sprocketsecurity.com/resources/never-had-a-bad-day-phishing-how-to-set-up-gophish-to-evade-security-controls)
+- **Sneaky Tweaks:** Implements the sneaky gophish tweaks based on the [article](https://www.sprocketsecurity.com/resources/never-had-a-bad-day-phishing-how-to-set-up-gophish-to-evade-security-controls).
+
+---
 
 ### (Coming Soon...) Sponsored Version Includes: 
 - **Everything the Public Version has**
@@ -34,6 +38,8 @@ A detailed presentation of all the Anglerphish features can be found in this art
 - **Preview Templates / Landing Pages**: Added the ability to preview Email, SMS, and Landing Page Templates directly—no need to open the editor.
 - **Dashboard Filtering:** Allows filtering the campaign list on the dashboard to show only Email or only SMS campaigns.
 
+---
+
 ### Some Ideas for Upcoming Features (No Guarantee)
 - **MS Teams Campaign Integration**
 - **Randomized Email Template Sending to Targets**
@@ -41,11 +47,15 @@ A detailed presentation of all the Anglerphish features can be found in this art
 - **Dark Theme**
 - **Evilginx Integration**
 
+---
+
 ### Screenshots
 
 ![1](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/1.jpg)
 ![2](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/2.jpg)
 ![3](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/3.jpg)
+
+---
 
 ## Based on the Gophish Github:
 
