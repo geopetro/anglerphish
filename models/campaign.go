@@ -31,6 +31,9 @@ type Campaign struct {
 	SMTPId        int64     `json:"-"`
 	SMTP          SMTP      `json:"smtp"`
 	URL           string    `json:"url"`
+	URLParam      string    `json:"urlparam"`
+	QRSize        string    `json:"qrsize"`
+	HTTPAuth      bool      `json:"basicauth"`
 }
 
 // CampaignResults is a struct representing the results from a campaign
@@ -127,7 +130,7 @@ var ErrSMTPNotFound = errors.New("Sending profile not found")
 var ErrInvalidSendByDate = errors.New("The launch date must be before the \"send emails by\" date")
 
 // RecipientParameter is the URL parameter that points to the result ID for a recipient.
-const RecipientParameter = "rid"
+var RecipientParameter = "rid"
 
 // Validate checks to make sure there are no invalid fields in a submitted campaign
 func (c *Campaign) Validate() error {
@@ -239,6 +242,12 @@ func (c *Campaign) getBaseURL() string {
 // This is used to implement the TemplateContext interface.
 func (c *Campaign) getFromAddress() string {
 	return c.SMTP.FromAddress
+}
+
+// getQRSize returns the Campaign's configured SMTP "From" address.
+// This is used to implement the TemplateContext interface.
+func (c *Campaign) getQRSize() string {
+	return c.QRSize
 }
 
 // generateSendDate creates a sendDate
@@ -448,12 +457,27 @@ func GetQueuedCampaigns(t time.Time) ([]Campaign, error) {
 	return cs, err
 }
 
+// GetActiveCampaigns returns all campaigns that are currently active
+// (either in progress or queued)
+func GetActiveCampaigns() ([]Campaign, error) {
+	cs := []Campaign{}
+	err := db.Where("status IN (?)", []string{CampaignInProgress, CampaignQueued}).Find(&cs).Error
+	if err != nil {
+		log.Error(err)
+	}
+	return cs, err
+}
+
 // PostCampaign inserts a campaign and all associated records into the database.
 func PostCampaign(c *Campaign, uid int64) error {
 	err := c.Validate()
 	if err != nil {
 		return err
 	}
+
+	// Set the custom parameter provided for the URL
+	RecipientParameter = c.URLParam
+
 	// Fill in the details
 	c.UserId = uid
 	c.CreatedDate = time.Now().UTC()
@@ -556,6 +580,7 @@ func PostCampaign(c *Campaign, uid int64) error {
 					Position:  t.Position,
 					FirstName: t.FirstName,
 					LastName:  t.LastName,
+					Custom:    t.Custom,
 				},
 				Status:       StatusScheduled,
 				CampaignId:   c.Id,

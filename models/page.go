@@ -24,6 +24,9 @@ type Page struct {
 // ErrPageNameNotSpecified is thrown if the name of the landing page is blank.
 var ErrPageNameNotSpecified = errors.New("Page Name not specified")
 
+// ErrRedirectUrlNotSpecified is thrown if the name of the landing page is blank.
+// var ErrRedirectUrlNotSpecified = errors.New("Redirect URL not specified")
+
 // parseHTML parses the page HTML on save to handle the
 // capturing (or lack thereof!) of credentials and passwords
 func (p *Page) parseHTML() error {
@@ -74,6 +77,9 @@ func (p *Page) Validate() error {
 	if p.Name == "" {
 		return ErrPageNameNotSpecified
 	}
+	// if p.RedirectURL == "" {
+	// 	return ErrRedirectUrlNotSpecified
+	// }
 	// If the user specifies to capture passwords,
 	// we automatically capture credentials
 	if p.CapturePasswords && !p.CaptureCredentials {

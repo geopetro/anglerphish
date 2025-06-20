@@ -91,7 +91,27 @@ func (mbox *Mailbox) MarkAsUnread(seqs []uint32) error {
 	}
 
 	return nil
+}
 
+// MarkAsRead will set the SEEN flag on a supplied slice of SeqNums
+func (mbox *Mailbox) MarkAsRead(seqs []uint32) error {
+	imapClient, err := mbox.newClient()
+	if err != nil {
+		return err
+	}
+
+	defer imapClient.Logout()
+
+	seqSet := new(imap.SeqSet)
+	seqSet.AddNum(seqs...)
+
+	item := imap.FormatFlagsOp(imap.AddFlags, true)
+	err = imapClient.Store(seqSet, item, imap.SeenFlag, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // DeleteEmails will delete emails from the supplied slice of SeqNums

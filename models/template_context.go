@@ -5,6 +5,7 @@ import (
 	"net/mail"
 	"net/url"
 	"path"
+	"strings"
 	"text/template"
 )
 
@@ -13,6 +14,7 @@ import (
 type TemplateContext interface {
 	getFromAddress() string
 	getBaseURL() string
+	getQRSize() string
 }
 
 // PhishingTemplateContext is the context that is sent to any template, such
@@ -24,6 +26,9 @@ type PhishingTemplateContext struct {
 	TrackingURL string
 	RId         string
 	BaseURL     string
+	QRBase64    string
+	QRName      string
+	QR          string
 	BaseRecipient
 }
 
@@ -54,12 +59,27 @@ func NewPhishingTemplateContext(ctx TemplateContext, r BaseRecipient, rid string
 
 	phishURL, _ := url.Parse(templateURL)
 	q := phishURL.Query()
-	q.Set(RecipientParameter, rid)
-	phishURL.RawQuery = q.Encode()
+	// q.Set(RecipientParameter, rid)
+	encodedQuery := q.Encode()
+	encodedQuery += "&" + RecipientParameter + "=" + rid
+	phishURL.RawQuery = encodedQuery
 
 	trackingURL, _ := url.Parse(templateURL)
 	trackingURL.Path = path.Join(trackingURL.Path, "/track")
-	trackingURL.RawQuery = q.Encode()
+	trackingURL.RawQuery = q.Encode() + "&" + RecipientParameter + "=" + rid
+
+	// Prepare QR code
+	qrBase64 := ""
+	qrName := ""
+	qr := ""
+	qrSize := ctx.getQRSize()
+	if qrSize != "" {
+		qrBase64, qrName, err = generateQRCode(phishURL.String(), qrSize)
+		if err != nil {
+			return PhishingTemplateContext{}, err
+		}
+		qr = "<img src=\"cid:" + qrName + "\">"
+	}
 
 	return PhishingTemplateContext{
 		BaseRecipient: r,
@@ -69,6 +89,9 @@ func NewPhishingTemplateContext(ctx TemplateContext, r BaseRecipient, rid string
 		Tracker:       "<img alt='' style='display: none' src='" + trackingURL.String() + "'/>",
 		From:          fn,
 		RId:           rid,
+		QRBase64:      qrBase64,
+		QRName:        qrName,
+		QR:            qr,
 	}, nil
 }
 
@@ -84,10 +107,31 @@ func ExecuteTemplate(text string, data interface{}) (string, error) {
 	return buff.String(), err
 }
 
+// An upgraded ExecuteTemplate specifically for the Attachments
+// this was created to handle the issue of replacing {{.URL}} and {{.TrackingURL}} placeholders.
+// More specifically, if the link contains ampersand (&) symbol, it leads to corrupted documents as it is an XML reserved symbol.
+// This function tackles the issue by replacing & with &amp;
+func ExecuteAttachmentsTemplate(text string, data PhishingTemplateContext) (string, error) {
+	buff := bytes.Buffer{}
+	tmpl, err := template.New("template").Parse(text)
+	if err != nil {
+		return buff.String(), err
+	}
+
+	// data.URL = trimQueryContent(data.URL)
+	// data.TrackingURL = trimQueryContent(data.TrackingURL)
+	data.URL = strings.ReplaceAll(data.URL, "&", "&amp;")
+	data.TrackingURL = strings.ReplaceAll(data.TrackingURL, "&", "&amp;")
+
+	err = tmpl.Execute(&buff, data)
+	return buff.String(), err
+}
+
 // ValidationContext is used for validating templates and pages
 type ValidationContext struct {
 	FromAddress string
 	BaseURL     string
+	QRSize      string
 }
 
 func (vc ValidationContext) getFromAddress() string {
@@ -96,6 +140,10 @@ func (vc ValidationContext) getFromAddress() string {
 
 func (vc ValidationContext) getBaseURL() string {
 	return vc.BaseURL
+}
+
+func (vc ValidationContext) getQRSize() string {
+	return vc.QRSize
 }
 
 // ValidateTemplate ensures that the provided text in the page or template
@@ -111,6 +159,7 @@ func ValidateTemplate(text string) error {
 			FirstName: "Foo",
 			LastName:  "Bar",
 			Position:  "Test",
+			Custom:    "CustomValue",
 		},
 		RId: "123456",
 	}

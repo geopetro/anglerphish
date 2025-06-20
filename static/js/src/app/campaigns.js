@@ -11,11 +11,70 @@ var labels = {
 var campaigns = []
 var campaign = {}
 
+// generateCampaignSummary creates a formatted summary of campaign settings
+function generateCampaignSummary() {
+    // Get the number of recipients
+    var totalRecipients = 0;
+    $("#users").select2("data").forEach(function (group) {
+        // Try to extract the number of targets from the title attribute
+        var match = group.title && group.title.match(/(\d+) targets/);
+        if (match && match[1]) {
+            totalRecipients += parseInt(match[1]);
+        }
+    });
+    
+    // Format dates
+    var launchDate = $("#launch_date").val();
+    var sendByDate = $("#send_by_date").val();
+    
+    // Build summary
+    var summary = "<div style='text-align: left;'>";
+    summary += "<strong>Campaign Name:</strong> " + $("#name").val() + "<br>";
+    summary += "<strong>Email Template:</strong> " + ($("#template").select2("data")[0] ? $("#template").select2("data")[0].text : "None") + "<br>";
+    summary += "<strong>Landing Page:</strong> " + ($("#page").select2("data")[0] ? $("#page").select2("data")[0].text : "None") + "<br>";
+    summary += "<strong>Sending Profile:</strong> " + ($("#profile").select2("data")[0] ? $("#profile").select2("data")[0].text : "None") + "<br>";
+    
+    // Add target groups
+    summary += "<strong>Target Groups:</strong> ";
+    var groups = [];
+    $("#users").select2("data").forEach(function (group) {
+        groups.push(group.text);
+    });
+    summary += groups.join(", ") + "<br>";
+    summary += "<strong>Total Recipients:</strong> " + totalRecipients + "<br>";
+    
+    // Add URL and other settings
+    summary += "<strong>URL:</strong> " + $("#url").val() + "<br>";
+    var urlParam = $("#urlparam").val() || "rid";
+    summary += "<strong>URL Parameter:</strong> " + urlParam + "<br>";
+    summary += "<strong>Launch Date:</strong> " + launchDate + "<br>";
+    if (sendByDate) {
+        summary += "<strong>Send By Date:</strong> " + sendByDate + "<br>";
+    }
+    
+    // Add HTTP Basic Auth if enabled
+    if ($('#basicauth').is(":checked")) {
+        summary += "<strong>HTTP Basic Auth:</strong> Enabled<br>";
+    }
+    
+    // Add QR code size if specified
+    var qrSize = $("#qrsize").val();
+    if (qrSize) {
+        summary += "<strong>QR Code Size:</strong> " + qrSize + "<br>";
+    }
+    
+    summary += "</div>";
+    return summary;
+}
+
 // Launch attempts to POST to /campaigns/
 function launch() {
+    // Generate campaign summary
+    var campaignSummary = generateCampaignSummary();
+    
     Swal.fire({
-        title: "Are you sure?",
-        text: "This will schedule the campaign to be launched.",
+        title: "Campaign Summary",
+        html: "Please review the campaign settings before launching:<br><br>" + campaignSummary,
         type: "question",
         animation: false,
         showCancelButton: true,
@@ -37,15 +96,22 @@ function launch() {
                 if (send_by_date != "") {
                     send_by_date = moment(send_by_date, "MMMM Do YYYY, h:mm a").utc().format()
                 }
+
+                var urlParamValue = $("#urlparam").val();
+                var urlparam = urlParamValue !== '' ? urlParamValue : 'rid';
+
                 campaign = {
                     name: $("#name").val(),
                     template: {
                         name: $("#template").select2("data")[0].text
                     },
                     url: $("#url").val(),
+                    urlparam: urlparam,
+                    qrsize: $("#qrsize").val(),
                     page: {
                         name: $("#page").select2("data")[0].text
                     },
+                    basicauth: $('#basicauth').is(":checked"),
                     smtp: {
                         name: $("#profile").select2("data")[0].text
                     },
@@ -90,6 +156,7 @@ function sendTestEmail() {
         last_name: $("input[name=to_last_name]").val(),
         email: $("input[name=to_email]").val(),
         position: $("input[name=to_position]").val(),
+        custom: $("input[name=to_custom]").val(),
         url: $("#url").val(),
         page: {
             name: $("#page").select2("data")[0].text

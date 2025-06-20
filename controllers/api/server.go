@@ -60,6 +60,7 @@ func (as *Server) registerRoutes() {
 	router.Use(mid.EnforceViewOnly)
 	router.HandleFunc("/imap/", as.IMAPServer)
 	router.HandleFunc("/imap/validate", as.IMAPServerValidate)
+	router.HandleFunc("/imap/non_campaign_reports", as.NonCampaignReportsEndpoint)
 	router.HandleFunc("/reset", as.Reset)
 	router.HandleFunc("/campaigns/", as.Campaigns)
 	router.HandleFunc("/campaigns/summary", as.CampaignsSummary)
@@ -86,6 +87,9 @@ func (as *Server) registerRoutes() {
 	router.HandleFunc("/webhooks/", mid.Use(as.Webhooks, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/webhooks/{id:[0-9]+}/validate", mid.Use(as.ValidateWebhook, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/webhooks/{id:[0-9]+}", mid.Use(as.Webhook, mid.RequirePermission(models.PermissionModifySystem)))
+	router.HandleFunc("/qr_code/", as.Qr_code)                            // QR code endpoint
+	router.HandleFunc("/qr_code/{id:[0-9]+}", as.DeleteQRCode)            // Delete QR code endpoint
+	router.HandleFunc("/qr_code/{id:[0-9]+}/download", as.DownloadQRCode) // Download QR code endpoint
 	as.handler = router
 }
 

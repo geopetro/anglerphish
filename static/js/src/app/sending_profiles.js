@@ -15,6 +15,7 @@ function sendTestEmail() {
         last_name: $("input[name=to_last_name]").val(),
         email: $("input[name=to_email]").val(),
         position: $("input[name=to_position]").val(),
+        custom: $("input[name=to_custom]").val(),
         url: '',
         smtp: {
             from_address: $("#from").val(),

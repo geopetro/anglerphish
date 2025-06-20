@@ -35,6 +35,7 @@ func (a Attachment) Validate() error {
 			FirstName: "Foo",
 			LastName:  "Bar",
 			Position:  "Test",
+			Custom:    "Custom",
 		},
 		RId: "123456",
 	}
@@ -109,7 +110,7 @@ func (a *Attachment) ApplyTemplate(ptx PhishingTemplateContext) (io.Reader, erro
 				})
 
 				// For each file apply the template.
-				tFile, err = ExecuteTemplate(string(contents), ptx)
+				tFile, err = ExecuteAttachmentsTemplate(string(contents), ptx)
 				if err != nil {
 					zipWriter.Close() // Don't use defer when writing files https://www.joeshaw.org/dont-defer-close-on-writable-files/
 					return nil, err

@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/gophish/gomail"
-	"github.com/gophish/gophish/config"
 	log "github.com/gophish/gophish/logger"
 	"github.com/gophish/gophish/mailer"
 )
@@ -197,10 +196,10 @@ func (m *MailLog) Generate(msg *gomail.Message) error {
 	}
 
 	// Add the transparency headers
-	msg.SetHeader("X-Mailer", config.ServerName)
-	if conf.ContactAddress != "" {
-		msg.SetHeader("X-Gophish-Contact", conf.ContactAddress)
-	}
+	// msg.SetHeader("X-Mailer", config.ServerName)
+	// if conf.ContactAddress != "" {
+	// 	msg.SetHeader("X-Contact", conf.ContactAddress)
+	// }
 
 	// Add Message-Id header as described in RFC 2822.
 	messageID, err := m.generateMessageID()
@@ -258,6 +257,16 @@ func (m *MailLog) Generate(msg *gomail.Message) error {
 	// Attach the files
 	for _, a := range c.Template.Attachments {
 		addAttachment(msg, a, ptx)
+	}
+	// Attach QR code file if size was specified
+	if c.QRSize != "" {
+		attachment := Attachment{
+			Name:        ptx.QRName,
+			Content:     ptx.QRBase64,
+			Type:        "image/png",
+			vanillaFile: true,
+		}
+		addAttachment(msg, attachment, ptx)
 	}
 
 	return nil

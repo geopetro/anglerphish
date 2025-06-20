@@ -11,6 +11,11 @@ type mockTemplateContext struct {
 	FromAddress string
 }
 
+// getQRSize implements TemplateContext.
+func (m mockTemplateContext) getQRSize() string {
+	return ""
+}
+
 func (m mockTemplateContext) getFromAddress() string {
 	return m.FromAddress
 }

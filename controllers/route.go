@@ -133,6 +133,8 @@ func (as *AdminServer) registerRoutes() {
 	router.HandleFunc("/groups", mid.Use(as.Groups, mid.RequireLogin))
 	router.HandleFunc("/landing_pages", mid.Use(as.LandingPages, mid.RequireLogin))
 	router.HandleFunc("/sending_profiles", mid.Use(as.SendingProfiles, mid.RequireLogin))
+	router.HandleFunc("/qr_code_generator", mid.Use(as.QRGenerator, mid.RequireLogin))
+	router.HandleFunc("/non_campaign_reports", mid.Use(as.NonCampaignReports, mid.RequireLogin))
 	router.HandleFunc("/settings", mid.Use(as.Settings, mid.RequireLogin))
 	router.HandleFunc("/users", mid.Use(as.UserManagement, mid.RequirePermission(models.PermissionModifySystem), mid.RequireLogin))
 	router.HandleFunc("/webhooks", mid.Use(as.Webhooks, mid.RequirePermission(models.PermissionModifySystem), mid.RequireLogin))
@@ -243,6 +245,20 @@ func (as *AdminServer) SendingProfiles(w http.ResponseWriter, r *http.Request) {
 	params := newTemplateParams(r)
 	params.Title = "Sending Profiles"
 	getTemplate(w, "sending_profiles").ExecuteTemplate(w, "base", params)
+}
+
+// QRGenerator handles the default path and template execution
+func (as *AdminServer) QRGenerator(w http.ResponseWriter, r *http.Request) {
+	params := newTemplateParams(r)
+	params.Title = "QR Code Generator"
+	getTemplate(w, "qr_code_generator").ExecuteTemplate(w, "base", params)
+}
+
+// NonCampaignReports handles the non-campaign reports page
+func (as *AdminServer) NonCampaignReports(w http.ResponseWriter, r *http.Request) {
+	params := newTemplateParams(r)
+	params.Title = "Non-Campaign Reports"
+	getTemplate(w, "non_campaign_reports").ExecuteTemplate(w, "base", params)
 }
 
 // Settings handles the changing of settings

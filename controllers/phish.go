@@ -1,12 +1,15 @@
 package controllers
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
+	"html/template"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -20,6 +23,7 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/jordan-wright/unindexed"
+	bm "github.com/microcosm-cc/bluemonday"
 )
 
 // ErrInvalidRequest is thrown when a request with an invalid structure is
@@ -81,6 +85,36 @@ func WithContactAddress(addr string) PhishingServerOption {
 	}
 }
 
+// Overwrite net.https Error with a custom one to set our own headers
+// Go's internal Error func returns text/plain so browser's won't render the html
+func customError(w http.ResponseWriter, error string, code int) {
+	w.Header().Set("Server", "Microsoft-IIS/10.0")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-XSS-Protection", "1; mode=block")
+	w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+	w.Header().Set("Content-Security-Policy", "default-src https:")
+	w.WriteHeader(code)
+	fmt.Fprintln(w, error)
+}
+
+// Overwrite go's internal not found to allow templating the not found page
+// The templating string is currently not passed in, therefore there is no templating yet
+// If I need it in the future, it's a 5 minute change...
+func customNotFound(w http.ResponseWriter, r *http.Request) {
+	tmpl404, err := template.ParseFiles("templates/404.html")
+	if err != nil {
+		log.Fatal(err)
+	}
+	var b bytes.Buffer
+	err = tmpl404.Execute(&b, "")
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	customError(w, b.String(), http.StatusNotFound)
+}
+
 // Start launches the phishing server, listening on the configured address.
 func (ps *PhishingServer) Start() {
 	if ps.config.UseTLS {
@@ -138,7 +172,7 @@ func (ps *PhishingServer) TrackHandler(w http.ResponseWriter, r *http.Request) {
 		if err != ErrInvalidRequest && err != ErrCampaignComplete {
 			log.Error(err)
 		}
-		http.NotFound(w, r)
+		customNotFound(w, r)
 		return
 	}
 	// Check for a preview
@@ -172,7 +206,7 @@ func (ps *PhishingServer) ReportHandler(w http.ResponseWriter, r *http.Request) 
 		if err != ErrInvalidRequest && err != ErrCampaignComplete {
 			log.Error(err)
 		}
-		http.NotFound(w, r)
+		customNotFound(w, r)
 		return
 	}
 	// Check for a preview
@@ -206,9 +240,16 @@ func (ps *PhishingServer) PhishHandler(w http.ResponseWriter, r *http.Request) {
 		if err != ErrInvalidRequest && err != ErrCampaignComplete {
 			log.Error(err)
 		}
-		http.NotFound(w, r)
+		if r.Header.Get("X-Tracked") == "true" { // Handle Custom Requests with X-Tracked header with value true
+			customTrackedPhishRequests(r)
+		}
+		customNotFound(w, r)
 		return
 	}
+
+	// In order to identify if campaign uses Basic Auth
+	c := ctx.Get(r, "campaign").(models.Campaign)
+
 	w.Header().Set("X-Server", config.ServerName) // Useful for checking if this is a GoPhish server (e.g. for campaign reporting plugins)
 	var ptx models.PhishingTemplateContext
 	// Check for a preview
@@ -216,21 +257,26 @@ func (ps *PhishingServer) PhishHandler(w http.ResponseWriter, r *http.Request) {
 		ptx, err = models.NewPhishingTemplateContext(&preview, preview.BaseRecipient, preview.RId)
 		if err != nil {
 			log.Error(err)
-			http.NotFound(w, r)
+			customNotFound(w, r)
 			return
 		}
 		p, err := models.GetPage(preview.PageId, preview.UserId)
 		if err != nil {
 			log.Error(err)
-			http.NotFound(w, r)
+			customNotFound(w, r)
 			return
 		}
-		renderPhishResponse(w, r, ptx, p)
+
+		if !c.HTTPAuth {
+			renderPhishResponse(w, r, ptx, p)
+		} else {
+			renderBasicAuth(w, r, ptx, p)
+		}
 		return
 	}
 	rs := ctx.Get(r, "result").(models.Result)
+	c = ctx.Get(r, "campaign").(models.Campaign)
 	rid := ctx.Get(r, "rid").(string)
-	c := ctx.Get(r, "campaign").(models.Campaign)
 	d := ctx.Get(r, "details").(models.EventDetails)
 
 	// Check for a transparency request
@@ -242,27 +288,93 @@ func (ps *PhishingServer) PhishHandler(w http.ResponseWriter, r *http.Request) {
 	p, err := models.GetPage(c.PageId, c.UserId)
 	if err != nil {
 		log.Error(err)
-		http.NotFound(w, r)
+		customNotFound(w, r)
 		return
 	}
-	switch {
-	case r.Method == "GET":
-		err = rs.HandleClickedLink(d)
-		if err != nil {
-			log.Error(err)
+
+	if !c.HTTPAuth {
+		switch {
+		case r.Method == "GET":
+			err = rs.HandleClickedLink(d)
+			if err != nil {
+				log.Error(err)
+			}
+		case r.Method == "POST":
+			err = rs.HandleFormSubmit(d)
+			if err != nil {
+				log.Error(err)
+			}
 		}
-	case r.Method == "POST":
-		err = rs.HandleFormSubmit(d)
-		if err != nil {
-			log.Error(err)
+	} else {
+		username, password, ok := r.BasicAuth()
+		if !ok && (username == "" || password == "") {
+			err = rs.HandleClickedLink(d)
+			if err != nil {
+				log.Error(err)
+			}
+		} else if ok && (username == "" || password == "") {
+			// If credentials are empty do nothing
+			// Don't keep recording them as clicks
+			// and don't allow proceeding to recording empty credentials
+		} else {
+			// d contains a Payload member of type net.url.Values
+			// which itself is just map[string][]string
+			// Manually overwrite it with basic auth data
+			var payload map[string][]string
+			if p.CapturePasswords {
+				payload = map[string][]string{"Username": {username}, "Password": {password}}
+			} else {
+				payload = map[string][]string{"Username": {username}}
+			}
+			d.Payload = payload
+			err = rs.HandleFormSubmit(d)
+			if err != nil {
+				log.Error(err)
+			}
 		}
 	}
+
 	ptx, err = models.NewPhishingTemplateContext(&c, rs.BaseRecipient, rs.RId)
 	if err != nil {
 		log.Error(err)
-		http.NotFound(w, r)
+		customNotFound(w, r)
 	}
-	renderPhishResponse(w, r, ptx, p)
+
+	if !c.HTTPAuth {
+		renderPhishResponse(w, r, ptx, p)
+	} else {
+		renderBasicAuth(w, r, ptx, p)
+	}
+}
+
+// This function serves the purpose of handling campaign responses in cases that user response id is not known.
+// Such cases can include requests made by .doc, .xls files with macros, or any type of malicious file that makes an HTTP request
+// from which we want to capture the users that interacted with it but we cannot have their Rid embedded
+func customTrackedPhishRequests(r *http.Request) {
+
+	data := strings.ReplaceAll(r.URL.String(), "/", "")
+	data = strings.ReplaceAll(data, "?", ",")
+	data = strings.ReplaceAll(data, "&", ",")
+
+	if err := appendToFile(data); err != nil {
+		fmt.Println("Error appending to file:", err)
+	}
+}
+
+// Used by customTrackedPhishRequests() to write data in a csv file.
+func appendToFile(data string) error {
+	// Open the file in append mode, create it if it doesn't exist
+	file, err := os.OpenFile("tracked-data.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Append data to the file
+	if _, err := file.WriteString(data + "\n"); err != nil {
+		return err
+	}
+	return nil
 }
 
 // renderPhishResponse handles rendering the correct response to the phishing
@@ -276,7 +388,7 @@ func renderPhishResponse(w http.ResponseWriter, r *http.Request, ptx models.Phis
 			redirectURL, err := models.ExecuteTemplate(p.RedirectURL, ptx)
 			if err != nil {
 				log.Error(err)
-				http.NotFound(w, r)
+				customNotFound(w, r)
 				return
 			}
 			http.Redirect(w, r, redirectURL, http.StatusFound)
@@ -287,10 +399,36 @@ func renderPhishResponse(w http.ResponseWriter, r *http.Request, ptx models.Phis
 	html, err := models.ExecuteTemplate(p.HTML, ptx)
 	if err != nil {
 		log.Error(err)
-		http.NotFound(w, r)
+		customNotFound(w, r)
 		return
 	}
 	w.Write([]byte(html))
+}
+
+// renderBasicAuth handles rendering the correct response to the phishing
+// connection. This usually involves writing out the page HTML or redirecting
+// the user to the correct URL.
+func renderBasicAuth(w http.ResponseWriter, r *http.Request, ptx models.PhishingTemplateContext, p models.Page) {
+	uname, passwd, ok := r.BasicAuth()
+
+	// If the request contains a Basic Auth header and credentials are not empty, send the user to the redirect URL
+	if ok && uname != "" && passwd != "" {
+		redirectURL, err := models.ExecuteTemplate(p.RedirectURL, ptx)
+		if err != nil {
+			log.Error(err)
+			customNotFound(w, r)
+			return
+		}
+		http.Redirect(w, r, redirectURL, http.StatusFound)
+		return
+	}
+	// Otherwise, send a response containing the WWW-Authenticate header and
+	// render the template as string there
+	stp := bm.StripTagsPolicy()
+	w.Header().Add("WWW-Authenticate", fmt.Sprintf(`Basic realm="%s"`, stp.Sanitize(p.HTML)))
+	w.WriteHeader(http.StatusUnauthorized)
+	w.Write([]byte(`{"message": "You are not authorized to view this page."}`))
+	// w.Write([]byte(`<h1>Unauthorized</h1><p>You are not authorized to view this page.</p>`))
 }
 
 // RobotsHandler prevents search engines, etc. from indexing phishing materials
@@ -318,10 +456,31 @@ func setupContext(r *http.Request) (*http.Request, error) {
 		log.Error(err)
 		return r, err
 	}
-	rid := r.Form.Get(models.RecipientParameter)
+
+	// This is used to handle the different Recipient Parameters
+	// that can be used per campaign. Since the parameter will not always be rid,
+	// below we identify the parameter name by getting the first key from the key-value pair
+	// of the HTTP request
+	var urlparam string
+
+	// Ensures to get the last url parameter (i.e., rid)
+	// Especially for the case a custom url is provided with several parameters
+	queryString := r.URL.RawQuery // Get the query string from the URL
+	print(queryString)
+
+	pairs := strings.Split(queryString, "&") // Split the query string into key-value pairs based on "&" delimiter
+
+	lastPair := pairs[len(pairs)-1] // Get the last key-value pair
+
+	keyValue := strings.Split(lastPair, "=") // Split the last pair into key and value based on "=" delimiter
+
+	urlparam = keyValue[0] // Extract the parameter name (left part of "=") and value
+
+	rid := r.URL.Query().Get(urlparam)
 	if rid == "" {
 		return r, ErrInvalidRequest
 	}
+
 	// Since we want to support the common case of adding a "+" to indicate a
 	// transparency request, we need to take care to handle the case where the
 	// request ends with a space, since a "+" is technically reserved for use
@@ -329,6 +488,7 @@ func setupContext(r *http.Request) (*http.Request, error) {
 	if strings.HasSuffix(rid, " ") {
 		// We'll trim off the space
 		rid = strings.TrimRight(rid, " ")
+
 		// Then we'll add the transparency suffix
 		rid = fmt.Sprintf("%s%s", rid, TransparencySuffix)
 	}
@@ -336,6 +496,7 @@ func setupContext(r *http.Request) (*http.Request, error) {
 	// a valid rid has been provided, so we'll look up the result with a
 	// trimmed parameter.
 	id := strings.TrimSuffix(rid, TransparencySuffix)
+
 	// Check to see if this is a preview or a real result
 	if strings.HasPrefix(id, models.PreviewPrefix) {
 		rs, err := models.GetEmailRequestByResultId(id)
@@ -345,6 +506,7 @@ func setupContext(r *http.Request) (*http.Request, error) {
 		r = ctx.Set(r, "result", rs)
 		return r, nil
 	}
+
 	rs, err := models.GetResult(id)
 	if err != nil {
 		return r, err

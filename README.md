@@ -1,7 +1,53 @@
 ![gophish logo](https://raw.github.com/gophish/gophish/master/static/images/gophish_purple.png)
 
-Gophish
+Anglerphish
 =======
+
+A detailed presentation of all the Anglerphish features can be found in this article - *Coming Soon...*.
+
+### Upgrades Included in the Public version:
+- **Per-Campaign URL Parameters:** Allows unique URL parameters per campaign instead of a global `rid`.
+- **HTTP Basic Auth Landing Pages:** Enables basic authentication landing page campaigns.
+- **Additional Group Variable:** Introduces `{{.Custom}}` for use in emails, landing pages, and attachments.
+- **Campaign Summary Before Launching**: Provides a summarized overview of all configured parameters (targets, templates, landing pages, etc.) before launching the campaign to avoid misconfiguration.
+- **QR Code Generator:** Built-in tool to generate and embed QR codes into campaign content.
+- **Group Export:** Supports exporting user groups to `.csv` for easy backup and editing.
+- **Reported Phishing Monitoring Enhancement:** Improved handling of reported phishing emails, now recognizing all variations of URL parameters across active campaigns.
+- **Non-Campaign Reports Page:** Dedicated view for reported emails in the IMAP inbox that are unrelated to any Gophish campaign.
+- **X-Tracked Header Handling:** Supports custom `POST` request containing the header `X-Tracked`.
+  - When such a `POST` is made to the Anglerphish server, the system parses the parameters in the URL and generates a `.csv` log entry.
+  - Example use cases: 
+    - Macro-enabled `.doc` or `.xls` files that can’t be tracked directly through traditional campaigns..
+    - Custom `POST` requests triggered by landing pages.
+- **QR Email Embedding:** Integrates QR code campaigns, based on based on [Evil-Gophish](https://github.com/fin3ss3g0d/evilgophish.git).
+- **Sneaky Tweaks:** Implements the sneaky gophish tweaks based on the [article](https://www.sprocketsecurity.com/resources/never-had-a-bad-day-phishing-how-to-set-up-gophish-to-evade-security-controls)
+
+### (Coming Soon...) Sponsored Version Includes: 
+- **Everything the Public Version has**
+- **Campaign Sets:** Introduced the Campaign Sets feature, enabling the creation and configuration of multiple campaigns simultaneously. Users can save these campaigns as drafts, make modifications as needed, and launch them all at once.
+- **SMS Campaigns:** Added support for SMS-based campaigns alongside email. Includes dedicated SMS profiles (Twilio and Vonage) and SMS template creation.
+- **Additional Group Variable:** Introduced `{{.Phone}}` as a group variable to support SMS messaging.
+- **Multiple IMAP Configurations:** Supports adding and managing multiple IMAP server profiles instead of being limited to a single configuration.
+  - Additionally two types of Configurations are supported Email Replied and Email Reported.
+- **Email Replied:** Tracks when users reply to phishing emails (with additional chart in campaigns) — recognizing that replies can also result in sensitive data disclosure, not just clicks or form submissions.
+- **Reports Page:** New reporting feature to export campaign results and metrics as Word or Excel files, with Privacy Options to anonymize results.
+- **Preview Templates / Landing Pages**: Added the ability to preview Email, SMS, and Landing Page Templates directly—no need to open the editor.
+- **Dashboard Filtering:** Allows filtering the campaign list on the dashboard to show only Email or only SMS campaigns.
+
+### Some Ideas for Upcoming Features (No Guarantee)
+- **MS Teams Campaign Integration**
+- **Randomized Email Template Sending to Targets**
+- **Simple MFA Campaigns Using SMS Functionality**
+- **Dark Theme**
+- **Evilginx Integration**
+
+### Screenshots
+
+![1](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/1.jpg)
+![2](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/2.jpg)
+![3](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/3.jpg)
+
+## Based on the Gophish Github:
 
 ![Build Status](https://github.com/gophish/gophish/workflows/CI/badge.svg) [![GoDoc](https://godoc.org/github.com/gophish/gophish?status.svg)](https://godoc.org/github.com/gophish/gophish)
 
@@ -11,7 +57,7 @@ Gophish: Open-Source Phishing Toolkit
 
 ### Install
 
-Installation of Gophish is dead-simple - just download and extract the zip containing the [release for your system](https://github.com/gophish/gophish/releases/), and run the binary. Gophish has binary releases for Windows, Mac, and Linux platforms.
+Installation of Gophish remains dead-simple - just download and extract the zip containing the [release for your system](https://github.com/gophish/gophish/releases/), and run the binary. Gophish has binary releases for Windows, Mac, and Linux platforms.
 
 ### Building From Source
 **If you are building from source, please note that Gophish requires Go v1.10 or above!**

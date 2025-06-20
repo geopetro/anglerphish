@@ -37,7 +37,7 @@
 </div>
 <!-- Modal -->
 <div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="modalLabel">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog" role="document" style="width: 70% !important;">
         <div class="modal-content">
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -69,11 +69,14 @@
                         <div class="col-sm-2">
                             <input type="text" class="form-control" placeholder="Last Name" id="lastName">
                         </div>
-                        <div class="col-sm-3">
+                        <div class="col-sm-2">
                             <input type="email" class="form-control" placeholder="Email" id="email" required>
                         </div>
-                        <div class="col-sm-3">
+                        <div class="col-sm-2">
                             <input type="text" class="form-control" placeholder="Position" id="position">
+                        </div>
+                        <div class="col-sm-2">
+                            <input type="text" class="form-control" placeholder="Custom" id="custom">
                         </div>
                         <div class="col-sm-1">
                             <button type="submit" class="btn btn-danger btn-lg">
@@ -89,6 +92,7 @@
                             <th>Last Name</th>
                             <th>Email</th>
                             <th>Position</th>
+                            <th>Custom</th>
                             <th class="no-sort"></th>
                     <tbody>
                     </tbody>

@@ -14,7 +14,9 @@ const DefaultIMAPFreq = 60 // Every 60 seconds
 // IMAP contains the attributes needed to handle logging into an IMAP server to check
 // for reported emails
 type IMAP struct {
+	Id                          int64     `json:"id" gorm:"primary_key;auto_increment"`
 	UserId                      int64     `json:"-" gorm:"column:user_id"`
+	Name                        string    `json:"name"`
 	Enabled                     bool      `json:"enabled"`
 	Host                        string    `json:"host"`
 	Port                        uint16    `json:"port,string,omitempty"`
@@ -26,6 +28,8 @@ type IMAP struct {
 	RestrictDomain              string    `json:"restrict_domain"`
 	DeleteReportedCampaignEmail bool      `json:"delete_reported_campaign_email"`
 	LastLogin                   time.Time `json:"last_login,omitempty"`
+	LoginFailures               int       `json:"login_failures"`
+	LastLoginError              time.Time `json:"last_login_error,omitempty"`
 	ModifiedDate                time.Time `json:"modified_date"`
 	IMAPFreq                    uint32    `json:"imap_freq,string,omitempty"`
 }
@@ -145,8 +149,26 @@ func DeleteIMAP(uid int64) error {
 	return err
 }
 
+// RecordLoginFailure increments the login failure counter and updates the last login error timestamp
+func (im *IMAP) RecordLoginFailure() error {
+	im.LoginFailures++
+	im.LastLoginError = time.Now().UTC()
+	err := db.Model(im).Where("user_id = ?", im.UserId).Updates(map[string]interface{}{
+		"login_failures":   im.LoginFailures,
+		"last_login_error": im.LastLoginError,
+	}).Error
+	if err != nil {
+		log.Error("Unable to update login failure data: ", err.Error())
+	}
+	return err
+}
+
 func SuccessfulLogin(im *IMAP) error {
-	err := db.Model(&im).Where("user_id = ?", im.UserId).Update("last_login", time.Now().UTC()).Error
+	// Reset login failures on successful login
+	err := db.Model(im).Where("user_id = ?", im.UserId).Updates(map[string]interface{}{
+		"last_login":     time.Now().UTC(),
+		"login_failures": 0, // Reset failures counter on successful login
+	}).Error
 	if err != nil {
 		log.Error("Unable to update database: ", err.Error())
 	}

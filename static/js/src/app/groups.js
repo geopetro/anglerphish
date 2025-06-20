@@ -8,7 +8,8 @@ function save(id) {
             first_name: unescapeHtml(target[0]),
             last_name: unescapeHtml(target[1]),
             email: unescapeHtml(target[2]),
-            position: unescapeHtml(target[3])
+            position: unescapeHtml(target[3]),
+            custom: unescapeHtml(target[4])
         })
     })
     var group = {
@@ -65,7 +66,7 @@ function edit(id) {
     })
     if (id == -1) {
         $("#groupModalLabel").text("New Group");
-        var group = {}
+        // Don't try to fetch a group when creating a new one
     } else {
         $("#groupModalLabel").text("Edit Group");
         api.groupId.get(id)
@@ -78,6 +79,7 @@ function edit(id) {
                       escapeHtml(record.last_name),
                       escapeHtml(record.email),
                       escapeHtml(record.position),
+                      escapeHtml(record.custom),
                       '<span style="cursor:pointer;"><i class="fa fa-trash-o"></i></span>'
                   ])
                 });
@@ -110,7 +112,8 @@ function edit(id) {
                     record.first_name,
                     record.last_name,
                     record.email,
-                    record.position);
+                    record.position,
+                    record.custom);
             });
             targets.DataTable().draw();
         }
@@ -119,10 +122,11 @@ function edit(id) {
 
 var downloadCSVTemplate = function () {
     var csvScope = [{
-        'First Name': 'Example',
-        'Last Name': 'User',
+        'First_Name': 'Example',
+        'Last_Name': 'User',
         'Email': 'foobar@example.com',
-        'Position': 'Systems Administrator'
+        'Position': 'Systems Administrator',
+        'Custom': 'Custom value'
     }]
     var filename = 'group_template.csv'
     var csvString = Papa.unparse(csvScope, {})
@@ -142,6 +146,77 @@ var downloadCSVTemplate = function () {
     }
 }
 
+var downloadGroup = function(id) {
+    // Get the group details
+    api.groupId.get(id)
+        .success(function(group) {
+            // Create CSV content with underscores in headers for easy re-upload
+            var csvContent = "First_Name,Last_Name,Email,Position,Custom\n";
+            
+            // Add each target to the CSV
+            $.each(group.targets, function(i, target) {
+                // Properly escape fields that might contain commas
+                var firstName = escapeCsvField(target.first_name);
+                var lastName = escapeCsvField(target.last_name);
+                var email = escapeCsvField(target.email);
+                var position = escapeCsvField(target.position);
+                var custom = escapeCsvField(target.custom);
+                
+                // Add the row to CSV content
+                csvContent += firstName + "," + lastName + "," + email + "," + position + "," + custom + "\n";
+            });
+            
+            // Create a blob with the CSV content
+            var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            
+            // Create a safe filename based on the group name
+            var filename = "group_" + group.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() + ".csv";
+            
+            // Handle different browser download methods
+            if (navigator.msSaveBlob) { // IE 10+
+                navigator.msSaveBlob(blob, filename);
+            } else {
+                // For other browsers
+                var link = document.createElement("a");
+                if (link.download !== undefined) { // Feature detection
+                    // Create a URL for the blob
+                    var url = URL.createObjectURL(blob);
+                    link.setAttribute("href", url);
+                    link.setAttribute("download", filename);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                }
+            }
+            
+            successFlash("Group exported successfully!");
+        })
+        .error(function() {
+            errorFlash("Error fetching group data for export");
+        });
+}
+
+// Helper function to escape CSV fields
+function escapeCsvField(field) {
+    if (field === null || field === undefined) {
+        return '';
+    }
+    
+    // Convert to string
+    field = String(field);
+    
+    // If the field contains commas, quotes, or newlines, wrap it in quotes
+    if (field.includes(',') || field.includes('"') || field.includes('\n')) {
+        // Double any existing quotes
+        field = field.replace(/"/g, '""');
+        // Wrap in quotes
+        field = '"' + field + '"';
+    }
+    
+    return field;
+}
 
 var deleteGroup = function (id) {
     var group = groups.find(function (x) {
@@ -185,7 +260,7 @@ var deleteGroup = function (id) {
     })
 }
 
-function addTarget(firstNameInput, lastNameInput, emailInput, positionInput) {
+function addTarget(firstNameInput, lastNameInput, emailInput, positionInput, customInput) {
     // Create new data row.
     var email = escapeHtml(emailInput).toLowerCase();
     var newRow = [
@@ -193,6 +268,7 @@ function addTarget(firstNameInput, lastNameInput, emailInput, positionInput) {
         escapeHtml(lastNameInput),
         email,
         escapeHtml(positionInput),
+        escapeHtml(customInput),
         '<span style="cursor:pointer;"><i class="fa fa-trash-o"></i></span>'
     ];
 
@@ -243,6 +319,9 @@ function load() {
                         moment(group.modified_date).format('MMMM Do YYYY, h:mm:ss a'),
                         "<div class='pull-right'><button class='btn btn-primary' data-toggle='modal' data-backdrop='static' data-target='#modal' onclick='edit(" + group.id + ")'>\
                     <i class='fa fa-pencil'></i>\
+                                        </button>\
+                    <button class='btn btn-primary' onclick='downloadGroup(" + group.id + ")'>\
+                    <i class='fa fa-download'></i>\
                     </button>\
                     <button class='btn btn-danger' onclick='deleteGroup(" + group.id + ")'>\
                     <i class='fa fa-trash-o'></i>\
@@ -274,7 +353,8 @@ $(document).ready(function () {
             $("#firstName").val(),
             $("#lastName").val(),
             $("#email").val(),
-            $("#position").val());
+            $("#position").val(),
+            $("#custom").val());
         targets.DataTable().draw();
 
         // Reset user input.
