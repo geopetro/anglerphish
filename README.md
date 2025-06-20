@@ -1,4 +1,4 @@
-![gophish logo](https://raw.github.com/gophish/gophish/master/static/images/gophish_purple.png)
+![Anglerphish logo](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/gophish_purple.png)
 
 Anglerphish
 =======
