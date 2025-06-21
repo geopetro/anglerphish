@@ -21,7 +21,7 @@ A detailed presentation of all the Anglerphish features can be found in this art
   - Example use cases: 
     - Macro-enabled `.doc` or `.xls` files that can’t be tracked directly through traditional campaigns..
     - Custom `POST` requests triggered by landing pages.
-- **QR Email Embedding:** Integrates QR code campaigns, based on based on [Evil-Gophish](https://github.com/fin3ss3g0d/evilgophish.git).
+- **QR Email Embedding:** Integrates QR code campaigns, based on [Evil-Gophish](https://github.com/fin3ss3g0d/evilgophish.git).
 - **Sneaky Tweaks:** Implements the sneaky gophish tweaks based on the [article](https://www.sprocketsecurity.com/resources/never-had-a-bad-day-phishing-how-to-set-up-gophish-to-evade-security-controls).
 
 ---
