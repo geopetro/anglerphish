@@ -70,13 +70,13 @@ Details of features can be found below the table:
 
 ---
 ### 🚧 Potential New Additions (Not All Guaranteed)
-| Feature                                      |
-| -------------------------------------------- |
-| MS Teams Campaign Integration ⬅️             |
-| Dark Theme                                   |
-| Randomized Email Template Sending to Targets |
-| Simple MFA Campaigns Using SMS Functionality |
-| Evilginx Integration                         |
+| Feature                                      |Status|
+| -------------------------------------------- |------|
+| MS Teams Campaign Integration             | Planned |
+| Dark Theme                                   | Exploring |
+| Randomized Email Template Sending to Targets | Likely |
+| Simple MFA Campaigns Using SMS Functionality | Idea |
+| Evilginx Integration                         | Idea  |
 
 ---
 
@@ -111,11 +111,16 @@ time="2020-07-29T01:24:08Z" level=info msg="Please login with the username admin
 ```
 ### Documentation
 
+Documentation for Anglerphish - *planned but not guaranteed*.
+
 Documentation of the original gophish can be found on the official [site](http://getgophish.com/documentation).
 
 ### Issues
 
-Find a bug? Want more features? Find something missing in the documentation? Let us know! Please don't hesitate to [file an issue](https://github.com/gophish/gophish/issues/new) and we'll get right on it.
+🐞 Found a bug? Want more features?
+Don't hesitate to [file an issue](https://github.com/geopetro/anglerphish/issues/new) — feedback is always welcome!
+
+⚠️ Note: While the open version may be maintained, priority for updates, fixes, and new features is given to the full version available to sponsors. Your issue will still be reviewed and considered!
 
 ### License
 ```
