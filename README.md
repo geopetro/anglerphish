@@ -1,14 +1,16 @@
 ![Anglerphish logo](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/gophish_purple.png)
 
-Anglerphish
-=======
+<div align="center">
+  <h1>Anglerphish</h1>
+</div>
+
 
 A feature-rich [Gophish](https://github.com/gophish/gophish) fork. Detailed presentation of all the Anglerphish features can be found in this article - *Coming Soon...*.
 
 ## 💖 Support This Project
 Creating this project took a lot of time, effort — and money. If you find it useful, please consider supporting it by sponsoring or simply ⭐ starring this repository to show appreciation.
 
-Additionally, if you want **access to the full feature set**, sponsoring unlocks the private version with the full-feature set.
+Additionally, if you want **access to the full feature set**, sponsoring unlocks the private up-to-date version with the full-feature set.
 
 ---
 
