@@ -69,13 +69,14 @@ Details of features can be found below the table:
 - **Dashboard Filtering:** Allows filtering the campaign list on the dashboard to show only Email or only SMS campaigns.
 
 ---
-
-### Potential New Additions (Not all guaranteed):
-- **MS Teams Campaign Integration**
-- **Dark Theme** 
-- **Randomized Email Template Sending to Targets**
-- **Simple MFA Campaigns Using SMS Functionality**
-- **Evilginx Integration**
+### 🚧 Potential New Additions (Not All Guaranteed)
+| Feature                                      |
+| -------------------------------------------- |
+| MS Teams Campaign Integration ⬅️             |
+| Dark Theme                                   |
+| Randomized Email Template Sending to Targets |
+| Simple MFA Campaigns Using SMS Functionality |
+| Evilginx Integration                         |
 
 ---
 
