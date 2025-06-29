@@ -3,9 +3,8 @@
 Anglerphish
 =======
 
-A detailed presentation of all the Anglerphish features can be found in this article - *Coming Soon...*.
+A feature-rich [Gophish](https://github.com/gophish/gophish) fork. Detailed presentation of all the Anglerphish features can be found in this article - *Coming Soon...*.
 
----
 ## 💖 Support This Project
 Creating this project took a lot of time, effort — and money. If you find it useful, please consider supporting it by sponsoring or simply ⭐ starring this repository to show appreciation.
 
@@ -18,33 +17,31 @@ Details of features can be found below the table:
 
 | Feature                                   | Open Version | Full Version |
 | ----------------------------------------- | ------------ | ------------ |
-| **Per-Campaign URL Parameters**               | ✅            | ✅            |
-| **`{{.Custom}}` Group Variable**              | ✅            | ✅            |
-| **Campaign Summary Before Launching**         | ✅            | ✅            |
-| **QR Code Generator**                         | ✅            | ✅            |
-| **Group Export to CSV**                       | ✅            | ✅            |
-| **Enhanced Reported Phishing Monitoring**     | ✅            | ✅            |
-| **Non-Campaign Reports Page (IMAP)**          | ✅            | ✅            |
-| **`X-Tracked` Header Support**                | ✅            | ✅            |
-| **HTTP Basic Auth Landing Pages**             | ✅            | ✅            |
-| **QR Email Embedding**                        | ✅            | ✅            |
-| **Sneaky Gophish Tweaks**                     | ✅            | ✅            |
-| **Campaign Sets**                         | ❌            | ✅            |
-| **SMS Campaigns (Twilio/Vonage)**         | ❌            | ✅            |
-| `{{.Phone}}` Group Variable for SMS       | ❌            | ✅            |
-| **Multiple IMAP Profiles**                | ❌            | ✅            |
-| **Email Replied Tracking**                  | ❌            | ✅            |
-| **Export Reports (Word/Excel)**           | ❌            | ✅            |
-| **Preview Templates (Email/SMS/Landing)** | ❌            | ✅            |
-| **Dashboard Filtering by Campaign Type**  | ❌            | ✅            |
-
-
+| **Per-Campaign URL Parameters**               | ✅            | ✅ |
+| **`{{.Custom}}` Group Variable**              | ✅            | ✅ |
+| **Campaign Summary Before Launching**         | ✅            | ✅ |
+| **QR Code Generator**                         | ✅            | ✅ |
+| **Group Export to CSV**                       | ✅            | ✅ |
+| **Enhanced Reported Phishing Monitoring**     | ✅            | ✅ |
+| **Non-Campaign Reports Page (IMAP)**          | ✅            | ✅ |
+| **`X-Tracked` Header Support**                | ✅            | ✅ |
+| Default Landing Page                          | ✅            | ✅ |
+| **HTTP Basic Auth Landing Pages**             | ✅            | ✅ |
+| **QR Email Embedding**                        | ✅            | ✅ |
+| **Sneaky Gophish Tweaks**                     | ✅            | ✅ |
+| **Campaign Sets**                         | ❌            | ✅ |
+| **SMS Campaigns (Twilio/Vonage)**         | ❌            | ✅ |
+| `{{.Phone}}` Group Variable for SMS       | ❌            | ✅ |
+| **Multiple IMAP Profiles**                | ❌            | ✅ |
+| **Email Replied Tracking**                  | ❌            | ✅ |
+| **Export Reports (Word/Excel)**           | ❌            | ✅ |
+| **Preview Templates (Email/SMS/Landing)** | ❌            | ✅ |
+| **Dashboard Filtering by Campaign Type**  | ❌            | ✅ |
 
 ### This Version of Anglerphish includes:
 - **Per-Campaign URL Parameters:** Allows unique URL parameters per campaign instead of a global `rid`.
 - **Additional Group Variable:** Introduces `{{.Custom}}` for use in emails, landing pages, and attachments.
 - **Campaign Summary Before Launching**: Provides a summarized overview of all configured parameters (targets, templates, landing pages, etc.) before launching the campaign to avoid misconfiguration.
-- **QR Code Generator:** Built-in tool to generate and embed QR codes into campaign content.
 - **Group Export:** Supports exporting user groups to `.csv` for easy backup and editing.
 - **Reported Phishing Monitoring Enhancement:** Improved handling of reported phishing emails, now recognizing all variations of URL parameters across active campaigns.
 - **Non-Campaign Reports Page:** Dedicated view for reported emails in the IMAP inbox that are unrelated to any Gophish campaign.
@@ -53,8 +50,10 @@ Details of features can be found below the table:
   - Example use cases: 
     - Macro-enabled `.doc` or `.xls` files that can’t be tracked directly through traditional campaigns..
     - Custom `POST` requests triggered by landing pages.
+- **QR Code Generator:** Built-in tool to generate QR codes.
+- **Default Landing Page:** A default Error 404 landing when visiting the domain based on [edermi/gophish_mods](https://github.com/edermi/gophish_mods/tree/master).
 - **HTTP Basic Auth Landing Pages:** Enables basic authentication landing page campaigns based on [edermi/gophish_mods](https://github.com/edermi/gophish_mods/tree/master).
-- **QR Email Embedding:** Integrates QR code campaigns, based on [Evil-Gophish](https://github.com/fin3ss3g0d/evilgophish.git).
+- **QR Code Embedding in Campaigns:** Integrates QR code campaigns, based on [Evil-Gophish](https://github.com/fin3ss3g0d/evilgophish.git).
 - **Sneaky Tweaks:** Implements the sneaky gophish tweaks based on the [article](https://www.sprocketsecurity.com/resources/never-had-a-bad-day-phishing-how-to-set-up-gophish-to-evade-security-controls).
 
 ### Anglerphish Full Version Features include:
@@ -86,7 +85,6 @@ Details of features can be found below the table:
 ![2](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/2.jpg)
 ![3](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/3.jpg)
 
----
 
 ## A fork based on original Gophish v0.12.1:
 
