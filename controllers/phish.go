@@ -466,15 +466,26 @@ func setupContext(r *http.Request) (*http.Request, error) {
 	// Ensures to get the last url parameter (i.e., rid)
 	// Especially for the case a custom url is provided with several parameters
 	queryString := r.URL.RawQuery // Get the query string from the URL
-	print(queryString)
 
-	pairs := strings.Split(queryString, "&") // Split the query string into key-value pairs based on "&" delimiter
+	// Default to "rid" as the parameter name if we can't find one
+	urlparam = "rid"
 
-	lastPair := pairs[len(pairs)-1] // Get the last key-value pair
+	// Only try to parse if we have a query string
+	if queryString != "" {
+		pairs := strings.Split(queryString, "&") // Split the query string into key-value pairs based on "&" delimiter
 
-	keyValue := strings.Split(lastPair, "=") // Split the last pair into key and value based on "=" delimiter
+		if len(pairs) > 0 {
+			lastPair := pairs[len(pairs)-1] // Get the last key-value pair
 
-	urlparam = keyValue[0] // Extract the parameter name (left part of "=") and value
+			// Make sure the pair has a key=value format
+			if strings.Contains(lastPair, "=") {
+				keyValue := strings.Split(lastPair, "=") // Split the last pair into key and value based on "=" delimiter
+				if len(keyValue) > 0 && keyValue[0] != "" {
+					urlparam = keyValue[0] // Extract the parameter name (left part of "=")
+				}
+			}
+		}
+	}
 
 	rid := r.URL.Query().Get(urlparam)
 	if rid == "" {

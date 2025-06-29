@@ -61,12 +61,16 @@ func NewPhishingTemplateContext(ctx TemplateContext, r BaseRecipient, rid string
 	q := phishURL.Query()
 	// q.Set(RecipientParameter, rid)
 	encodedQuery := q.Encode()
-	encodedQuery += "&" + RecipientParameter + "=" + rid
+	if encodedQuery == "" {
+		encodedQuery = RecipientParameter + "=" + rid
+	} else {
+		encodedQuery += "&" + RecipientParameter + "=" + rid
+	}
 	phishURL.RawQuery = encodedQuery
 
 	trackingURL, _ := url.Parse(templateURL)
 	trackingURL.Path = path.Join(trackingURL.Path, "/track")
-	trackingURL.RawQuery = q.Encode() + "&" + RecipientParameter + "=" + rid
+	trackingURL.RawQuery = encodedQuery
 
 	// Prepare QR code
 	qrBase64 := ""
