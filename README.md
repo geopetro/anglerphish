@@ -25,7 +25,7 @@ Details of features can be found below the table:
 | **Enhanced Reported Phishing Monitoring**     | ✅            | ✅ |
 | **Non-Campaign Reports Page (IMAP)**          | ✅            | ✅ |
 | **`X-Tracked` Header Support**                | ✅            | ✅ |
-| Default Landing Page                          | ✅            | ✅ |
+| **Default Landing Page**                          | ✅            | ✅ |
 | **HTTP Basic Auth Landing Pages**             | ✅            | ✅ |
 | **QR Email Embedding**                        | ✅            | ✅ |
 | **Sneaky Gophish Tweaks**                     | ✅            | ✅ |
