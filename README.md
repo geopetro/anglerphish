@@ -82,11 +82,12 @@ Details of features can be found below the table:
 
 ---
 
-### Screenshots
+### Full Version Visual Previews
 
-![1](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/1.jpg)
-![2](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/2.jpg)
-![3](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/3.jpg)
+![1](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/1.gif)
+![2](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/2.gif)
+![3](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/3.gif)
+![4](https://raw.githubusercontent.com/geopetro/anglerphish/master/static/images/4.gif)
 
 
 ## A fork based on original Gophish v0.12.1:
