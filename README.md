@@ -116,7 +116,7 @@ See also the Medium article - *Coming Soon...*.
 | Feature                                          | Short Explanation                                                                                                   |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
 | **MS Teams Campaign Integration**                | Send phishing simulations directly via Microsoft Teams messages.                                   |
-| **Evilginx Integration**                         | Integrate with Evilginx for advanced real‑time credential interception simulations.         |
+| **Evilginx Integration**                         | Integrate with Evilginx for advanced red-team simulations.         |
 | **Randomized Email Template Sending to Targets** | Automatically rotate between multiple templates so each target receives a different  phishing message. |
 |**Other Integrations**|Integrations such as Direct Email Injection (DMI), internal support for Turnstile.|
 
