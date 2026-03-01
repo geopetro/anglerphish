@@ -40,26 +40,37 @@ const InitialAdminPassword = "GOPHISH_INITIAL_ADMIN_PASSWORD"
 const InitialAdminApiToken = "GOPHISH_INITIAL_ADMIN_API_TOKEN"
 
 const (
-	CampaignInProgress string = "In progress"
-	CampaignQueued     string = "Queued"
-	CampaignCreated    string = "Created"
-	CampaignEmailsSent string = "Emails Sent"
-	CampaignComplete   string = "Completed"
-	EventSent          string = "Email Sent"
-	EventSendingError  string = "Error Sending Email"
-	EventOpened        string = "Email Opened"
-	EventClicked       string = "Clicked Link"
-	EventDataSubmit    string = "Submitted Data"
-	EventReported      string = "Email Reported"
-	EventProxyRequest  string = "Proxied request"
-	StatusSuccess      string = "Success"
-	StatusQueued       string = "Queued"
-	StatusSending      string = "Sending"
-	StatusUnknown      string = "Unknown"
-	StatusScheduled    string = "Scheduled"
-	StatusRetry        string = "Retrying"
-	Error              string = "Error"
+	CampaignInProgress    string = "In progress"
+	CampaignQueued        string = "Queued"
+	CampaignCreated       string = "Created"
+	CampaignEmailsSent    string = "Emails Sent"
+	CampaignComplete      string = "Completed"
+	EventSent             string = "Email Sent"
+	EventSMSSent          string = "SMS Sent"
+	EventSendingError     string = "Error Sending Email"
+	EventSMSError         string = "Error Sending SMS"
+	EventOpened           string = "Email Opened"
+	EventClicked          string = "Clicked Link"
+	EventDataSubmit       string = "Submitted Data"
+	EventReported         string = "Email Reported"
+	EventReplied          string = "Email Replied"
+	EventProxyRequest     string = "Proxied request"
+	EventMFACodeSent      string = "MFA Code Sent"
+	EventMFACodeSendError string = "MFA Code Send Error"
+	EventMFACodeVerified  string = "MFA Code Verified"
+	EventMFACodeFailed    string = "MFA Code Failed"
+	StatusSuccess         string = "Success"
+	StatusQueued          string = "Queued"
+	StatusSending         string = "Sending"
+	StatusUnknown         string = "Unknown"
+	StatusScheduled       string = "Scheduled"
+	StatusRetry           string = "Retrying"
+	Error                 string = "Error"
 )
+
+// ErrInvalidCampaignID is thrown when a campaign ID is provided that doesn't match
+// the expected campaign ID
+var ErrInvalidCampaignID = fmt.Errorf("incorrect campaign provided for caching")
 
 // Flash is used to hold flash information for use in templates.
 type Flash struct {
@@ -193,6 +204,12 @@ func Setup(c *config.Config) error {
 	}
 	// Migrate up to the latest version
 	err = goose.RunMigrationsOnDb(migrateConf, migrateConf.MigrationsDir, latest, db.DB())
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	// Ensure preset URL templates exist
+	err = EnsurePresetURLTemplates(db)
 	if err != nil {
 		log.Error(err)
 		return err

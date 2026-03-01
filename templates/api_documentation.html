@@ -1,0 +1,1242 @@
+{{define "body"}}
+<div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+    <h1 class="page-header">Documentation</h1>
+    
+    <!-- Official Gophish Documentation -->
+    <div class="alert alert-info">
+        <strong><i class="fa fa-book"></i> Official Gophish API Documentation:</strong>
+        <a href="https://docs.getgophish.com/api-documentation/" target="_blank" class="alert-link">
+            https://docs.getgophish.com/api-documentation/
+        </a>
+        <p style="margin-top: 10px; margin-bottom: 0;">For standard Gophish API endpoints (campaigns, templates, landing pages, groups, sending profiles, etc.), please refer to the official documentation above.</p>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-tabs" role="tablist" style="margin-top: 20px;">
+        <li role="presentation" class="active">
+            <a href="#api-extensions" aria-controls="api-extensions" role="tab" data-toggle="tab">
+                <i class="fa fa-plug"></i> API Extensions
+            </a>
+        </li>
+        <li role="presentation">
+            <a href="#template-variables" aria-controls="template-variables" role="tab" data-toggle="tab">
+                <i class="fa fa-code"></i> Template Variables
+            </a>
+        </li>
+        <li role="presentation">
+            <a href="#database-encryption" aria-controls="database-encryption" role="tab" data-toggle="tab">
+                <i class="fa fa-lock"></i> Database Encryption
+            </a>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" style="margin-top: 20px;">
+        <!-- Tab 1: API Extensions -->
+        <div role="tabpanel" class="tab-pane active" id="api-extensions">
+            <h3>AnglerPhish Custom API Extensions</h3>
+            <p>The following API endpoints are custom additions in AnglerPhish and are not available in the standard Gophish distribution.</p>
+
+    <!-- URL Templates API -->
+    <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="urlTemplatesHeading">
+            <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" href="#urlTemplatesCollapse" aria-expanded="false" aria-controls="urlTemplatesCollapse">
+                    <i class="fa fa-link"></i> URL Templates API
+                    <i class="fa fa-chevron-down pull-right"></i>
+                </a>
+            </h4>
+        </div>
+        <div id="urlTemplatesCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="urlTemplatesHeading">
+            <div class="panel-body">
+            <p>Manage reusable URL templates for campaigns.</p>
+            
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/url_templates/</strong>
+                <p>Returns a list of all URL templates. <a class="example-toggle" data-toggle="collapse" data-target="#urlTemplatesGetExample"><small>[Show Example]</small></a></p>
+                <div id="urlTemplatesGetExample" class="collapse">
+                <pre><code>Response: 200 OK
+[
+  {
+    "id": 1,
+    "name": "Phishing Template 1",
+    "url": "https://example.com/login?ref=&#123;&#123;.RId&#125;&#125;",
+    "category": "Login Pages",
+    "user_id": 1,
+    "modified_date": "2024-01-01T00:00:00Z"
+  }
+]</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/url_templates/</strong>
+                <p>Creates a new URL template. <a class="example-toggle" data-toggle="collapse" data-target="#urlTemplatesPostExample"><small>[Show Example]</small></a></p>
+                <div id="urlTemplatesPostExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "name": "Phishing Template 1",
+  "url": "https://example.com/login?ref=&#123;&#123;.RId&#125;&#125;",
+  "category": "Login Pages"
+}
+
+Response: 201 Created
+{
+  "id": 1,
+  "name": "Phishing Template 1",
+  "url": "https://example.com/login?ref=&#123;&#123;.RId&#125;&#125;",
+  "category": "Login Pages",
+  "user_id": 1,
+  "modified_date": "2024-01-01T00:00:00Z"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/url_templates/:id</strong>
+                <p>Returns a URL template by ID.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-warning">PUT</span> /api/url_templates/:id</strong>
+                <p>Updates a URL template. <a class="example-toggle" data-toggle="collapse" data-target="#urlTemplatesPutExample"><small>[Show Example]</small></a></p>
+                <div id="urlTemplatesPutExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "name": "Updated Template Name",
+  "url": "https://example.com/updated?ref=&#123;&#123;.RId&#125;&#125;",
+  "category": "Updated Category"
+}
+
+Response: 200 OK
+{
+  "id": 1,
+  "name": "Updated Template Name",
+  "url": "https://example.com/updated?ref=&#123;&#123;.RId&#125;&#125;",
+  "category": "Updated Category",
+  "user_id": 1,
+  "modified_date": "2024-01-01T00:00:00Z"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-danger">DELETE</span> /api/url_templates/:id</strong>
+                <p>Deletes a URL template.</p>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Campaign Sets API -->
+    <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="campaignSetsHeading">
+            <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" href="#campaignSetsCollapse" aria-expanded="false" aria-controls="campaignSetsCollapse">
+                    <i class="fa fa-folder-open"></i> Campaign Sets API
+                    <i class="fa fa-chevron-down pull-right"></i>
+                </a>
+            </h4>
+        </div>
+        <div id="campaignSetsCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="campaignSetsHeading">
+            <div class="panel-body">
+            <p>Manage groups of campaigns as campaign sets for organized batch operations.</p>
+            
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/campaign_sets/</strong>
+                <p>Returns a list of all campaign sets.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/campaign_sets/</strong>
+                <p>Creates a new campaign set. <a class="example-toggle" data-toggle="collapse" data-target="#campaignSetsPostExample"><small>[Show Example]</small></a></p>
+                <div id="campaignSetsPostExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "name": "Q4 2024 Campaign Set",
+  "description": "Campaigns for Q4 2024"
+}
+
+Response: 201 Created
+{
+  "id": 1,
+  "name": "Q4 2024 Campaign Set",
+  "description": "Campaigns for Q4 2024",
+  "created_date": "2024-01-01T00:00:00Z"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/campaign_sets/summary</strong>
+                <p>Returns a summary of all campaign sets.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/campaign_sets/:id</strong>
+                <p>Returns a campaign set by ID.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-danger">DELETE</span> /api/campaign_sets/:id</strong>
+                <p>Deletes a campaign set.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/campaign_sets/:id/complete</strong>
+                <p>Marks a campaign set as complete.</p>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Draft Campaign Sets API -->
+    <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="draftCampaignSetsHeading">
+            <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" href="#draftCampaignSetsCollapse" aria-expanded="false" aria-controls="draftCampaignSetsCollapse">
+                    <i class="fa fa-pencil-square-o"></i> Draft Campaign Sets API
+                    <i class="fa fa-chevron-down pull-right"></i>
+                </a>
+            </h4>
+        </div>
+        <div id="draftCampaignSetsCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="draftCampaignSetsHeading">
+            <div class="panel-body">
+            <p>Create and manage draft campaign sets before launching them.</p>
+            
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/draft_campaign_sets/</strong>
+                <p>Returns a list of all draft campaign sets.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/draft_campaign_sets/</strong>
+                <p>Creates a new draft campaign set. <a class="example-toggle" data-toggle="collapse" data-target="#draftCampaignSetsPostExample"><small>[Show Example]</small></a></p>
+                <div id="draftCampaignSetsPostExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "name": "Draft Campaign Set",
+  "campaigns": []
+}
+
+Response: 201 Created
+{
+  "id": 1,
+  "name": "Draft Campaign Set",
+  "campaigns": [],
+  "created_date": "2024-01-01T00:00:00Z"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/draft_campaign_sets/:id</strong>
+                <p>Returns a draft campaign set by ID.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-warning">PUT</span> /api/draft_campaign_sets/:id</strong>
+                <p>Updates a draft campaign set. <a class="example-toggle" data-toggle="collapse" data-target="#draftCampaignSetsPutExample"><small>[Show Example]</small></a></p>
+                <div id="draftCampaignSetsPutExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "name": "Updated Draft Name",
+  "campaigns": []
+}
+
+Response: 200 OK
+{
+  "id": 1,
+  "name": "Updated Draft Name",
+  "campaigns": [],
+  "modified_date": "2024-01-01T00:00:00Z"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-danger">DELETE</span> /api/draft_campaign_sets/:id</strong>
+                <p>Deletes a draft campaign set.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/draft_campaign_sets/:id/launch</strong>
+                <p>Launches a draft campaign set, converting it to an active campaign set. <a class="example-toggle" data-toggle="collapse" data-target="#draftCampaignSetsLaunchExample"><small>[Show Example]</small></a></p>
+                <div id="draftCampaignSetsLaunchExample" class="collapse">
+                <pre><code>Request Body:
+{}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Campaign set launched successfully",
+  "campaign_set_id": 1
+}</code></pre>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Code API -->
+    <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="qrCodeHeading">
+            <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" href="#qrCodeCollapse" aria-expanded="false" aria-controls="qrCodeCollapse">
+                    <i class="fa fa-qrcode"></i> QR Code API
+                    <i class="fa fa-chevron-down pull-right"></i>
+                </a>
+            </h4>
+        </div>
+        <div id="qrCodeCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="qrCodeHeading">
+            <div class="panel-body">
+            <p>Generate, manage, and download QR codes for phishing campaigns.</p>
+            
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/qr_code/</strong>
+                <p>Returns a list of all QR codes.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/qr_code/</strong>
+                <p>Generates a new QR code. <a class="example-toggle" data-toggle="collapse" data-target="#qrCodePostExample"><small>[Show Example]</small></a></p>
+                <div id="qrCodePostExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "name": "My QR Code",
+  "url": "https://example.com/phish?rid=&#123;&#123;.RId&#125;&#125;",
+  "size": 256,
+  "error_correction": "M"
+}
+
+Response: 201 Created
+{
+  "id": 1,
+  "name": "My QR Code",
+  "url": "https://example.com/phish?rid=&#123;&#123;.RId&#125;&#125;",
+  "size": 256,
+  "error_correction": "M",
+  "image_data": "base64_encoded_image_data",
+  "created_date": "2024-01-01T00:00:00Z"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-danger">DELETE</span> /api/qr_code/:id</strong>
+                <p>Deletes a QR code.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/qr_code/:id/download</strong>
+                <p>Downloads a QR code as a PNG image.</p>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Async Reports API -->
+    <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="asyncReportsHeading">
+            <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" href="#asyncReportsCollapse" aria-expanded="false" aria-controls="asyncReportsCollapse">
+                    <i class="fa fa-file-excel-o"></i> Async Reports API
+                    <i class="fa fa-chevron-down pull-right"></i>
+                </a>
+            </h4>
+        </div>
+        <div id="asyncReportsCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="asyncReportsHeading">
+            <div class="panel-body">
+            <p>Queue, generate, and manage asynchronous report generation for campaign data.</p>
+            
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/reports/</strong>
+                <p>Returns a list of all reports (queued, processing, completed, failed).</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/reports/queue</strong>
+                <p>Queues a new report for asynchronous generation. <a class="example-toggle" data-toggle="collapse" data-target="#reportsQueueExample"><small>[Show Example]</small></a></p>
+                <div id="reportsQueueExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "campaign_set_id": 1,
+  "format": "excel"
+}
+
+Response: 201 Created
+{
+  "id": 1,
+  "campaign_set_id": 1,
+  "status": "queued",
+  "format": "excel",
+  "created_date": "2024-01-01T00:00:00Z"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/reports/:id/status</strong>
+                <p>Returns the status of a report (queued, processing, completed, failed). <a class="example-toggle" data-toggle="collapse" data-target="#reportsStatusExample"><small>[Show Example]</small></a></p>
+                <div id="reportsStatusExample" class="collapse">
+                <pre><code>Response: 200 OK
+{
+  "id": 1,
+  "status": "completed",
+  "progress": 100,
+  "message": "Report generated successfully"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/reports/:id/download</strong>
+                <p>Downloads a completed report file.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-danger">DELETE</span> /api/reports/:id</strong>
+                <p>Deletes a report and its associated file.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/reports/campaign_set</strong>
+                <p><em>Legacy endpoint:</em> Synchronously generates a campaign set report (not recommended for large datasets). <a class="example-toggle" data-toggle="collapse" data-target="#reportsCampaignSetExample"><small>[Show Example]</small></a></p>
+                <div id="reportsCampaignSetExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "campaign_set_id": 1
+}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Report generated",
+  "file_path": "/path/to/report.xlsx"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/reports/dependencies</strong>
+                <p>Checks if Python dependencies for report generation are installed.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/reports/dependencies/install</strong>
+                <p>Installs required Python dependencies for report generation. <a class="example-toggle" data-toggle="collapse" data-target="#reportsDepsInstallExample"><small>[Show Example]</small></a></p>
+                <div id="reportsDepsInstallExample" class="collapse">
+                <pre><code>Request Body:
+{}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Dependencies installed successfully"
+}</code></pre>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SMS API -->
+    <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="smsHeading">
+            <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" href="#smsCollapse" aria-expanded="false" aria-controls="smsCollapse">
+                    <i class="fa fa-mobile"></i> SMS API
+                    <i class="fa fa-chevron-down pull-right"></i>
+                </a>
+            </h4>
+        </div>
+        <div id="smsCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="smsHeading">
+            <div class="panel-body">
+            <p>Manage SMS templates and sending profiles for SMS-based phishing campaigns.</p>
+            
+            <strong>SMS Templates:</strong>
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/sms_templates/</strong>
+                <p>Returns a list of all SMS templates.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/sms_templates/</strong>
+                <p>Creates a new SMS template. <a class="example-toggle" data-toggle="collapse" data-target="#smsTemplatesPostExample"><small>[Show Example]</small></a></p>
+                <div id="smsTemplatesPostExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "name": "Banking Alert SMS",
+  "from": "MyBank",
+  "text": "ALERT: Unusual activity detected on your account. Verify at: &#123;&#123;.URL&#125;&#125;"
+}
+
+Note: "from" is optional. If set, it overrides the From value in the SMS Profile.
+
+Response: 201 Created
+{
+  "id": 1,
+  "name": "Banking Alert SMS",
+  "from": "MyBank",
+  "text": "ALERT: Unusual activity detected on your account. Verify at: &#123;&#123;.URL&#125;&#125;",
+  "modified_date": "2024-01-01T00:00:00Z"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/sms_templates/:id</strong>
+                <p>Returns an SMS template by ID.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-warning">PUT</span> /api/sms_templates/:id</strong>
+                <p>Updates an SMS template. <a class="example-toggle" data-toggle="collapse" data-target="#smsTemplatesPutExample"><small>[Show Example]</small></a></p>
+                <div id="smsTemplatesPutExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "name": "Updated SMS Template",
+  "text": "New message text with &#123;&#123;.URL&#125;&#125;"
+}
+
+Response: 200 OK
+{
+  "id": 1,
+  "name": "Updated SMS Template",
+  "text": "New message text with &#123;&#123;.URL&#125;&#125;",
+  "modified_date": "2024-01-01T00:00:00Z"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-danger">DELETE</span> /api/sms_templates/:id</strong>
+                <p>Deletes an SMS template.</p>
+            </div>
+
+            <br>
+            <strong>SMS Sending Profiles:</strong>
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/sms/</strong>
+                <p>Returns a list of all SMS sending profiles.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/sms/</strong>
+                <p>Creates a new SMS sending profile. <a class="example-toggle" data-toggle="collapse" data-target="#smsPostExample"><small>[Show Example]</small></a></p>
+                <div id="smsPostExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "name": "Twilio Profile",
+  "provider": "twilio",
+  "api_key": "your_api_key",
+  "from_number": "+1234567890"
+}
+
+Response: 201 Created
+{
+  "id": 1,
+  "name": "Twilio Profile",
+  "provider": "twilio",
+  "from_number": "+1234567890",
+  "created_date": "2024-01-01T00:00:00Z"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/sms/:id</strong>
+                <p>Returns an SMS sending profile by ID.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-warning">PUT</span> /api/sms/:id</strong>
+                <p>Updates an SMS sending profile. <a class="example-toggle" data-toggle="collapse" data-target="#smsPutExample"><small>[Show Example]</small></a></p>
+                <div id="smsPutExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "name": "Updated Twilio Profile",
+  "provider": "twilio",
+  "api_key": "new_api_key",
+  "from_number": "+1987654321"
+}
+
+Response: 200 OK
+{
+  "id": 1,
+  "name": "Updated Twilio Profile",
+  "provider": "twilio",
+  "from_number": "+1987654321",
+  "modified_date": "2024-01-01T00:00:00Z"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-danger">DELETE</span> /api/sms/:id</strong>
+                <p>Deletes an SMS sending profile.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/util/send_test_sms</strong>
+                <p>Sends a test SMS message. <a class="example-toggle" data-toggle="collapse" data-target="#smsTestExample"><small>[Show Example]</small></a></p>
+                <div id="smsTestExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "profile_id": 1,
+  "to_number": "+1234567890",
+  "message": "Test message"
+}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Test SMS sent successfully"
+}</code></pre>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Landing Pages MFA Extensions -->
+    <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="mfaPageHeading">
+            <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" href="#mfaPageCollapse" aria-expanded="false" aria-controls="mfaPageCollapse">
+                    <i class="fa fa-shield"></i> Landing Pages MFA Extension
+                    <i class="fa fa-chevron-down pull-right"></i>
+                </a>
+            </h4>
+        </div>
+        <div id="mfaPageCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="mfaPageHeading">
+            <div class="panel-body">
+            <p>MFA simulation adds a second verification step to landing pages. After users submit credentials, they receive an SMS with a verification code and must enter it to proceed.</p>
+            
+            <strong>Additional Page Parameters (MFA):</strong>
+            <p>The following parameters can be included when creating or updating a landing page:</p>
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>enable_mfa</code></td><td>boolean</td><td>Enable MFA simulation for this landing page</td></tr>
+                    <tr><td><code>mfa_sms_profile_id</code></td><td>integer</td><td>ID of the SMS profile to use for sending verification codes</td></tr>
+                    <tr><td><code>mfa_from</code></td><td>string</td><td>Override sender ID for MFA SMS (optional, uses profile default if empty)</td></tr>
+                    <tr><td><code>mfa_message</code></td><td>string</td><td>SMS message template. Use <code>&#123;&#123;.Code&#125;&#125;</code> for the code. Default: "Your verification code is: &#123;&#123;.Code&#125;&#125;"</td></tr>
+                    <tr><td><code>mfa_code_length</code></td><td>integer</td><td>Length of verification code (4, 6, or 8). Default: 6</td></tr>
+                    <tr><td><code>mfa_code_type</code></td><td>string</td><td>Code type: "numeric", "alpha", or "alphanumeric". Default: "numeric"</td></tr>
+                    <tr><td><code>mfa_inject_page</code></td><td>boolean</td><td>If true, shows built-in MFA verification page. If false, you handle MFA in your landing page HTML. Default: true</td></tr>
+                    <tr><td><code>mfa_page_html</code></td><td>string</td><td>Custom HTML for MFA verification page (only used if <code>mfa_inject_page</code> is true). If empty, uses default template.</td></tr>
+                </tbody>
+            </table>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/pages/</strong>
+                <p>Creates a landing page with MFA enabled. <a class="example-toggle" data-toggle="collapse" data-target="#mfaPagePostExample"><small>[Show Example]</small></a></p>
+                <div id="mfaPagePostExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "name": "MFA Login Page",
+  "html": "&lt;html&gt;...&lt;/html&gt;",
+  "capture_credentials": true,
+  "capture_passwords": true,
+  "redirect_url": "https://example.com",
+  "enable_mfa": true,
+  "mfa_sms_profile_id": 1,
+  "mfa_from": "MyBank",
+  "mfa_message": "Your security code is: &#123;&#123;.Code&#125;&#125;",
+  "mfa_code_length": 6,
+  "mfa_code_type": "numeric",
+  "mfa_inject_page": true
+}
+
+Response: 201 Created
+{
+  "id": 1,
+  "name": "MFA Login Page",
+  ...
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/pages/mfa_template</strong>
+                <p>Returns the default MFA verification page HTML template. Use this to customize the MFA page. <a class="example-toggle" data-toggle="collapse" data-target="#mfaTemplateGetExample"><small>[Show Example]</small></a></p>
+                <div id="mfaTemplateGetExample" class="collapse">
+                <pre><code>Response: 200 OK
+{
+  "success": true,
+  "message": "Default MFA template",
+  "data": "&lt;!DOCTYPE html&gt;\n&lt;html&gt;\n&lt;head&gt;...&lt;/head&gt;\n&lt;body&gt;...&lt;/body&gt;\n&lt;/html&gt;"
+}
+
+Template Variables:
+- &#123;&#123;if .Error&#125;&#125;...&#123;&#123;end&#125;&#125; - Shows error on failed verification
+- Form must POST "mfa_code" field</code></pre>
+                </div>
+            </div>
+
+            <br>
+            <strong>MFA Events in Campaign Results:</strong>
+            <p>When MFA is enabled, the following additional events are tracked:</p>
+            <ul>
+                <li><strong>MFA Code Sent</strong> - Code was generated and sent via SMS</li>
+                <li><strong>MFA Code Verified</strong> - User entered correct verification code</li>
+                <li><strong>MFA Code Failed</strong> - User entered incorrect code</li>
+            </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- IMAP Extensions -->
+    <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="imapHeading">
+            <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" href="#imapCollapse" aria-expanded="false" aria-controls="imapCollapse">
+                    <i class="fa fa-envelope"></i> IMAP API
+                    <i class="fa fa-chevron-down pull-right"></i>
+                </a>
+            </h4>
+        </div>
+        <div id="imapCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="imapHeading">
+            <div class="panel-body">
+            <p>Configure IMAP monitoring for automated email response tracking.</p>
+            
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/imap/</strong>
+                <p>Returns a list of all IMAP configurations.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/imap/</strong>
+                <p>Creates a new IMAP configuration. <a class="example-toggle" data-toggle="collapse" data-target="#imapPostExample"><small>[Show Example]</small></a></p>
+                <div id="imapPostExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "name": "IMAP Config",
+  "host": "imap.example.com",
+  "port": 993,
+  "username": "user@example.com",
+  "password": "password",
+  "use_tls": true
+}
+
+Response: 201 Created
+{
+  "id": 1,
+  "name": "IMAP Config",
+  "host": "imap.example.com",
+  "port": 993,
+  "username": "user@example.com",
+  "created_date": "2024-01-01T00:00:00Z"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/imap/:id</strong>
+                <p>Returns an IMAP configuration by ID.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-warning">PUT</span> /api/imap/:id</strong>
+                <p>Updates an IMAP configuration. <a class="example-toggle" data-toggle="collapse" data-target="#imapPutExample"><small>[Show Example]</small></a></p>
+                <div id="imapPutExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "name": "Updated IMAP Config",
+  "host": "imap.newserver.com",
+  "port": 993,
+  "username": "newuser@example.com",
+  "password": "newpassword",
+  "use_tls": true
+}
+
+Response: 200 OK
+{
+  "id": 1,
+  "name": "Updated IMAP Config",
+  "host": "imap.newserver.com",
+  "port": 993,
+  "username": "newuser@example.com",
+  "modified_date": "2024-01-01T00:00:00Z"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-danger">DELETE</span> /api/imap/:id</strong>
+                <p>Deletes an IMAP configuration.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/imap/validate</strong>
+                <p>Validates IMAP server credentials and connection. <a class="example-toggle" data-toggle="collapse" data-target="#imapValidateExample"><small>[Show Example]</small></a></p>
+                <div id="imapValidateExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "host": "imap.example.com",
+  "port": 993,
+  "username": "user@example.com",
+  "password": "password",
+  "use_tls": true
+}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "IMAP connection validated successfully"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/imap/non_campaign_reports</strong>
+                <p>Returns non-campaign email reports from IMAP monitoring. <a class="example-toggle" data-toggle="collapse" data-target="#imapNonCampaignGetExample"><small>[Show Example]</small></a></p>
+                <div id="imapNonCampaignGetExample" class="collapse">
+                <pre><code>Query Parameters (optional):
+?imap_id=1  - Filter reports by IMAP configuration ID
+
+Response: 200 OK
+{
+  "stats": {
+    "user_id": 1,
+    "report_count": 15,
+    "last_reported_at": "2024-01-15T10:30:00Z"
+  },
+  "reports": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "imap_id": 1,
+      "reporter_email": "employee@example.com",
+      "subject": "Suspicious Email Report",
+      "reported_at": "2024-01-15T10:30:00Z"
+    }
+  ],
+  "imap_configs": [
+    {"id": 1, "name": "Main IMAP"}
+  ],
+  "selected_imap_id": 0
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-danger">DELETE</span> /api/imap/non_campaign_reports</strong>
+                <p>Clears all non-campaign reports. <a class="example-toggle" data-toggle="collapse" data-target="#imapNonCampaignDeleteExample"><small>[Show Example]</small></a></p>
+                <div id="imapNonCampaignDeleteExample" class="collapse">
+                <pre><code>Query Parameters (optional):
+?imap_id=1  - Delete only reports from specific IMAP configuration
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Non-campaign reports cleared successfully"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/imap/non_campaign_reports</strong>
+                <p>Bulk delete selected non-campaign reports by IDs. <a class="example-toggle" data-toggle="collapse" data-target="#imapNonCampaignBulkDeleteExample"><small>[Show Example]</small></a></p>
+                <div id="imapNonCampaignBulkDeleteExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "ids": [1, 2, 3, 5, 8]
+}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Selected reports deleted successfully"
+}</code></pre>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Authorization Note -->
+    <div class="panel panel-info">
+        <div class="panel-heading">
+            <h4 class="panel-title"><i class="fa fa-key"></i> Authorization</h4>
+        </div>
+        <div class="panel-body">
+            <p>All API requests require authentication using an API key. You must include your API key in the Authorization header:</p>
+            <pre><code>Authorization: Bearer YOUR_API_KEY</code></pre>
+            <p>You can find or generate your API key in the <a href="/settings">Account Settings</a> page.</p>
+        </div>
+    </div>
+
+        </div>
+        <!-- End Tab 1: API Extensions -->
+
+        <!-- Tab 2: Template Variables -->
+        <div role="tabpanel" class="tab-pane" id="template-variables">
+            <h3><i class="fa fa-code"></i> Template Variables Reference</h3>
+    <p>These variables can be used in Email Templates, SMS Templates, and Landing Pages. They will be replaced with actual values when the campaign is sent.</p>
+    
+    <div class="alert alert-info">
+        <i class="fa fa-info-circle"></i> <strong>Tip:</strong> Use the preview button when editing templates to see how variables will be replaced with sample data.
+    </div>
+
+    <!-- Recipient Fields -->
+    <h4>Recipient Fields</h4>
+    <p>Data from the recipient's profile in the target group.</p>
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th style="width: 25%;">Variable</th>
+                <th style="width: 45%;">Description</th>
+                <th style="width: 30%;">Example Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td><code>&#123;&#123;.FirstName&#125;&#125;</code></td><td>Recipient's first name</td><td>John</td></tr>
+            <tr><td><code>&#123;&#123;.LastName&#125;&#125;</code></td><td>Recipient's last name</td><td>Doe</td></tr>
+            <tr><td><code>&#123;&#123;.Email&#125;&#125;</code></td><td>Recipient's email address</td><td>john.doe@example.com</td></tr>
+            <tr><td><code>&#123;&#123;.Position&#125;&#125;</code></td><td>Recipient's job title/position</td><td>IT Manager</td></tr>
+            <tr><td><code>&#123;&#123;.Phone&#125;&#125;</code></td><td>Recipient's phone number</td><td>+15551234567</td></tr>
+            <tr><td><code>&#123;&#123;.Custom&#125;&#125;</code></td><td>Custom field for user-defined data</td><td>(user-defined)</td></tr>
+        </tbody>
+    </table>
+
+    <!-- URL/Tracking Fields -->
+    <h4>URL &amp; Tracking Fields</h4>
+    <p>Campaign URLs and tracking information.</p>
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th style="width: 25%;">Variable</th>
+                <th style="width: 45%;">Description</th>
+                <th style="width: 30%;">Example Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td><code>&#123;&#123;.URL&#125;&#125;</code></td><td>Phishing URL with unique recipient ID</td><td>https://example.com?rid=abc12345</td></tr>
+            <tr><td><code>&#123;&#123;.TrackingURL&#125;&#125;</code></td><td>Tracking pixel URL for email opens</td><td>https://example.com/track?rid=abc12345</td></tr>
+            <tr><td><code>&#123;&#123;.Tracker&#125;&#125;</code></td><td>Invisible tracking image HTML tag</td><td>&lt;img src='...' style='display:none'/&gt;</td></tr>
+            <tr><td><code>&#123;&#123;.RId&#125;&#125;</code></td><td>Unique recipient identifier</td><td>abc12345</td></tr>
+            <tr><td><code>&#123;&#123;.BaseURL&#125;&#125;</code></td><td>Base URL without path or query string</td><td>https://example.com</td></tr>
+            <tr><td><code>&#123;&#123;.From&#125;&#125;</code></td><td>Sender name from sending profile</td><td>Phishing Team</td></tr>
+        </tbody>
+    </table>
+
+    <!-- QR Code Fields -->
+    <h4>QR Code Fields</h4>
+    <p>QR code variables for embedding in templates. Note: QR codes must be enabled in the campaign.</p>
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th style="width: 25%;">Variable</th>
+                <th style="width: 45%;">Description</th>
+                <th style="width: 30%;">Example Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td><code>&#123;&#123;.QR&#125;&#125;</code></td><td>QR code as HTML img tag with CID reference (<strong>email only</strong>)</td><td>&lt;img src='cid:qr_code'/&gt;</td></tr>
+            <tr><td><code>&#123;&#123;.QRBase64&#125;&#125;</code></td><td>QR code as base64 PNG data (<strong>landing pages</strong>)</td><td>iVBORw0KGgoAAAANS...</td></tr>
+            <tr><td><code>&#123;&#123;.QRSize&#125;&#125;</code></td><td>QR code size in pixels</td><td>256</td></tr>
+        </tbody>
+    </table>
+    
+    <div class="alert alert-warning">
+        <i class="fa fa-exclamation-triangle"></i> <strong>Landing Page QR Usage:</strong> Use <code>&lt;img src="data:image/png;base64,&#123;&#123;.QRBase64&#125;&#125;"&gt;</code> for landing pages instead of <code>&#123;&#123;.QR&#125;&#125;</code>.
+    </div>
+
+    <!-- DateTime Fields -->
+    <h4>Date &amp; Time Fields</h4>
+    <p>Current date and time when the email is sent.</p>
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th style="width: 25%;">Variable</th>
+                <th style="width: 45%;">Description</th>
+                <th style="width: 30%;">Example Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td><code>&#123;&#123;.CurrentDateTime&#125;&#125;</code></td><td>Current date and time</td><td>Jan 30, 2026 9:54 PM</td></tr>
+            <tr><td><code>&#123;&#123;.CurrentDate&#125;&#125;</code></td><td>Current date (long format)</td><td>January 30, 2026</td></tr>
+            <tr><td><code>&#123;&#123;.CurrentTime&#125;&#125;</code></td><td>Current time (12-hour format)</td><td>9:54 PM</td></tr>
+            <tr><td><code>&#123;&#123;.CurrentTime24&#125;&#125;</code></td><td>Current time (24-hour format)</td><td>21:54</td></tr>
+        </tbody>
+    </table>
+
+    <!-- MFA Template Variables -->
+    <h4>MFA Template Variables</h4>
+    <p>Variables for MFA SMS messages and custom MFA verification pages.</p>
+    
+    <strong>MFA SMS Message (mfa_message parameter):</strong>
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th style="width: 25%;">Variable</th>
+                <th style="width: 45%;">Description</th>
+                <th style="width: 30%;">Example Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td><code>&#123;&#123;.Code&#125;&#125;</code></td><td>The generated verification code</td><td>482956</td></tr>
+        </tbody>
+    </table>
+
+    <strong>Custom MFA Page HTML (mfa_page_html parameter):</strong>
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th style="width: 25%;">Variable</th>
+                <th style="width: 45%;">Description</th>
+                <th style="width: 30%;">Example Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td><code>&#123;&#123;if .Error&#125;&#125;...&#123;&#123;end&#125;&#125;</code></td><td>Conditional block shown when verification fails. Write your own error message inside the block.</td><td>&#123;&#123;if .Error&#125;&#125;&lt;div class="error"&gt;Invalid code!&lt;/div&gt;&#123;&#123;end&#125;&#125;</td></tr>
+        </tbody>
+    </table>
+
+    <div class="alert alert-info">
+        <i class="fa fa-info-circle"></i> <strong>MFA Page Form Requirements:</strong> Your custom MFA page form must:
+        <ul style="margin-top: 5px;">
+            <li>Use <code>method="POST"</code></li>
+            <li>Include a field named <code>mfa_code</code> for the verification code input</li>
+        </ul>
+    </div>
+
+        </div>
+        <!-- End Tab 2: Template Variables -->
+
+        <!-- Tab 3: Database Encryption -->
+        <div role="tabpanel" class="tab-pane" id="database-encryption">
+            <h3><i class="fa fa-lock"></i> Database Encryption</h3>
+            <p>AnglerPhish supports AES-256-GCM encryption for sensitive database fields including SMTP passwords, SMS provider credentials, and IMAP passwords.</p>
+            
+            <div class="alert alert-info">
+                <i class="fa fa-info-circle"></i> <strong>Note:</strong> Encryption is optional and backward compatible. The application works without an encryption key, and encrypted/plaintext data can coexist.
+            </div>
+
+            <h4>Environment Variable</h4>
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr>
+                        <th style="width: 35%;">Variable</th>
+                        <th style="width: 65%;">Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>ANGLERPHISH_ENCRYPTION_KEY</code></td><td>32-byte encryption key for AES-256-GCM. If not set, encryption is disabled.</td></tr>
+                </tbody>
+            </table>
+
+            <h4>CLI Commands</h4>
+            <div class="endpoint-doc">
+                <strong><code>--generate-encryption-key</code></strong>
+                <p>Generates a new random 32-byte encryption key. <a class="example-toggle" data-toggle="collapse" data-target="#encryptGenKeyExample2"><small>[Show Example]</small></a></p>
+                <div id="encryptGenKeyExample2" class="collapse">
+                <pre><code>./anglerphish --generate-encryption-key
+
+Output:
+ANGLERPHISH_ENCRYPTION_KEY=xK9m2pL7qR4sT6vW8yB1cD3eF5gH7jK9</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><code>--migrate-encryption</code></strong>
+                <p>Encrypts all existing plaintext sensitive fields in the database. <a class="example-toggle" data-toggle="collapse" data-target="#encryptMigrateExample2"><small>[Show Example]</small></a></p>
+                <div id="encryptMigrateExample2" class="collapse">
+                <pre><code># Set the encryption key first
+export ANGLERPHISH_ENCRYPTION_KEY=your-32-byte-key   # Linux/Mac
+set ANGLERPHISH_ENCRYPTION_KEY=your-32-byte-key      # Windows CMD
+
+# Run migration
+./anglerphish --migrate-encryption
+
+Output:
+Migrating plaintext fields to encrypted...
+SMTP passwords: 5 encrypted, 0 skipped
+SMS provider configs: 3 encrypted, 0 skipped
+IMAP passwords: 2 encrypted, 0 skipped
+Migration complete!</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><code>--migrate-decryption</code></strong>
+                <p>Decrypts all encrypted fields back to plaintext (reverse migration). <a class="example-toggle" data-toggle="collapse" data-target="#encryptDecryptExample2"><small>[Show Example]</small></a></p>
+                <div id="encryptDecryptExample2" class="collapse">
+                <pre><code># Requires the encryption key
+export ANGLERPHISH_ENCRYPTION_KEY=your-32-byte-key   # Linux/Mac
+set ANGLERPHISH_ENCRYPTION_KEY=your-32-byte-key      # Windows CMD
+
+# Run reverse migration
+./anglerphish --migrate-decryption
+
+Output:
+Decrypting all encrypted fields...
+SMTP passwords: 5 decrypted, 0 skipped
+SMS provider configs: 3 decrypted, 0 skipped
+IMAP passwords: 2 decrypted, 0 skipped
+Decryption complete!</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><code>--dry-run</code></strong>
+                <p>Preview migration changes without applying them. Use with <code>--migrate-encryption</code> or <code>--migrate-decryption</code>. <a class="example-toggle" data-toggle="collapse" data-target="#encryptDryRunExample2"><small>[Show Example]</small></a></p>
+                <div id="encryptDryRunExample2" class="collapse">
+                <pre><code># Preview what would be encrypted (no changes made)
+./anglerphish --migrate-encryption --dry-run
+
+Output:
+DRY RUN - Previewing encryption migration (no changes will be made)...
+SMTP passwords: 5 would be encrypted, 0 would be skipped
+SMS provider configs: 3 would be encrypted, 0 would be skipped
+IMAP passwords: 0 would be encrypted, 2 would be skipped
+
+Dry run complete. Use --migrate-encryption without --dry-run to apply changes.
+
+# Preview what would be decrypted
+./anglerphish --migrate-decryption --dry-run</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><code>--encryption-status</code></strong>
+                <p>Shows the current encryption status of the database. <a class="example-toggle" data-toggle="collapse" data-target="#encryptStatusExample2"><small>[Show Example]</small></a></p>
+                <div id="encryptStatusExample2" class="collapse">
+                <pre><code>./anglerphish --encryption-status
+
+Output:
+Encryption Enabled: Yes
+SMTP Passwords: 5 encrypted, 0 plaintext
+SMS Provider Configs: 3 encrypted, 0 plaintext
+IMAP Passwords: 2 encrypted, 0 plaintext</code></pre>
+                </div>
+            </div>
+
+            <h4>Encrypted Fields</h4>
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th>Field</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>SMTP (Sending Profiles)</td><td><code>password</code></td><td>SMTP server password</td></tr>
+                    <tr><td>SMS (SMS Profiles)</td><td><code>provider_config</code></td><td>Twilio/Vonage API credentials</td></tr>
+                    <tr><td>IMAP</td><td><code>password</code></td><td>IMAP server password</td></tr>
+                </tbody>
+            </table>
+
+            <h4>Production Deployment</h4>
+            <div class="endpoint-doc">
+                <p>For systemd services, use an environment file with restricted permissions: <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample2"><small>[Show Example]</small></a></p>
+                <div id="encryptProdExample2" class="collapse">
+                <pre><code># Create secrets file
+sudo mkdir -p /etc/anglerphish
+echo "ANGLERPHISH_ENCRYPTION_KEY=your-32-byte-key" | sudo tee /etc/anglerphish/secrets.env
+sudo chmod 600 /etc/anglerphish/secrets.env
+sudo chown root:root /etc/anglerphish/secrets.env
+
+# In systemd service file (/etc/systemd/system/anglerphish.service)
+[Service]
+EnvironmentFile=/etc/anglerphish/secrets.env
+ExecStart=/opt/anglerphish/anglerphish</code></pre>
+                </div>
+            </div>
+
+            <div class="alert alert-warning">
+                <i class="fa fa-exclamation-triangle"></i> <strong>Important:</strong> Never lose your encryption key! If lost, encrypted passwords become unrecoverable and you'll need to re-enter all credentials.
+            </div>
+
+        </div>
+        <!-- End Tab 3: Database Encryption -->
+
+    </div>
+    <!-- End Tab Content -->
+
+</div>
+{{end}}
+
+{{define "scripts"}}
+<style>
+/* Smaller, more readable fonts */
+.panel-title {
+    font-size: 16px;
+}
+.panel-title a {
+    color: #333;
+    text-decoration: none;
+    display: block;
+}
+.panel-title a:hover {
+    text-decoration: none;
+}
+.panel-body {
+    font-size: 14px;
+}
+.panel-body h4 {
+    font-size: 15px;
+    margin-top: 15px;
+    margin-bottom: 10px;
+    font-weight: bold;
+    color: #337ab7;
+}
+.endpoint-doc {
+    margin-bottom: 15px;
+    margin-top: 10px;
+}
+.endpoint-doc strong {
+    font-size: 14px;
+    display: block;
+    margin-bottom: 5px;
+}
+.endpoint-doc p {
+    font-size: 13px;
+    margin: 5px 0;
+    color: #666;
+}
+.endpoint-doc pre {
+    background-color: #f5f5f5;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 8px;
+    margin-top: 8px;
+    font-size: 12px;
+}
+.endpoint-doc code {
+    color: #333;
+    font-size: 12px;
+}
+.label {
+    font-size: 11px;
+    padding: 3px 6px;
+}
+h3 {
+    font-size: 20px;
+}
+.example-toggle {
+    cursor: pointer;
+    text-decoration: none;
+}
+.example-toggle:hover {
+    text-decoration: underline;
+}
+</style>
+<script>
+// Prevent page jump when clicking example toggles
+$(document).ready(function() {
+    $('.example-toggle').on('click', function(e) {
+        e.preventDefault();
+    });
+});
+</script>
+{{end}}

@@ -22,6 +22,26 @@ func (as *Server) Pages(w http.ResponseWriter, r *http.Request) {
 			log.Error(err)
 		}
 		JSONResponse(w, ps, http.StatusOK)
+	// DELETE: Bulk delete pages
+	case r.Method == "DELETE":
+		var req struct {
+			IDs []int64 `json:"ids"`
+		}
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			JSONResponse(w, models.Response{Success: false, Message: "Invalid JSON structure"}, http.StatusBadRequest)
+			return
+		}
+		if len(req.IDs) == 0 {
+			JSONResponse(w, models.Response{Success: false, Message: "No page IDs provided"}, http.StatusBadRequest)
+			return
+		}
+		err = models.DeletePages(req.IDs, ctx.Get(r, "user_id").(int64))
+		if err != nil {
+			JSONResponse(w, models.Response{Success: false, Message: "Error deleting pages: " + err.Error()}, http.StatusInternalServerError)
+			return
+		}
+		JSONResponse(w, models.Response{Success: true, Message: "Pages deleted successfully!"}, http.StatusOK)
 	//POST: Create a new page and return it as JSON
 	case r.Method == "POST":
 		p := models.Page{}
@@ -87,5 +107,13 @@ func (as *Server) Page(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		JSONResponse(w, p, http.StatusOK)
+	}
+}
+
+// MFADefaultTemplate returns the default MFA page template
+func (as *Server) MFADefaultTemplate(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		template := models.GetDefaultMFAPageTemplate()
+		JSONResponse(w, models.Response{Success: true, Message: "Default MFA template", Data: template}, http.StatusOK)
 	}
 }

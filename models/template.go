@@ -195,3 +195,42 @@ func DeleteTemplate(id int64, uid int64) error {
 	}
 	return nil
 }
+
+// DeleteTemplates deletes multiple templates in the database.
+// It verifies that each template belongs to the specified user before deletion.
+func DeleteTemplates(ids []int64, uid int64) error {
+	// Start a transaction
+	tx := db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	for _, id := range ids {
+		// Verify the template belongs to this user
+		t := Template{}
+		err := tx.Where("user_id=? and id=?", uid, id).First(&t).Error
+		if err != nil {
+			tx.Rollback()
+			log.Error(err)
+			return err
+		}
+
+		// Delete attachments
+		err = tx.Where("template_id=?", id).Delete(&Attachment{}).Error
+		if err != nil {
+			tx.Rollback()
+			log.Error(err)
+			return err
+		}
+
+		// Delete the template
+		err = tx.Where("user_id=?", uid).Delete(Template{Id: id}).Error
+		if err != nil {
+			tx.Rollback()
+			log.Error(err)
+			return err
+		}
+	}
+
+	return tx.Commit().Error
+}

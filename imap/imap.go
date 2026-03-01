@@ -74,12 +74,38 @@ func Validate(s *models.IMAP) error {
 
 // MarkAsUnread will set the UNSEEN flag on a supplied slice of SeqNums
 func (mbox *Mailbox) MarkAsUnread(seqs []uint32) error {
-	imapClient, err := mbox.newClient()
-	if err != nil {
-		return err
+	// Implement a connection retry with backoff
+	var imapClient *client.Client
+	var err error
+
+	maxRetries := 3
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			// Add exponential backoff between retries
+			backoffTime := time.Duration(attempt*attempt) * time.Second
+			log.Infof("IMAP connection attempt %d failed, retrying in %v", attempt, backoffTime)
+			time.Sleep(backoffTime)
+		}
+
+		imapClient, err = mbox.newClient()
+		if err == nil {
+			break
+		}
+		log.Errorf("IMAP connection attempt %d failed: %v", attempt+1, err)
 	}
 
-	defer imapClient.Logout()
+	if err != nil {
+		return fmt.Errorf("failed to create IMAP connection after %d attempts: %s", maxRetries, err)
+	}
+
+	// Make sure to close the connection even if there's a panic
+	defer func() {
+		// Add a small delay before logout to avoid overwhelming the server
+		time.Sleep(100 * time.Millisecond)
+		if imapClient != nil {
+			imapClient.Logout()
+		}
+	}()
 
 	seqSet := new(imap.SeqSet)
 	seqSet.AddNum(seqs...)
@@ -96,12 +122,38 @@ func (mbox *Mailbox) MarkAsUnread(seqs []uint32) error {
 
 // DeleteEmails will delete emails from the supplied slice of SeqNums
 func (mbox *Mailbox) DeleteEmails(seqs []uint32) error {
-	imapClient, err := mbox.newClient()
-	if err != nil {
-		return err
+	// Implement a connection retry with backoff
+	var imapClient *client.Client
+	var err error
+
+	maxRetries := 3
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			// Add exponential backoff between retries
+			backoffTime := time.Duration(attempt*attempt) * time.Second
+			log.Infof("IMAP connection attempt %d failed, retrying in %v", attempt, backoffTime)
+			time.Sleep(backoffTime)
+		}
+
+		imapClient, err = mbox.newClient()
+		if err == nil {
+			break
+		}
+		log.Errorf("IMAP connection attempt %d failed: %v", attempt+1, err)
 	}
 
-	defer imapClient.Logout()
+	if err != nil {
+		return fmt.Errorf("failed to create IMAP connection after %d attempts: %s", maxRetries, err)
+	}
+
+	// Make sure to close the connection even if there's a panic
+	defer func() {
+		// Add a small delay before logout to avoid overwhelming the server
+		time.Sleep(100 * time.Millisecond)
+		if imapClient != nil {
+			imapClient.Logout()
+		}
+	}()
 
 	seqSet := new(imap.SeqSet)
 	seqSet.AddNum(seqs...)
@@ -115,17 +167,90 @@ func (mbox *Mailbox) DeleteEmails(seqs []uint32) error {
 	return nil
 }
 
+// MarkAsRead will set the SEEN flag on a supplied slice of SeqNums
+func (mbox *Mailbox) MarkAsRead(seqs []uint32) error {
+	// Implement a connection retry with backoff
+	var imapClient *client.Client
+	var err error
+
+	maxRetries := 3
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			// Add exponential backoff between retries
+			backoffTime := time.Duration(attempt*attempt) * time.Second
+			log.Infof("IMAP connection attempt %d failed, retrying in %v", attempt, backoffTime)
+			time.Sleep(backoffTime)
+		}
+
+		imapClient, err = mbox.newClient()
+		if err == nil {
+			break
+		}
+		log.Errorf("IMAP connection attempt %d failed: %v", attempt+1, err)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to create IMAP connection after %d attempts: %s", maxRetries, err)
+	}
+
+	// Make sure to close the connection even if there's a panic
+	defer func() {
+		// Add a small delay before logout to avoid overwhelming the server
+		time.Sleep(100 * time.Millisecond)
+		if imapClient != nil {
+			imapClient.Logout()
+		}
+	}()
+
+	seqSet := new(imap.SeqSet)
+	seqSet.AddNum(seqs...)
+
+	item := imap.FormatFlagsOp(imap.AddFlags, true)
+	err = imapClient.Store(seqSet, item, imap.SeenFlag, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // GetUnread will find all unread emails in the folder and return them as a list.
 func (mbox *Mailbox) GetUnread(markAsRead, delete bool) ([]Email, error) {
 	imap.CharsetReader = charset.Reader
 	var emails []Email
 
-	imapClient, err := mbox.newClient()
-	if err != nil {
-		return emails, fmt.Errorf("failed to create IMAP connection: %s", err)
+	// Implement a connection retry with backoff
+	var imapClient *client.Client
+	var err error
+
+	maxRetries := 3
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			// Add exponential backoff between retries
+			backoffTime := time.Duration(attempt*attempt) * time.Second
+			log.Infof("IMAP connection attempt %d failed, retrying in %v", attempt, backoffTime)
+			time.Sleep(backoffTime)
+		}
+
+		imapClient, err = mbox.newClient()
+		if err == nil {
+			break
+		}
+		log.Errorf("IMAP connection attempt %d failed: %v", attempt+1, err)
 	}
 
-	defer imapClient.Logout()
+	if err != nil {
+		return emails, fmt.Errorf("failed to create IMAP connection after %d attempts: %s", maxRetries, err)
+	}
+
+	// Make sure to close the connection even if there's a panic
+	defer func() {
+		// Add a small delay before logout to avoid overwhelming the server
+		time.Sleep(100 * time.Millisecond)
+		if imapClient != nil {
+			imapClient.Logout()
+		}
+	}()
 
 	// Search for unread emails
 	criteria := imap.NewSearchCriteria()
@@ -208,4 +333,202 @@ func (mbox *Mailbox) newClient() (*client.Client, error) {
 	}
 
 	return imapClient, nil
+}
+
+// extractIPFromEmail attempts to extract the sender's originating IP address from email headers.
+// It parses "Received" headers to find the IP address of the sending mail server.
+// Supports both IPv6 and IPv4 addresses. Returns empty string if extraction fails.
+func extractIPFromEmail(em *email.Email) string {
+	if em == nil {
+		return ""
+	}
+
+	// Get all "Received" headers - they trace the email's path
+	receivedHeaders := em.Headers["Received"]
+	if len(receivedHeaders) == 0 {
+		log.Debug("No Received headers found in email")
+		return ""
+	}
+
+	// The first "Received" header typically contains the sender's IP
+	// Modern email providers often use IPv6, so we prioritize that
+	// Look for patterns like:
+	// - "from hostname ([2a02:587:b902:7500:e94d:e65b:4ac5:cf62])"
+	// - "from hostname [2a02:587:b902:7500:e94d:e65b:4ac5:cf62]"
+	// - "from hostname [1.2.3.4]"
+	// - "from hostname (1.2.3.4)"
+
+	// Regex to match IPv6 addresses in square brackets or parentheses
+	// IPv6 format: 8 groups of 1-4 hex digits separated by colons
+	ipv6Pattern := regexp.MustCompile(`(?:from\s+[^\s]+\s+)?[\[\(]([0-9a-fA-F:]+:+[0-9a-fA-F:]+)[\]\)]`)
+
+	// Regex to match IPv4 addresses in square brackets or parentheses
+	ipv4Pattern := regexp.MustCompile(`(?:from\s+[^\s]+\s+)?[\[\(](\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})[\]\)]`)
+
+	// Try to find IPv6 first (many modern providers use IPv6)
+	for _, header := range receivedHeaders {
+		matches := ipv6Pattern.FindStringSubmatch(header)
+		if len(matches) > 1 {
+			ip := matches[1]
+
+			// Validate IPv6 format
+			if !isValidIPv6Format(ip) {
+				continue
+			}
+
+			// Skip private/link-local IPv6 addresses
+			if isPrivateIPv6(ip) {
+				log.Debugf("Skipping private/link-local IPv6 address: %s", ip)
+				continue
+			}
+
+			log.Debugf("Extracted public IPv6 from email Received header: %s", ip)
+			return ip
+		}
+	}
+
+	// Fall back to IPv4 if no IPv6 found
+	for _, header := range receivedHeaders {
+		matches := ipv4Pattern.FindStringSubmatch(header)
+		if len(matches) > 1 {
+			ip := matches[1]
+
+			// Basic validation - check if it's a valid IP format
+			if !isValidIPFormat(ip) {
+				continue
+			}
+
+			// Skip private/internal IP addresses
+			if isPrivateIP(ip) {
+				log.Debugf("Skipping private IPv4 address: %s", ip)
+				continue
+			}
+
+			log.Debugf("Extracted public IPv4 from email Received header: %s", ip)
+			return ip
+		}
+	}
+
+	log.Debug("No valid public IP found in Received headers")
+	return ""
+}
+
+// isValidIPFormat checks if a string is in valid IPv4 format
+func isValidIPFormat(ip string) bool {
+	parts := regexp.MustCompile(`\.`).Split(ip, -1)
+	if len(parts) != 4 {
+		return false
+	}
+
+	for _, part := range parts {
+		num, err := strconv.Atoi(part)
+		if err != nil || num < 0 || num > 255 {
+			return false
+		}
+	}
+
+	return true
+}
+
+// isPrivateIP checks if an IP address is in a private range
+func isPrivateIP(ip string) bool {
+	// Check for common private ranges
+	if regexp.MustCompile(`^10\.`).MatchString(ip) {
+		return true
+	}
+	if regexp.MustCompile(`^192\.168\.`).MatchString(ip) {
+		return true
+	}
+	if regexp.MustCompile(`^172\.(1[6-9]|2[0-9]|3[0-1])\.`).MatchString(ip) {
+		return true
+	}
+	if regexp.MustCompile(`^127\.`).MatchString(ip) {
+		return true
+	}
+	if regexp.MustCompile(`^169\.254\.`).MatchString(ip) {
+		return true
+	}
+
+	return false
+}
+
+// isValidIPv6Format checks if a string is in valid IPv6 format
+func isValidIPv6Format(ip string) bool {
+	// IPv6 addresses contain colons and hex digits (0-9, a-f, A-F)
+	// Must have at least 2 colons and valid hex digits
+	if !regexp.MustCompile(`^[0-9a-fA-F:]+$`).MatchString(ip) {
+		return false
+	}
+
+	// Count colons - should have at least 2, at most 7
+	colonCount := 0
+	for _, c := range ip {
+		if c == ':' {
+			colonCount++
+		}
+	}
+
+	if colonCount < 2 || colonCount > 7 {
+		return false
+	}
+
+	// Check for valid double colon :: usage (can only appear once)
+	doubleColonCount := 0
+	if regexp.MustCompile(`::`).MatchString(ip) {
+		doubleColonCount = len(regexp.MustCompile(`::`).FindAllString(ip, -1))
+		if doubleColonCount > 1 {
+			return false
+		}
+	}
+
+	// Split by colon and validate each segment
+	segments := regexp.MustCompile(`:`).Split(ip, -1)
+	for _, segment := range segments {
+		// Empty segments are ok (from ::)
+		if segment == "" {
+			continue
+		}
+
+		// Each segment should be 1-4 hex digits
+		if len(segment) > 4 {
+			return false
+		}
+
+		// Verify it's all hex digits
+		if !regexp.MustCompile(`^[0-9a-fA-F]+$`).MatchString(segment) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// isPrivateIPv6 checks if an IPv6 address is in a private/link-local range
+func isPrivateIPv6(ip string) bool {
+	// Convert to lowercase for easier matching
+	ipLower := regexp.MustCompile(`[A-F]`).ReplaceAllStringFunc(ip, func(s string) string {
+		return regexp.MustCompile(`[A-F]`).ReplaceAllString(s, string(s[0]+32))
+	})
+
+	// Link-local addresses: fe80::/10
+	if regexp.MustCompile(`^fe[89ab][0-9a-f]:`).MatchString(ipLower) {
+		return true
+	}
+
+	// Unique local addresses (ULA): fc00::/7 and fd00::/8
+	if regexp.MustCompile(`^f[cd][0-9a-f]{2}:`).MatchString(ipLower) {
+		return true
+	}
+
+	// Loopback: ::1
+	if ipLower == "::1" || ipLower == "0:0:0:0:0:0:0:1" {
+		return true
+	}
+
+	// Unspecified address: ::
+	if ipLower == "::" || ipLower == "0:0:0:0:0:0:0:0" {
+		return true
+	}
+
+	return false
 }

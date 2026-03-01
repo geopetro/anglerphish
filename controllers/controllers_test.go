@@ -37,7 +37,7 @@ func setupTest(t *testing.T) *testContext {
 	}
 	ctx := &testContext{}
 	ctx.config = conf
-	ctx.adminServer = httptest.NewUnstartedServer(NewAdminServer(ctx.config.AdminConf).server.Handler)
+	ctx.adminServer = httptest.NewUnstartedServer(NewAdminServer(ctx.config.AdminConf, ctx.config).server.Handler)
 	ctx.adminServer.Config.Addr = ctx.config.AdminConf.ListenURL
 	ctx.adminServer.Start()
 	// Get the API key to use for these tests

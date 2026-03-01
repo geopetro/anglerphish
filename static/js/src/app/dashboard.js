@@ -1,4 +1,6 @@
 var campaigns = []
+var currentCampaignFilter = 'all' // Global filter state
+
 // statuses is a helper map to point result statuses to ui classes
 var statuses = {
     "Email Sent": {
@@ -33,6 +35,12 @@ var statuses = {
         label: "label-warning",
         icon: "fa-bullhorne",
         point: "ct-point-reported"
+    },
+    "Email Replied": {
+        color: "#E67E22",
+        label: "label-info",
+        icon: "fa-reply",
+        point: "ct-point-replied"
     },
     "Clicked Link": {
         color: "#F39C12",
@@ -79,6 +87,12 @@ var statuses = {
     "Campaign Created": {
         label: "label-success",
         icon: "fa-rocket"
+    },
+    "SMS Sent": {
+        color: "#1abc9c",
+        label: "label-success",
+        icon: "fa-mobile",
+        point: "ct-point-sent"
     }
 }
 
@@ -88,6 +102,8 @@ var statsMapping = {
     "email_reported": "Email Reported",
     "clicked": "Clicked Link",
     "submitted_data": "Submitted Data",
+    "replied": "Email Replied",
+    "sms_sent": "SMS Sent",
 }
 
 function deleteCampaign(idx) {
@@ -158,49 +174,101 @@ function renderPieChart(chartopts) {
 }
 
 function generateStatsPieCharts(campaigns) {
-    var stats_data = []
-    var stats_series_data = {}
-    var total = 0
 
-    $.each(campaigns, function (i, campaign) {
-        $.each(campaign.stats, function (status, count) {
-            if (status == "total") {
-                total += count
-                return true
-            }
-            if (!stats_series_data[status]) {
-                stats_series_data[status] = count;
-            } else {
-                stats_series_data[status] += count;
-            }
-        })
-    })
-    $.each(stats_series_data, function (status, count) {
-        // I don't like this, but I guess it'll have to work.
-        // Turns submitted_data into Submitted Data
-        if (!(status in statsMapping)) {
-            return true
+    const statusesToInclude = Object.keys(statsMapping);
+
+    const emailOnlyStats = ["sent", "opened", "replied", "email_reported"];
+    const smsOnlyStats = ["sms_sent"];
+    const globalStats = ["clicked", "submitted_data"];
+
+    let totals = {
+        all: 0,
+        email: 0,
+        sms: 0,
+        generic: 0
+    };
+
+    let stats_series_data = {};
+    statusesToInclude.forEach(key => stats_series_data[key] = 0);
+
+    // Aggregate stats across all campaigns
+    campaigns.forEach(campaign => {
+        const isSMS = campaign.type === "sms";
+        const isGeneric = campaign.type === "generic";
+        const stats = campaign.stats || {};
+        const total = stats.total || 0;
+
+        if (isSMS) {
+            totals.sms += total;
+        } else if (isGeneric) {
+            totals.generic += total;
+        } else {
+            totals.email += total;
         }
-        status_label = statsMapping[status]
-        stats_data.push({
-            name: status_label,
-            y: Math.floor((count / total) * 100),
-            count: count
-        })
-        stats_data.push({
-            name: '',
-            y: 100 - Math.floor((count / total) * 100)
-        })
-        var stats_chart = renderPieChart({
-            elemId: status + '_chart',
-            title: status_label,
-            name: status,
-            data: stats_data,
-            colors: [statuses[status_label].color, "#dddddd"]
-        })
+        totals.all += total;
 
-        stats_data = []
+        for (let status in stats) {
+            let adjustedStatus = status.toLowerCase();
+
+            if (isSMS && adjustedStatus === "sent") {
+                adjustedStatus = "sms_sent";
+            }
+
+            // Don't count SMS stats toward email-only types
+            if (isSMS && emailOnlyStats.includes(adjustedStatus)) continue;
+            // Don't count generic campaign stats toward email-only or sms-only types
+            if (isGeneric && (emailOnlyStats.includes(adjustedStatus) || smsOnlyStats.includes(adjustedStatus))) continue;
+            if (!statusesToInclude.includes(adjustedStatus)) continue;
+
+            stats_series_data[adjustedStatus] += stats[status];
+        }
     });
+
+    // Render donut charts
+    // Only render if there's at least one campaign of any type
+    if (totals.all > 0) {
+        for (let statusKey in stats_series_data) {
+            const count = stats_series_data[statusKey];
+            const label = statsMapping[statusKey];
+
+            let denominator = 0;
+            if (globalStats.includes(statusKey)) {
+                denominator = totals.all;
+            } else if (emailOnlyStats.includes(statusKey)) {
+                denominator = totals.email;
+            } else if (smsOnlyStats.includes(statusKey)) {
+                denominator = totals.sms;
+            } else {
+                continue;
+            }
+
+            // If there are no campaigns of this specific type, use a small denominator to show 0%
+            // This ensures the donut still renders at 0% rather than being hidden
+            if (denominator === 0) {
+                denominator = 1; // Use 1 to avoid division by zero, count is already 0
+            }
+
+            const percent = (count / denominator) * 100;
+            const chartElemId = statusKey + '_chart';
+
+            const stats_data = [
+                { name: label, y: percent, count: count },
+                { name: '', y: 100 - percent }
+            ];
+
+            try {
+                renderPieChart({
+                    elemId: chartElemId,
+                    title: label,
+                    name: statusKey,
+                    data: stats_data,
+                    colors: [statuses[label].color || "#888", "#dddddd"]
+                });
+            } catch (e) {
+                console.error("Error rendering chart for", statusKey, e);
+            }
+        }
+    }
 }
 
 function generateTimelineChart(campaigns) {
@@ -209,9 +277,12 @@ function generateTimelineChart(campaigns) {
         var campaign_date = moment.utc(campaign.created_date).local()
         // Add it to the chart data
         campaign.y = 0
-        // Clicked events also contain our data submitted events
-        campaign.y += campaign.stats.clicked
-        campaign.y = Math.floor((campaign.y / campaign.stats.total) * 100)
+        // Count all success indicators: clicked, submitted data, and replied
+        campaign.y += (campaign.stats.clicked || 0)
+        campaign.y += (campaign.stats.submitted_data || 0)
+        campaign.y += (campaign.stats.replied || 0)
+        // Calculate percentage and cap at 100% (since users can trigger multiple events)
+        campaign.y = Math.min(100, Math.floor((campaign.y / campaign.stats.total) * 100))
         // Add the data to the overview chart
         overview_data.push({
             campaign_id: campaign.id,
@@ -318,8 +389,12 @@ $(document).ready(function () {
                             targets: [5]
                         },
                         {
-                            className: "color-reported",
+                            className: "color-replied",
                             targets: [6]
+                        },
+                        {
+                            className: "color-reported",
+                            targets: [7]
                         }
                     ],
                     order: [
@@ -329,25 +404,76 @@ $(document).ready(function () {
                 campaignRows = []
                 $.each(campaigns, function (i, campaign) {
                     var campaign_date = moment(campaign.created_date).format('MMMM Do YYYY, h:mm:ss a')
-                    var label = statuses[campaign.status].label || "label-default";
+                    var statusObj = statuses[campaign.status] || {};
+                    var label = statusObj.label || "label-default";
                     //section for tooltips on the status of a campaign to show some quick stats
                     var launchDate;
+                    
+                    // Determine campaign types
+                    var isSMSCampaign = campaign.type === "sms";
+                    var isGenericCampaign = campaign.type === "generic";
+                    
                     if (moment(campaign.launch_date).isAfter(moment())) {
                         launchDate = "Scheduled to start: " + moment(campaign.launch_date).format('MMMM Do YYYY, h:mm:ss a')
                         var quickStats = launchDate + "<br><br>" + "Number of recipients: " + campaign.stats.total
                     } else {
                         launchDate = "Launch Date: " + moment(campaign.launch_date).format('MMMM Do YYYY, h:mm:ss a')
-                        var quickStats = launchDate + "<br><br>" + "Number of recipients: " + campaign.stats.total + "<br><br>" + "Emails opened: " + campaign.stats.opened + "<br><br>" + "Emails clicked: " + campaign.stats.clicked + "<br><br>" + "Submitted Credentials: " + campaign.stats.submitted_data + "<br><br>" + "Errors : " + campaign.stats.error + "<br><br>" + "Reported : " + campaign.stats.email_reported
+                        
+                        var quickStats;
+                        if (isGenericCampaign) {
+                            // Generic campaign stats
+                            quickStats = launchDate + "\n" + 
+                                "Number of links: " + (campaign.stats.total || 0) + "\n" + 
+                                "Clicks: " + (campaign.stats.clicked || 0) + "\n" + 
+                                "Submitted Credentials: " + (campaign.stats.submitted_data || 0);
+                        } else {
+                            var sentLabel = isSMSCampaign ? "SMS sent: " : "Emails sent: ";
+                            
+                            quickStats = launchDate + "\n" + 
+                                "Number of recipients: " + (campaign.stats.total || 0) + "\n" + 
+                                sentLabel + (campaign.stats.sent || 0);
+
+                            // Email-only fields
+                            if (!isSMSCampaign) {
+                                quickStats += "\n" + 
+                                    "Emails opened: " + (campaign.stats.opened || 0) + "\n" + 
+                                    "Emails replied: " + (campaign.stats.replied || 0) + "\n" + 
+                                    "Reported: " + (campaign.stats.email_reported || 0);
+                            }
+
+                            // Shared fields (email + SMS)
+                            quickStats += "\n" + 
+                                "Clicks: " + (campaign.stats.clicked || 0) + "\n" + 
+                                "Submitted Credentials: " + (campaign.stats.submitted_data || 0) + "\n" + 
+                                "Errors: " + (campaign.stats.error || 0);
+                        }
                     }
+                    // Determine campaign type icon
+                    var campaignTypeIcon;
+                    if (isGenericCampaign) {
+                        campaignTypeIcon = '<i class="fa fa-link" title="Generic Link Campaign" style="margin-right: 5px;"></i>';
+                    } else if (isSMSCampaign) {
+                        campaignTypeIcon = '<i class="fa fa-mobile" title="SMS Campaign" style="font-size: 1.2em; margin-right: 5px;"></i>';
+                    } else {
+                        campaignTypeIcon = '<i class="fa fa-envelope" title="Email Campaign" style="margin-right: 5px;"></i>';
+                    }
+                    
+                    // For generic and SMS campaigns, show "-" for email-specific columns
+                    var sentValue = isGenericCampaign ? "-" : (campaign.stats.sent || 0);
+                    var openedValue = (isGenericCampaign || isSMSCampaign) ? "-" : campaign.stats.opened;
+                    var repliedValue = (isGenericCampaign || isSMSCampaign) ? "-" : (campaign.stats.replied || 0);
+                    var reportedValue = (isGenericCampaign || isSMSCampaign) ? "-" : campaign.stats.email_reported;
+                    
                     // Add it to the list
                     campaignRows.push([
-                        escapeHtml(campaign.name),
+                        campaignTypeIcon + escapeHtml(campaign.name),
                         campaign_date,
-                        campaign.stats.sent,
-                        campaign.stats.opened,
+                        sentValue,
+                        openedValue,
                         campaign.stats.clicked,
                         campaign.stats.submitted_data,
-                        campaign.stats.email_reported,
+                        repliedValue,
+                        reportedValue,
                         "<span class=\"label " + label + "\" data-toggle=\"tooltip\" data-placement=\"right\" data-html=\"true\" title=\"" + quickStats + "\">" + campaign.status + "</span>",
                         "<div class='pull-right'><a class='btn btn-primary' href='/campaigns/" + campaign.id + "' data-toggle='tooltip' data-placement='left' title='View Results'>\
                     <i class='fa fa-bar-chart'></i>\
@@ -356,9 +482,66 @@ $(document).ready(function () {
                     <i class='fa fa-trash-o'></i>\
                     </button></div>"
                     ])
-                    $('[data-toggle="tooltip"]').tooltip()
                 })
+                $('[data-toggle="tooltip"]').tooltip()
                 campaignTable.rows.add(campaignRows).draw()
+                
+                // Add campaign type as a data attribute to each row for filtering
+                campaignTable.rows().every(function(rowIdx) {
+                    var campaign = campaigns[rowIdx];
+                    $(this.node()).attr('data-campaign-type', campaign.type || 'email');
+                });
+                
+                // Register persistent filter function
+                $.fn.dataTable.ext.search.push(
+                    function(settings, data, dataIndex) {
+                        // If showing all campaigns, don't filter
+                        if (currentCampaignFilter === 'all') {
+                            return true;
+                        }
+                        
+                        // Get the campaign type for this row
+                        var rowNode = campaignTable.row(dataIndex).node();
+                        var campaignType = $(rowNode).attr('data-campaign-type') || 'email';
+                        
+                        // Apply filter based on current filter state
+                        if (currentCampaignFilter === 'email') {
+                            return campaignType !== 'sms' && campaignType !== 'generic';
+                        } else if (currentCampaignFilter === 'sms') {
+                            return campaignType === 'sms';
+                        } else if (currentCampaignFilter === 'generic') {
+                            return campaignType === 'generic';
+                        }
+                        
+                        return true;
+                    }
+                );
+                
+                // Setup filter buttons with persistent filtering
+                $("#filter-all").on("click", function() {
+                    $(this).addClass('active').siblings().removeClass('active');
+                    currentCampaignFilter = 'all';
+                    campaignTable.draw();
+                });
+                
+                $("#filter-email").on("click", function() {
+                    $(this).addClass('active').siblings().removeClass('active');
+                    currentCampaignFilter = 'email';
+                    campaignTable.draw();
+                });
+                
+                $("#filter-sms").on("click", function() {
+                    $(this).addClass('active').siblings().removeClass('active');
+                    currentCampaignFilter = 'sms';
+                    campaignTable.draw();
+                });
+                
+                $("#filter-generic").on("click", function() {
+                    $(this).addClass('active').siblings().removeClass('active');
+                    currentCampaignFilter = 'generic';
+                    campaignTable.draw();
+                });
+                
                 // Build the charts
                 generateStatsPieCharts(campaigns)
                 generateTimelineChart(campaigns)

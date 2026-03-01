@@ -36,6 +36,19 @@ func (s *ModelsSuite) TestFormatAddress(c *check.C) {
 	c.Assert(r.FormatAddress(), check.Equals, r.Email)
 }
 
+func (s *ModelsSuite) TestResultWithPhone(c *check.C) {
+	r := Result{
+		BaseRecipient: BaseRecipient{
+			FirstName: "John",
+			LastName:  "Doe",
+			Email:     "johndoe@example.com",
+			Phone:     "+15551234567",
+		},
+	}
+	// Verify that the Phone field is correctly stored
+	c.Assert(r.Phone, check.Equals, "+15551234567")
+}
+
 func (s *ModelsSuite) TestResultSendingStatus(ch *check.C) {
 	c := s.createCampaignDependencies(ch)
 	ch.Assert(PostCampaign(&c, c.UserId), check.Equals, nil)
@@ -117,4 +130,14 @@ func (s *ModelsSuite) TestDuplicateResults(ch *check.C) {
 	ch.Assert(len(c.Results), check.Equals, 2)
 	ch.Assert(c.Results[0].Email, check.Equals, group.Targets[0].Email)
 	ch.Assert(c.Results[1].Email, check.Equals, group.Targets[2].Email)
+}
+
+func (s *ModelsSuite) TestSMSCampaignResults(ch *check.C) {
+	c := s.createSMSCampaign(ch)
+
+	// Verify that the results have the correct phone numbers
+	for _, r := range c.Results {
+		ch.Assert(r.Phone, check.Not(check.Equals), "")
+		ch.Assert(r.SMSTarget, check.Equals, true)
+	}
 }

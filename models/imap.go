@@ -11,10 +11,18 @@ import (
 const DefaultIMAPFolder = "INBOX"
 const DefaultIMAPFreq = 60 // Every 60 seconds
 
+// Tracking types for IMAP monitoring
+const (
+	TrackingTypeReport = 0
+	TrackingTypeReply  = 1
+)
+
 // IMAP contains the attributes needed to handle logging into an IMAP server to check
 // for reported emails
 type IMAP struct {
-	UserId                      int64     `json:"-" gorm:"column:user_id"`
+	Id                          int64     `json:"id" gorm:"primary_key;auto_increment"`
+	Name                        string    `json:"name"`
+	UserId                      int64     `json:"user_id" gorm:"column:user_id"`
 	Enabled                     bool      `json:"enabled"`
 	Host                        string    `json:"host"`
 	Port                        uint16    `json:"port,string,omitempty"`
@@ -25,7 +33,10 @@ type IMAP struct {
 	Folder                      string    `json:"folder"`
 	RestrictDomain              string    `json:"restrict_domain"`
 	DeleteReportedCampaignEmail bool      `json:"delete_reported_campaign_email"`
+	TrackingType                int       `json:"tracking_type"` // 0=report, 1=reply
 	LastLogin                   time.Time `json:"last_login,omitempty"`
+	LoginFailures               int       `json:"login_failures"`
+	LastLoginError              time.Time `json:"last_login_error,omitempty"`
 	ModifiedDate                time.Time `json:"modified_date"`
 	IMAPFreq                    uint32    `json:"imap_freq,string,omitempty"`
 }
@@ -100,7 +111,7 @@ func (im *IMAP) Validate() error {
 	return nil
 }
 
-// GetIMAP returns the IMAP server owned by the given user.
+// GetIMAP returns all IMAP servers owned by the given user.
 func GetIMAP(uid int64) ([]IMAP, error) {
 	im := []IMAP{}
 	count := 0
@@ -113,7 +124,18 @@ func GetIMAP(uid int64) ([]IMAP, error) {
 	return im, nil
 }
 
-// PostIMAP updates IMAP settings for a user in the database.
+// GetIMAPById returns a specific IMAP configuration by ID for a user.
+func GetIMAPById(id int64, uid int64) (IMAP, error) {
+	im := IMAP{}
+	err := db.Where("id=? AND user_id=?", id, uid).First(&im).Error
+	if err != nil {
+		log.Error(err)
+		return im, err
+	}
+	return im, nil
+}
+
+// PostIMAP creates a new IMAP configuration for a user in the database.
 func PostIMAP(im *IMAP, uid int64) error {
 	err := im.Validate()
 	if err != nil {
@@ -121,14 +143,15 @@ func PostIMAP(im *IMAP, uid int64) error {
 		return err
 	}
 
-	// Delete old entry. TODO: Save settings and if fails to Save below replace with original
-	err = DeleteIMAP(uid)
-	if err != nil {
-		log.Error(err)
-		return err
+	// Make sure the user ID is set correctly
+	im.UserId = uid
+
+	// Add a default name if none provided
+	if im.Name == "" {
+		im.Name = "IMAP Configuration " + time.Now().Format("2006-01-02 15:04:05")
 	}
 
-	// Insert new settings into the DB
+	// Insert settings into the DB
 	err = db.Save(im).Error
 	if err != nil {
 		log.Error("Unable to save to database: ", err.Error())
@@ -136,7 +159,86 @@ func PostIMAP(im *IMAP, uid int64) error {
 	return err
 }
 
-// DeleteIMAP deletes the existing IMAP in the database.
+// UpdateIMAP updates an existing IMAP configuration in the database.
+func UpdateIMAP(im *IMAP, uid int64) error {
+	err := im.Validate()
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	// Add a signal to force IMAP monitor to recognize the changes right away
+	im.ModifiedDate = time.Now().UTC()
+
+	// Ensure the user can only update their own IMAP configurations
+	existingIm := IMAP{}
+	err = db.Where("id=? AND user_id=?", im.Id, uid).First(&existingIm).Error
+	if err != nil {
+		log.Errorf("Cannot find IMAP configuration %d for user %d", im.Id, uid)
+		return err
+	}
+
+	// Log the enabled status change if it's different
+	if existingIm.Enabled != im.Enabled {
+		log.Infof("IMAP configuration %d enabled status changing from %v to %v", im.Id, existingIm.Enabled, im.Enabled)
+	}
+
+	// Update the configuration, keeping the user ID the same
+	im.UserId = uid
+	im.ModifiedDate = time.Now().UTC()
+
+	// First update specific fields to ensure proper type conversion
+	updateMap := map[string]interface{}{
+		"name":                           im.Name,
+		"enabled":                        im.Enabled,
+		"host":                           im.Host,
+		"port":                           im.Port,
+		"username":                       im.Username,
+		"password":                       im.Password,
+		"tls":                            im.TLS,
+		"ignore_cert_errors":             im.IgnoreCertErrors,
+		"folder":                         im.Folder,
+		"restrict_domain":                im.RestrictDomain,
+		"delete_reported_campaign_email": im.DeleteReportedCampaignEmail,
+		"tracking_type":                  im.TrackingType,
+		"imap_freq":                      im.IMAPFreq,
+		"modified_date":                  im.ModifiedDate,
+	}
+
+	err = db.Model(&IMAP{}).Where("id=? AND user_id=?", im.Id, uid).Updates(updateMap).Error
+	if err != nil {
+		log.Error("Unable to update IMAP configuration: ", err.Error())
+		return err
+	}
+
+	// Verify the update was successful by retrieving the updated record
+	updatedIm := IMAP{}
+	err = db.Where("id=? AND user_id=?", im.Id, uid).First(&updatedIm).Error
+	if err != nil {
+		log.Errorf("Error verifying IMAP update: %v", err)
+		return err
+	}
+
+	if updatedIm.Enabled != im.Enabled {
+		log.Errorf("IMAP enabled status wasn't properly updated! Expected: %v, Got: %v",
+			im.Enabled, updatedIm.Enabled)
+		return errors.New("failed to update enabled status correctly")
+	}
+
+	log.Infof("IMAP configuration %d updated successfully. Enabled: %v", im.Id, updatedIm.Enabled)
+	return nil
+}
+
+// DeleteIMAPById deletes a specific IMAP configuration by ID.
+func DeleteIMAPById(id int64, uid int64) error {
+	err := db.Where("id=? AND user_id=?", id, uid).Delete(&IMAP{}).Error
+	if err != nil {
+		log.Error(err)
+	}
+	return err
+}
+
+// DeleteIMAP deletes all IMAP configurations for a user (for backwards compatibility).
 func DeleteIMAP(uid int64) error {
 	err := db.Where("user_id=?", uid).Delete(&IMAP{}).Error
 	if err != nil {
@@ -145,10 +247,56 @@ func DeleteIMAP(uid int64) error {
 	return err
 }
 
+// RecordLoginFailure increments the login failure counter and updates the last login error timestamp
+func (im *IMAP) RecordLoginFailure() error {
+	im.LoginFailures++
+	im.LastLoginError = time.Now().UTC()
+	err := db.Model(im).Updates(map[string]interface{}{
+		"login_failures":   im.LoginFailures,
+		"last_login_error": im.LastLoginError,
+	}).Error
+	if err != nil {
+		log.Error("Unable to update login failure data: ", err.Error())
+	}
+	return err
+}
+
 func SuccessfulLogin(im *IMAP) error {
-	err := db.Model(&im).Where("user_id = ?", im.UserId).Update("last_login", time.Now().UTC()).Error
+	// Reset login failures on successful login
+	err := db.Model(im).Where("id = ?", im.Id).Updates(map[string]interface{}{
+		"last_login":     time.Now().UTC(),
+		"login_failures": 0, // Reset failures counter on successful login
+	}).Error
 	if err != nil {
 		log.Error("Unable to update database: ", err.Error())
 	}
 	return err
+}
+
+// BeforeSave is a GORM hook that encrypts the password before saving to the database
+func (im *IMAP) BeforeSave() error {
+	if im.Password != "" {
+		encrypted, err := encryptField(im.Password)
+		if err != nil {
+			log.Warnf("Failed to encrypt IMAP password: %v", err)
+			// Continue without encryption rather than failing
+			return nil
+		}
+		im.Password = encrypted
+	}
+	return nil
+}
+
+// AfterFind is a GORM hook that decrypts the password after reading from the database
+func (im *IMAP) AfterFind() error {
+	if im.Password != "" {
+		decrypted, err := decryptField(im.Password)
+		if err != nil {
+			log.Warnf("Failed to decrypt IMAP password: %v", err)
+			// Return original value if decryption fails
+			return nil
+		}
+		im.Password = decrypted
+	}
+	return nil
 }

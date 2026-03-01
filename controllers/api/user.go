@@ -15,17 +15,17 @@ import (
 )
 
 // ErrUsernameTaken is thrown when a user attempts to register a username that is taken.
-var ErrUsernameTaken = errors.New("Username already taken")
+var ErrUsernameTaken = errors.New("username already taken")
 
 // ErrEmptyUsername is thrown when a user attempts to register a username that is taken.
-var ErrEmptyUsername = errors.New("No username provided")
+var ErrEmptyUsername = errors.New("no username provided")
 
 // ErrEmptyRole is throws when no role is provided when creating or modifying a user.
-var ErrEmptyRole = errors.New("No role specified")
+var ErrEmptyRole = errors.New("no role specified")
 
 // ErrInsufficientPermission is thrown when a user attempts to change an
 // attribute (such as the role) for which they don't have permission.
-var ErrInsufficientPermission = errors.New("Permission denied")
+var ErrInsufficientPermission = errors.New("permission denied")
 
 // userRequest is the payload which represents the creation of a new user.
 type userRequest struct {

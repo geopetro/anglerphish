@@ -1,0 +1,333 @@
+/* Campaign Sets Styles */
+
+/* Split View Layout */
+.split-view-container {
+    display: flex;
+    min-height: 500px;
+    margin-bottom: 20px;
+}
+
+.split-view-left {
+    width: 45%;
+    min-width: 250px;
+    margin-right: 20px;
+}
+
+.split-view-right {
+    flex-grow: 1;
+    min-width: 0; /* prevents flex overflow */
+}
+
+/* Campaign List */
+.campaign-list {
+    margin-bottom: 0;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.campaign-list-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 10px 15px;
+    border-left: 3px solid transparent;
+    cursor: pointer;
+}
+
+.campaign-stats-container {
+    width: 100%;
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.campaign-stat {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #fff;
+    background-color: #f8f9fa;
+}
+
+.campaign-stat i {
+    margin-right: 4px;
+}
+
+/* Stat colors - Sent (Green - Success) */
+.campaign-stat.campaign-stat-sent {
+    background-color: #1abc9c ;
+    color: #fff ;
+}
+
+/* Stat colors - Opened (Yellow/Orange - Warning) */
+.campaign-stat.campaign-stat-opened {
+    background-color: #f9bf3b ;
+    color: #333 ;
+}
+
+/* Stat colors - Clicked (Orange) */
+.campaign-stat.campaign-stat-clicked {
+    background-color: #F39C12 ;
+    color: #fff ;
+}
+
+/* Stat colors - Replied (Orange) */
+.campaign-stat.campaign-stat-replied {
+    background-color: #E67E22 ;
+    color: #fff ;
+}
+
+/* Stat colors - Submitted Data (Red - Danger) */
+.campaign-stat.campaign-stat-submitted {
+    background-color: #f05b4f ;
+    color: #fff ;
+}
+
+/* Stat colors - Reported (Light Blue - Info) */
+.campaign-stat.campaign-stat-reported {
+    background-color: #45d6ef ;
+    color: #fff ;
+}
+
+.campaign-list-item:hover {
+    background-color: #f5f5f5;
+}
+
+.campaign-list-item.active {
+    background-color: #deeeff;   /* soft blue tint — readable in light mode */
+    border-left: 4px solid #2373b8;
+    color: #1a3d5c;
+}
+
+.campaign-list-item.active .campaign-stat {
+    /* keep stat badge colours legible on the tinted background */
+    box-shadow: 0 1px 2px rgba(0,0,0,0.18);
+}
+
+.campaign-list-item-icon {
+    margin-right: 10px;
+    font-size: 16px;
+    width: 20px;
+    text-align: center;
+}
+
+.campaign-list-item-text {
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Panel Heading with Button — scoped to campaign-sets split view only */
+.split-view-container .panel-heading {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-right: 15px;
+}
+
+.split-view-container .panel-heading h3 {
+    margin: 0;
+    flex-grow: 1;
+}
+
+.split-view-container .panel-heading .btn {
+    margin-left: 10px;
+}
+
+/* Campaign Detail Panel */
+.campaign-detail-panel {
+    padding: 15px;
+}
+
+.campaign-detail-actions {
+    position: absolute;
+    top: 8px;
+    right: 15px;
+}
+
+.campaign-detail-placeholder {
+    padding: 50px 0;
+    color: #999;
+}
+
+/* Campaign Detail Form */
+.campaign-detail-form {
+    margin-top: 10px;
+}
+
+/* Shared Settings Indicator */
+.shared-setting-indicator {
+    color: #337ab7;
+    margin-left: 5px;
+}
+
+.shared-setting-field {
+    background-color: #f9f9f9;
+}
+
+.shared-setting-label:after {
+    content: " (Shared)";
+    color: #337ab7;
+    font-size: 12px;
+    font-weight: normal;
+}
+
+/* ── Inline Shared Settings ── */
+
+.shared-settings-divider {
+    margin: 16px 0 10px;
+    border-color: #e0e0e0;
+}
+
+/* Header row: text on left, global buttons on right */
+.shared-settings-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.shared-settings-header {
+    font-size: 14px;
+    font-weight: 600;
+    color: #555;
+}
+
+/* btn-group: no extra gap needed — Bootstrap handles the join */
+.shared-settings-global-btns {
+    flex-shrink: 0;
+}
+
+/* One row per setting: label | field | toggle */
+.inline-setting-row {
+    display: flex;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid #f2f2f2;
+    gap: 12px;
+}
+
+.inline-setting-row:last-child {
+    border-bottom: none;
+}
+
+/* Schedule row may have taller content */
+.inline-setting-row-schedule {
+    align-items: flex-start;
+}
+
+.inline-setting-label-col {
+    width: 160px;
+    min-width: 160px;
+    padding-top: 6px;
+}
+
+.inline-setting-label-col .control-label {
+    margin-bottom: 0;
+    font-weight: 600;
+}
+
+.inline-setting-field-col {
+    flex: 1;
+    min-width: 0;
+    transition: opacity 0.25s ease;
+}
+
+/* When per-campaign is selected, dim the shared field */
+.inline-setting-field-col.field-disabled {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+.inline-setting-toggle-col {
+    width: 186px;
+    min-width: 186px;
+    padding-top: 4px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+}
+
+/* Pill toggle group */
+.shared-toggle-group {
+    display: inline-flex;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid #c0c0c0;
+    background: #f5f5f5;
+}
+
+.shared-toggle-btn {
+    padding: 4px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    white-space: nowrap;
+    outline: none;
+}
+
+.shared-toggle-btn:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.shared-toggle-btn.active.shared-toggle-shared {
+    background: #337ab7;
+    color: #fff;
+    border-radius: 20px 0 0 20px;
+}
+
+.shared-toggle-btn.active.shared-toggle-percampaign {
+    background: #f0ad4e;
+    color: #fff;
+    border-radius: 0 20px 20px 0;
+}
+
+/* Campaign Settings Override */
+.campaign-settings-override {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px dashed #ddd;
+}
+
+/* Modal XL size */
+.modal-xl {
+    width: 90%;
+    max-width: 1200px;
+}
+
+/* Tab Content */
+.tab-content {
+    padding-right: 15px;
+    padding-left: 15px;
+    border-radius: 10px 10px 10px 10px;
+}
+
+/* Draft Label */
+.label-default {
+    background-color: #777;
+    color: white;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+    margin-left: 5px;
+}
+
+/* Shared Settings Section Header */
+.form-group label.control-label {
+    display: inline-block;
+    margin-right: 10px;
+    vertical-align: middle;
+}

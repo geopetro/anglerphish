@@ -17,21 +17,33 @@
             <div id="overview_chart" style="height:200px;" class="col-lg-12 col-md-12 col-sm-12 col-xs-12"></div>
         </div>
         <div class="row">
-            <div style="height:200px;" class="col-lg-1 col-md-1"></div>
-            <div id="sent_chart" style="height:200px;" class="col-lg-2 col-md-2"></div>
-            <div id="opened_chart" style="height:200px;" class="col-lg-2 col-md-2"></div>
-            <div id="clicked_chart" style="height:200px;" class="col-lg-2 col-md-2"></div>
-            <div id="submitted_data_chart" style="height:200px;" class="col-lg-2 col-md-2"></div>
-            <div id="email_reported_chart" style="height:200px;" class="col-lg-2 col-md-2"></div>
-            <div style="height:200px;" class="col-lg-1 col-md-1"></div>
+            <div id="sent_chart" style="height:200px;" class="col-lg-3 col-md-3"></div>
+            <div id="sms_sent_chart" style="height:200px;" class="col-lg-3 col-md-3"></div>
+            <div id="opened_chart" style="height:200px;" class="col-lg-3 col-md-3"></div>
+            <div id="clicked_chart" style="height:200px;" class="col-lg-3 col-md-3"></div>
+        </div>
+        <div class="row">
+            <div id="submitted_data_chart" style="height:200px;" class="col-lg-4 col-md-4"></div>
+            <div id="replied_chart" style="height:200px;" class="col-lg-4 col-md-4"></div>
+            <div id="email_reported_chart" style="height:200px;" class="col-lg-4 col-md-4"></div>
         </div>
         <div class="row">
             <h2>Recent Campaigns</h2>
         </div>
         <div class="row">
-            <a href="/campaigns">
-                <button type="button" class="btn btn-primary">View All</button>
-            </a>
+            <div class="col-md-6">
+                <a href="/campaigns">
+                    <button type="button" class="btn btn-primary">View All</button>
+                </a>
+            </div>
+            <div class="col-md-6 text-right">
+                <div class="btn-group" role="group" aria-label="Campaign Type Filter">
+                    <button type="button" class="btn btn-default active" id="filter-all">All Campaigns</button>
+                    <button type="button" class="btn btn-default" id="filter-email">Email Campaigns</button>
+                    <button type="button" class="btn btn-default" id="filter-sms">SMS Campaigns</button>
+                    <button type="button" class="btn btn-default" id="filter-generic">Generic Campaigns</button>
+                </div>
+            </div>
         </div>
         &nbsp;&nbsp;
         <div class="row">
@@ -51,6 +63,9 @@
                         </th>
                         <th class="col-md-1 col-sm-1">
                             <i class="fa fa-exclamation-circle"></i>
+                        </th>
+                        <th class="col-md-1 col-sm-1">
+                            <i class="fa fa-reply"></i>
                         </th>
                         <th class="col-md-1 col-sm-1">
                             <i class="fa fa-bullhorn"></i>

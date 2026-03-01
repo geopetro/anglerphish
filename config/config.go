@@ -26,6 +26,11 @@ type PhishServer struct {
 	KeyPath   string `json:"key_path"`
 }
 
+// Reports represents the reports configuration details
+type Reports struct {
+	StoragePath string `json:"storage_path"`
+}
+
 // Config represents the configuration information.
 type Config struct {
 	AdminConf      AdminServer `json:"admin_server"`
@@ -37,13 +42,17 @@ type Config struct {
 	TestFlag       bool        `json:"test_flag"`
 	ContactAddress string      `json:"contact_address"`
 	Logging        *log.Config `json:"logging"`
+	ReportsConf    Reports     `json:"reports"`
 }
 
 // Version contains the current gophish version
 var Version = ""
 
+// AnglerPhishVersion contains the current anglerphish version
+var AnglerPhishVersion = ""
+
 // ServerName is the server type that is returned in the transparency response.
-const ServerName = "gophish"
+const ServerName = "IGNORE"
 
 // LoadConfig loads the configuration from the specified filepath
 func LoadConfig(filepath string) (*Config, error) {

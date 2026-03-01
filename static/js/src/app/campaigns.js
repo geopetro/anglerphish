@@ -10,12 +10,254 @@ var labels = {
 
 var campaigns = []
 var campaign = {}
+var activeCampaignsTable = null
+var archivedCampaignsTable = null
+var selectedCampaigns = {}  // Map of campaign id -> true for selected campaigns
+var currentTab = 'active'   // Track current active tab
+
+// Update the selection count display and button visibility
+function updateSelectionUI() {
+    var count = Object.keys(selectedCampaigns).length;
+    
+    $('#selectedCount').text(count);
+    if (count > 0) {
+        $('#deleteSelectedCampaigns').show();
+    } else {
+        $('#deleteSelectedCampaigns').hide();
+    }
+}
+
+// Clear all selections and update UI
+function clearSelections() {
+    selectedCampaigns = {};
+    
+    // Uncheck all checkboxes
+    $('input.campaign-checkbox').prop('checked', false);
+    $('#selectAllActive').prop('checked', false).prop('indeterminate', false);
+    $('#selectAllArchived').prop('checked', false).prop('indeterminate', false);
+    
+    updateSelectionUI();
+}
+
+// Handle individual checkbox change
+function handleCheckboxChange(campaignId) {
+    var checkbox = $('input.campaign-checkbox[data-id="' + campaignId + '"]');
+    
+    if (checkbox.is(':checked')) {
+        selectedCampaigns[campaignId] = true;
+    } else {
+        delete selectedCampaigns[campaignId];
+    }
+    
+    updateSelectionUI();
+    updateSelectAllCheckbox();
+}
+
+// Update the "select all" checkbox state based on individual selections
+function updateSelectAllCheckbox() {
+    var table = currentTab === 'active' ? activeCampaignsTable : archivedCampaignsTable;
+    var selectAll = currentTab === 'active' ? '#selectAllActive' : '#selectAllArchived';
+    
+    if (!table) return;
+    
+    var allCheckboxes = $(table.table().body()).find('input.campaign-checkbox');
+    var checkedCount = allCheckboxes.filter(':checked').length;
+    var totalCount = allCheckboxes.length;
+    
+    if (totalCount === 0) {
+        $(selectAll).prop('checked', false);
+        $(selectAll).prop('indeterminate', false);
+    } else if (checkedCount === 0) {
+        $(selectAll).prop('checked', false);
+        $(selectAll).prop('indeterminate', false);
+    } else if (checkedCount === totalCount) {
+        $(selectAll).prop('checked', true);
+        $(selectAll).prop('indeterminate', false);
+    } else {
+        $(selectAll).prop('checked', false);
+        $(selectAll).prop('indeterminate', true);
+    }
+}
+
+// Handle "select all" checkbox click
+function handleSelectAll() {
+    var table = currentTab === 'active' ? activeCampaignsTable : archivedCampaignsTable;
+    var selectAll = currentTab === 'active' ? '#selectAllActive' : '#selectAllArchived';
+    
+    if (!table) return;
+    
+    var isChecked = $(selectAll).is(':checked');
+    var allCheckboxes = $(table.table().body()).find('input.campaign-checkbox');
+    
+    allCheckboxes.each(function() {
+        $(this).prop('checked', isChecked);
+        var campaignId = $(this).data('id');
+        if (isChecked) {
+            selectedCampaigns[campaignId] = true;
+        } else {
+            delete selectedCampaigns[campaignId];
+        }
+    });
+    
+    updateSelectionUI();
+}
+
+// Delete selected campaigns
+function deleteSelectedCampaigns() {
+    var ids = Object.keys(selectedCampaigns).map(function(id) { return parseInt(id); });
+    
+    if (ids.length === 0) {
+        return;
+    }
+    
+    // Get campaign names for the confirmation message
+    var names = [];
+    ids.forEach(function(id) {
+        var campaign = campaigns.find(function(c) { return c.id === id; });
+        if (campaign) {
+            names.push(campaign.name);
+        }
+    });
+    
+    var confirmText = ids.length === 1 
+        ? "Delete campaign: " + names[0] + "?" 
+        : "Delete " + ids.length + " campaigns?";
+    
+    Swal.fire({
+        title: "Are you sure?",
+        text: confirmText + " This can't be undone!",
+        type: "warning",
+        animation: false,
+        showCancelButton: true,
+        confirmButtonText: "Delete",
+        confirmButtonColor: "#d9534f",
+        reverseButtons: true,
+        allowOutsideClick: false,
+        showLoaderOnConfirm: true,
+        preConfirm: function () {
+            return new Promise(function (resolve, reject) {
+                api.campaigns.bulkDelete(ids)
+                    .success(function (msg) {
+                        resolve(msg)
+                    })
+                    .error(function (data) {
+                        reject(data.responseJSON.message)
+                    })
+            })
+        }
+    }).then(function (result) {
+        if (result.value) {
+            Swal.fire(
+                'Campaigns Deleted!',
+                result.value.message,
+                'success'
+            );
+            // Clear selection and reload page
+            selectedCampaigns = {};
+            $('button:contains("OK")').on('click', function () {
+                location.reload()
+            })
+        }
+    })
+}
+window.deleteSelectedCampaigns = deleteSelectedCampaigns;
+
+// generateCampaignSummary creates a formatted summary of campaign settings
+function generateCampaignSummary() {
+    // Get the campaign type
+    var campaignType = $("#campaign_type").val();
+    
+    // Format dates
+    var launchDate = $("#launch_date").val();
+    var sendByDate = $("#send_by_date").val();
+    
+    // Build common summary parts
+    var summary = "<div style='text-align: left;'>";
+    summary += "<strong>Campaign Name:</strong> " + $("#name").val() + "<br>";
+    
+    // Display campaign type
+    var typeDisplay = campaignType === "email" ? "Email" : (campaignType === "sms" ? "SMS" : "Generic (Landing Page Only)");
+    summary += "<strong>Campaign Type:</strong> " + typeDisplay + "<br>";
+    summary += "<strong>Landing Page:</strong> " + ($("#page").select2("data")[0] ? $("#page").select2("data")[0].text : "None") + "<br>";
+    
+    // Add type-specific details
+    if (campaignType === "email") {
+        summary += "<strong>Email Template:</strong> " + ($("#template").select2("data")[0] ? $("#template").select2("data")[0].text : "None") + "<br>";
+        summary += "<strong>Sending Profile:</strong> " + ($("#profile").select2("data")[0] ? $("#profile").select2("data")[0].text : "None") + "<br>";
+        
+        // Add target groups for email
+        summary += "<strong>Target Groups:</strong> ";
+        var groups = [];
+        $("#users").select2("data").forEach(function (group) {
+            groups.push(group.text);
+        });
+        summary += groups.join(", ") + "<br>";
+        
+        // Get the number of recipients
+        var totalRecipients = 0;
+        $("#users").select2("data").forEach(function (group) {
+            var match = group.title && group.title.match(/(\d+) targets/);
+            if (match && match[1]) {
+                totalRecipients += parseInt(match[1]);
+            }
+        });
+        summary += "<strong>Total Recipients:</strong> " + totalRecipients + "<br>";
+    } else if (campaignType === "sms") {
+        summary += "<strong>SMS Template:</strong> " + ($("#sms_template").select2("data")[0] ? $("#sms_template").select2("data")[0].text : "None") + "<br>";
+        summary += "<strong>SMS Sending Profile:</strong> " + ($("#sms_profile").select2("data")[0] ? $("#sms_profile").select2("data")[0].text : "None") + "<br>";
+        
+        // Add target groups for SMS
+        summary += "<strong>Target Groups:</strong> ";
+        var groups = [];
+        $("#users").select2("data").forEach(function (group) {
+            groups.push(group.text);
+        });
+        summary += groups.join(", ") + "<br>";
+        
+        // Get the number of recipients
+        var totalRecipients = 0;
+        $("#users").select2("data").forEach(function (group) {
+            var match = group.title && group.title.match(/(\d+) targets/);
+            if (match && match[1]) {
+                totalRecipients += parseInt(match[1]);
+            }
+        });
+        summary += "<strong>Total Recipients:</strong> " + totalRecipients + "<br>";
+    } else if (campaignType === "generic") {
+        summary += "<strong>Distribution:</strong> Manual (via tracking URL)<br>";
+        summary += "<strong>Note:</strong> No emails/SMS will be sent. You will receive a tracking URL after launch.<br>";
+    }
+    
+    // Add URL and other settings
+    summary += "<strong>URL:</strong> " + $("#url").val() + "<br>";
+    summary += "<strong>Launch Date:</strong> " + launchDate + "<br>";
+    if (sendByDate && campaignType !== "generic") {
+        summary += "<strong>Send By Date:</strong> " + sendByDate + "<br>";
+    }
+    
+    // Add HTTP Basic Auth if enabled
+    if ($('#basicauth').is(":checked")) {
+        summary += "<strong>HTTP Basic Auth:</strong> Enabled<br>";
+    }
+    
+    // Add QR code size if specified
+    var qrSize = $("#qrsize").val();
+    if (qrSize) {
+        summary += "<strong>QR Code Size:</strong> " + qrSize + "<br>";
+    }
+    
+    summary += "</div>";
+    return summary;
+}
 
 // Launch attempts to POST to /campaigns/
 function launch() {
+    // Generate campaign summary
+    var campaignSummary = generateCampaignSummary();
+    
     Swal.fire({
-        title: "Are you sure?",
-        text: "This will schedule the campaign to be launched.",
+        title: "Campaign Summary",
+        html: "Please review the campaign settings before launching:<br><br>" + campaignSummary,
         type: "question",
         animation: false,
         showCancelButton: true,
@@ -26,33 +268,64 @@ function launch() {
         showLoaderOnConfirm: true,
         preConfirm: function () {
             return new Promise(function (resolve, reject) {
-                groups = []
-                $("#users").select2("data").forEach(function (group) {
-                    groups.push({
-                        name: group.text
+                // Get the campaign type
+                var campaignType = $("#campaign_type").val();
+                
+                // Get groups (only for non-generic campaigns)
+                var groups = [];
+                if (campaignType !== "generic") {
+                    $("#users").select2("data").forEach(function (group) {
+                        groups.push({
+                            name: group.text
+                        });
                     });
-                })
+                }
+                
                 // Validate our fields
                 var send_by_date = $("#send_by_date").val()
-                if (send_by_date != "") {
+                if (send_by_date != "" && campaignType !== "generic") {
                     send_by_date = moment(send_by_date, "MMMM Do YYYY, h:mm a").utc().format()
+                } else {
+                    send_by_date = null;
                 }
+
+                var urlParamValue = $("#urlparam").val();
+                var urlparam = urlParamValue !== '' ? urlParamValue : 'rid';
+                
+                // Common campaign properties
                 campaign = {
                     name: $("#name").val(),
-                    template: {
-                        name: $("#template").select2("data")[0].text
-                    },
+                    type: campaignType,
                     url: $("#url").val(),
+                    urlparam: urlparam,
+                    qrsize: $("#qrsize").val(),
                     page: {
                         name: $("#page").select2("data")[0].text
                     },
-                    smtp: {
-                        name: $("#profile").select2("data")[0].text
-                    },
+                    basicauth: $('#basicauth').is(":checked"),
                     launch_date: moment($("#launch_date").val(), "MMMM Do YYYY, h:mm a").utc().format(),
-                    send_by_date: send_by_date || null,
+                    send_by_date: send_by_date,
                     groups: groups,
                 }
+                
+                // Add type-specific properties
+                if (campaignType === "email") {
+                    campaign.template = {
+                        name: $("#template").select2("data")[0].text
+                    };
+                    campaign.smtp = {
+                        name: $("#profile").select2("data")[0].text
+                    };
+                } else if (campaignType === "sms") {
+                    campaign.sms_template = {
+                        name: $("#sms_template").select2("data")[0].text
+                    };
+                    campaign.sms = {
+                        name: $("#sms_profile").select2("data")[0].text
+                    };
+                }
+                // Generic campaigns don't need template, smtp, sms_template, or sms
+                
                 // Submit the campaign
                 api.campaigns.post(campaign)
                     .success(function (data) {
@@ -68,16 +341,61 @@ function launch() {
         }
     }).then(function (result) {
         if (result.value){
-            Swal.fire(
-                'Campaign Scheduled!',
-                'This campaign has been scheduled for launch!',
-                'success'
-            );
+            // For generic campaigns, show the tracking URL
+            if (campaign.type === "generic" && campaign.results && campaign.results.length > 0) {
+                // Close the campaign creation modal first
+                $("#modal").modal('hide');
+                
+                var urlParam = campaign.urlparam || 'rid';
+                var trackingUrl = campaign.url + '?' + urlParam + '=' + campaign.results[0].id;
+                
+                Swal.fire({
+                    title: 'Generic Campaign Launched!',
+                    html: '<p>Your tracking URL is ready:</p>' +
+                          '<div class="input-group" style="margin-top: 10px;">' +
+                          '<input type="text" class="form-control" id="trackingUrlInput" value="' + escapeHtml(trackingUrl) + '" readonly>' +
+                          '<span class="input-group-btn">' +
+                          '<button class="btn btn-primary" type="button" onclick="copyTrackingUrl()"><i class="fa fa-copy"></i> Copy</button>' +
+                          '</span></div>' +
+                          '<p style="margin-top: 15px; font-size: 12px; color: #666;">You can generate more links from the campaign results page.</p>',
+                    type: 'success',
+                    showCancelButton: false,
+                    confirmButtonText: 'View Campaign',
+                    confirmButtonColor: '#428bca'
+                }).then(function() {
+                    window.location = "/campaigns/" + campaign.id.toString()
+                });
+            } else {
+                Swal.fire(
+                    'Campaign Scheduled!',
+                    'This campaign has been scheduled for launch!',
+                    'success'
+                );
+                $('button:contains("OK")').on('click', function () {
+                    window.location = "/campaigns/" + campaign.id.toString()
+                })
+            }
         }
-        $('button:contains("OK")').on('click', function () {
-            window.location = "/campaigns/" + campaign.id.toString()
-        })
     })
+}
+
+// Helper function to copy tracking URL to clipboard
+function copyTrackingUrl() {
+    var input = document.getElementById('trackingUrlInput');
+    input.select();
+    input.setSelectionRange(0, 99999);
+    document.execCommand('copy');
+    
+    // Show feedback by changing button text temporarily
+    var btn = $(event.target).closest('button');
+    var originalHtml = btn.html();
+    btn.html('<i class="fa fa-check"></i> Copied!');
+    btn.removeClass('btn-primary').addClass('btn-success');
+    
+    setTimeout(function() {
+        btn.html(originalHtml);
+        btn.removeClass('btn-success').addClass('btn-primary');
+    }, 2000);
 }
 
 // Attempts to send a test email by POSTing to /campaigns/
@@ -90,6 +408,7 @@ function sendTestEmail() {
         last_name: $("input[name=to_last_name]").val(),
         email: $("input[name=to_email]").val(),
         position: $("input[name=to_position]").val(),
+        custom: $("input[name=to_custom]").val(),
         url: $("#url").val(),
         page: {
             name: $("#page").select2("data")[0].text
@@ -117,10 +436,27 @@ function sendTestEmail() {
 function dismiss() {
     $("#modal\\.flashes").empty();
     $("#name").val("");
+    $("#campaign_type").val("email");
+    
+    // Reset campaign type buttons to default (Email)
+    $(".campaign-type-btn").removeClass("btn-primary active").addClass("btn-default");
+    $(".campaign-type-btn[data-type='email']").removeClass("btn-default").addClass("btn-primary active");
+    
+    // Show email fields, hide SMS and generic fields
+    $("#email_template_div").show();
+    $("#sms_template_div").hide();
+    $("#email_profile_div").show();
+    $("#sms_profile_div").hide();
+    $("#groups_div").show();
+    $("#generic_info_div").hide();
+    
     $("#template").val("").change();
+    $("#sms_template").val("").change();
     $("#page").val("").change();
     $("#url").val("");
+    $("#urlLengthIndicator").html("");
     $("#profile").val("").change();
+    $("#sms_profile").val("").change();
     $("#users").val("").change();
     $("#modal").modal('hide');
 }
@@ -174,17 +510,18 @@ function setupOptions() {
                     obj.title = obj.num_targets + " targets"
                     return obj
                 });
-                console.log(group_s2)
                 $("#users.form-control").select2({
                     placeholder: "Select Groups",
                     data: group_s2,
                 });
             }
         });
+    
+    // Load email templates
     api.templates.get()
         .success(function (templates) {
             if (templates.length == 0) {
-                modalError("No templates found!")
+                modalError("No email templates found!")
                 return false
             } else {
                 var template_s2 = $.map(templates, function (obj) {
@@ -193,7 +530,7 @@ function setupOptions() {
                 });
                 var template_select = $("#template.form-control")
                 template_select.select2({
-                    placeholder: "Select a Template",
+                    placeholder: "Select an Email Template",
                     data: template_s2,
                 });
                 if (templates.length === 1) {
@@ -202,6 +539,29 @@ function setupOptions() {
                 }
             }
         });
+    
+    // Load SMS templates
+    api.smsTemplates.get()
+        .success(function (templates) {
+            // Only store the templates, don't show error here
+            // Error will be shown when switching to SMS campaign type
+            if (templates.length > 0) {
+                var template_s2 = $.map(templates, function (obj) {
+                    obj.text = obj.name
+                    return obj
+                });
+                var template_select = $("#sms_template.form-control")
+                template_select.select2({
+                    placeholder: "Select an SMS Template",
+                    data: template_s2,
+                });
+                if (templates.length === 1) {
+                    template_select.val(template_s2[0].id)
+                    template_select.trigger('change.select2')
+                }
+            }
+        });
+    
     api.pages.get()
         .success(function (pages) {
             if (pages.length == 0) {
@@ -223,10 +583,12 @@ function setupOptions() {
                 }
             }
         });
+    
+    // Load email sending profiles
     api.SMTP.get()
         .success(function (profiles) {
             if (profiles.length == 0) {
-                modalError("No profiles found!")
+                modalError("No email sending profiles found!")
                 return false
             } else {
                 var profile_s2 = $.map(profiles, function (obj) {
@@ -235,7 +597,29 @@ function setupOptions() {
                 });
                 var profile_select = $("#profile.form-control")
                 profile_select.select2({
-                    placeholder: "Select a Sending Profile",
+                    placeholder: "Select an Email Sending Profile",
+                    data: profile_s2,
+                }).select2("val", profile_s2[0]);
+                if (profiles.length === 1) {
+                    profile_select.val(profile_s2[0].id)
+                    profile_select.trigger('change.select2')
+                }
+            }
+        });
+    
+    // Load SMS sending profiles
+    api.SMS.get()
+        .success(function (profiles) {
+            if (profiles.length == 0) {
+                return false
+            } else {
+                var profile_s2 = $.map(profiles, function (obj) {
+                    obj.text = obj.name
+                    return obj
+                });
+                var profile_select = $("#sms_profile.form-control")
+                profile_select.select2({
+                    placeholder: "Select an SMS Sending Profile",
                     data: profile_s2,
                 }).select2("val", profile_s2[0]);
                 if (profiles.length === 1) {
@@ -256,34 +640,121 @@ function copy(idx) {
     api.campaignId.get(campaigns[idx].id)
         .success(function (campaign) {
             $("#name").val("Copy of " + campaign.name)
-            if (!campaign.template.id) {
-                $("#template").val("").change();
-                $("#template").select2({
-                    placeholder: campaign.template.name
-                });
+            
+            // Set the campaign type from the original campaign
+            var campaignType = campaign.type || "email";
+            $("#campaign_type").val(campaignType);
+            
+            // Update the UI buttons to reflect the correct campaign type
+            $(".campaign-type-btn").removeClass("btn-primary active").addClass("btn-default");
+            $(".campaign-type-btn[data-type='" + campaignType + "']")
+                .removeClass("btn-default").addClass("btn-primary active");
+            
+            // Show/hide appropriate fields based on campaign type
+            if (campaignType === "sms") {
+                // SMS campaign - show SMS fields, hide email fields
+                $("#email_template_div").hide();
+                $("#sms_template_div").show();
+                $("#email_profile_div").hide();
+                $("#sms_profile_div").show();
+                $("#groups_div").show();
+                $("#generic_info_div").hide();
+                
+                // Populate SMS-specific fields
+                if (campaign.sms_template && campaign.sms_template.id) {
+                    $("#sms_template").val(campaign.sms_template.id.toString());
+                    $("#sms_template").trigger("change.select2");
+                } else if (campaign.sms_template && campaign.sms_template.name) {
+                    $("#sms_template").val("").change();
+                    $("#sms_template").select2({
+                        placeholder: campaign.sms_template.name
+                    });
+                }
+                
+                if (campaign.sms && campaign.sms.id) {
+                    $("#sms_profile").val(campaign.sms.id.toString());
+                    $("#sms_profile").trigger("change.select2");
+                } else if (campaign.sms && campaign.sms.name) {
+                    $("#sms_profile").val("").change();
+                    $("#sms_profile").select2({
+                        placeholder: campaign.sms.name
+                    });
+                }
+            } else if (campaignType === "generic") {
+                // Generic campaign - hide all template/profile fields
+                $("#email_template_div").hide();
+                $("#sms_template_div").hide();
+                $("#email_profile_div").hide();
+                $("#sms_profile_div").hide();
+                $("#groups_div").hide();
+                $("#generic_info_div").show();
             } else {
-                $("#template").val(campaign.template.id.toString());
-                $("#template").trigger("change.select2")
+                // Email campaign (default) - show email fields, hide SMS fields
+                $("#email_template_div").show();
+                $("#sms_template_div").hide();
+                $("#email_profile_div").show();
+                $("#sms_profile_div").hide();
+                $("#groups_div").show();
+                $("#generic_info_div").hide();
+                
+                // Populate email-specific fields
+                if (campaign.template && campaign.template.id) {
+                    $("#template").val(campaign.template.id.toString());
+                    $("#template").trigger("change.select2");
+                } else if (campaign.template && campaign.template.name) {
+                    $("#template").val("").change();
+                    $("#template").select2({
+                        placeholder: campaign.template.name
+                    });
+                }
+                
+                if (campaign.smtp && campaign.smtp.id) {
+                    $("#profile").val(campaign.smtp.id.toString());
+                    $("#profile").trigger("change.select2");
+                } else if (campaign.smtp && campaign.smtp.name) {
+                    $("#profile").val("").change();
+                    $("#profile").select2({
+                        placeholder: campaign.smtp.name
+                    });
+                }
             }
-            if (!campaign.page.id) {
-                $("#page").val("").change();
-                $("#page").select2({
-                    placeholder: campaign.page.name
-                });
+            
+            // Set common fields (page, URL, groups)
+            if (campaign.page) {
+                if (!campaign.page.id) {
+                    $("#page").val("").change();
+                    $("#page").select2({
+                        placeholder: campaign.page.name
+                    });
+                } else {
+                    $("#page").val(campaign.page.id.toString());
+                    $("#page").trigger("change.select2")
+                }
+            }
+            
+            // Set URL and related fields
+            $("#url").val(campaign.url);
+            if (campaign.urlparam) {
+                $("#urlparam").val(campaign.urlparam);
+            }
+            if (campaign.qrsize) {
+                $("#qrsize").val(campaign.qrsize);
+            }
+            if (campaign.basicauth) {
+                $("#basicauth").prop("checked", true);
             } else {
-                $("#page").val(campaign.page.id.toString());
-                $("#page").trigger("change.select2")
+                $("#basicauth").prop("checked", false);
             }
-            if (!campaign.smtp.id) {
-                $("#profile").val("").change();
-                $("#profile").select2({
-                    placeholder: campaign.smtp.name
-                });
-            } else {
-                $("#profile").val(campaign.smtp.id.toString());
-                $("#profile").trigger("change.select2")
+            
+            // Update URL length indicator
+            updateURLLengthIndicator();
+            
+            // Populate groups (for non-generic campaigns)
+            if (campaignType !== "generic" && campaign.groups && campaign.groups.length > 0) {
+                var groupIds = campaign.groups.map(function(g) { return g.id.toString(); });
+                $("#users").val(groupIds);
+                $("#users").trigger("change.select2");
             }
-            $("#url").val(campaign.url)
         })
         .error(function (data) {
             $("#modal\\.flashes").empty().append("<div style=\"text-align:center\" class=\"alert alert-danger\">\
@@ -291,7 +762,293 @@ function copy(idx) {
         })
 }
 
+// URL Template functionality
+var urlTemplates = [];
+
+function loadURLTemplates() {
+    api.urlTemplates.get()
+        .success(function (templates) {
+            urlTemplates = templates;
+            displayURLTemplates();
+        })
+        .error(function (data) {
+            modalError("Error loading URL templates");
+        });
+}
+
+function displayURLTemplates() {
+    var templateList = $("#urlTemplateList");
+    templateList.empty();
+    
+    // Group templates by category
+    var grouped = {};
+    urlTemplates.forEach(function (template) {
+        if (!grouped[template.category]) {
+            grouped[template.category] = [];
+        }
+        grouped[template.category].push(template);
+    });
+    
+    // Display preset templates first
+    var presetCategories = Object.keys(grouped).filter(function(cat) {
+        return grouped[cat].some(function(t) { return t.is_preset; });
+    }).sort();
+    
+    presetCategories.forEach(function (category, index) {
+        var categoryTemplates = grouped[category].filter(function(t) { return t.is_preset; });
+        if (categoryTemplates.length > 0) {
+            var categoryId = 'category-' + index;
+            var isFirstCategory = index === 0;
+            
+            // Create collapsible category header
+            var chevronClass = isFirstCategory ? 'fa-chevron-down' : 'fa-chevron-right';
+            var categoryHeader = $('<div style="margin-top: 10px;">' +
+                '<a data-toggle="collapse" href="#' + categoryId + '" style="display: block; padding: 8px; background: #f5f5f5; border-radius: 4px; text-decoration: none; color: #333;">' +
+                '<i class="fa ' + chevronClass + '"></i> ' +
+                '<i class="fa fa-folder-open" style="margin-left: 5px;"></i> ' +
+                '<strong>' + escapeHtml(category) + '</strong> ' +
+                '<span class="badge" style="background: #428bca;">' + categoryTemplates.length + '</span>' +
+                '</a>' +
+                '</div>');
+            
+            // Create collapsible content container
+            var collapseDiv = $('<div id="' + categoryId + '" class="collapse ' + (isFirstCategory ? 'in' : '') + '" style="margin-left: 10px;"></div>');
+            
+            categoryTemplates.forEach(function (template) {
+                var templateItem = $('<div class="list-group-item" style="cursor: pointer; padding: 8px 12px; margin-top: 5px;">' +
+                    '<div style="display: flex; justify-content: space-between; align-items: center;">' +
+                    '<div><i class="fa fa-link"></i> ' + escapeHtml(template.name) + '</div>' +
+                    '</div>' +
+                    '<small class="text-muted" style="display: block; margin-top: 4px; word-break: break-all;">' + escapeHtml(template.url) + '</small>' +
+                    '</div>');
+                templateItem.click(function () {
+                    $("#url").val(template.url);
+                    $("#urlTemplateModal").modal('hide');
+                    updateURLLengthIndicator();
+                });
+                collapseDiv.append(templateItem);
+            });
+            
+            templateList.append(categoryHeader);
+            templateList.append(collapseDiv);
+            
+            // Toggle chevron icon on collapse
+            categoryHeader.find('a').on('click', function() {
+                var icon = $(this).find('.fa-chevron-down, .fa-chevron-right');
+                if (icon.hasClass('fa-chevron-down')) {
+                    icon.removeClass('fa-chevron-down').addClass('fa-chevron-right');
+                } else {
+                    icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
+                }
+            });
+        }
+    });
+    
+    // Display custom templates
+    var customTemplates = urlTemplates.filter(function(t) { return !t.is_preset; });
+    if (customTemplates.length > 0) {
+        var customCategoryId = 'category-custom';
+        
+        var customHeader = $('<div style="margin-top: 15px;">' +
+            '<a data-toggle="collapse" href="#' + customCategoryId + '" style="display: block; padding: 8px; background: #f5f5f5; border-radius: 4px; text-decoration: none; color: #333;">' +
+            '<i class="fa fa-chevron-down"></i> ' +
+            '<i class="fa fa-star" style="margin-left: 5px; color: #f0ad4e;"></i> ' +
+            '<strong>Your Custom Templates</strong> ' +
+            '<span class="badge" style="background: #f0ad4e;">' + customTemplates.length + '</span>' +
+            '</a>' +
+            '</div>');
+        
+        var customCollapseDiv = $('<div id="' + customCategoryId + '" class="collapse in" style="margin-left: 10px;"></div>');
+        
+        customTemplates.forEach(function (template) {
+            var templateItem = $('<div class="list-group-item" style="cursor: pointer; padding: 8px 12px; margin-top: 5px;">' +
+                '<div style="display: flex; justify-content: space-between; align-items: center;">' +
+                '<div><i class="fa fa-bookmark"></i> ' + escapeHtml(template.name) + '</div>' +
+                '<button class="btn btn-xs btn-danger delete-template-btn" data-template-id="' + template.id + '" style="margin-left: 10px;">' +
+                '<i class="fa fa-trash"></i></button>' +
+                '</div>' +
+                '<small class="text-muted" style="display: block; margin-top: 4px; word-break: break-all;">' + escapeHtml(template.url) + '</small>' +
+                '</div>');
+            
+            templateItem.find('.delete-template-btn').click(function (e) {
+                e.stopPropagation();
+                deleteURLTemplate(template.id);
+            });
+            
+            templateItem.click(function () {
+                $("#url").val(template.url);
+                $("#urlTemplateModal").modal('hide');
+                updateURLLengthIndicator();
+            });
+            
+            customCollapseDiv.append(templateItem);
+        });
+        
+        templateList.append(customHeader);
+        templateList.append(customCollapseDiv);
+        
+        // Toggle chevron icon on collapse
+        customHeader.find('a').on('click', function() {
+            var icon = $(this).find('.fa-chevron-down, .fa-chevron-right');
+            if (icon.hasClass('fa-chevron-down')) {
+                icon.removeClass('fa-chevron-down').addClass('fa-chevron-right');
+            } else {
+                icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
+            }
+        });
+    }
+    
+    if (urlTemplates.length === 0) {
+        templateList.append('<div class="alert alert-info">No URL templates available. Click "Add Custom" to create one.</div>');
+    }
+}
+
+function deleteURLTemplate(id) {
+    Swal.fire({
+        title: "Are you sure?",
+        text: "This will delete the custom URL template.",
+        type: "warning",
+        animation: false,
+        showCancelButton: true,
+        confirmButtonText: "Delete Template",
+        confirmButtonColor: "#d9534f",
+        reverseButtons: true
+    }).then(function (result) {
+        if (result.value) {
+            api.urlTemplateId.delete(id)
+                .success(function () {
+                    loadURLTemplates();
+                    Swal.fire("Deleted!", "The template has been deleted.", "success");
+                })
+                .error(function (data) {
+                    Swal.fire("Error!", data.responseJSON.message, "error");
+                });
+        }
+    });
+}
+
+function saveCustomURLTemplate() {
+    var name = $("#customTemplateName").val().trim();
+    var url = $("#customTemplateUrl").val().trim();
+    
+    if (!name) {
+        $("#addUrlTemplateModal\\.flashes").empty().append(
+            '<div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> Template name is required</div>'
+        );
+        return;
+    }
+    
+    if (!url) {
+        $("#addUrlTemplateModal\\.flashes").empty().append(
+            '<div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> URL is required</div>'
+        );
+        return;
+    }
+    
+    var template = {
+        name: name,
+        url: url,
+        category: "Custom"
+    };
+    
+    api.urlTemplates.post(template)
+        .success(function () {
+            $("#addUrlTemplateModal").modal('hide');
+            $("#customTemplateName").val('');
+            $("#customTemplateUrl").val('');
+            $("#addUrlTemplateModal\\.flashes").empty();
+            loadURLTemplates();
+            successFlash("Custom template saved successfully!");
+        })
+        .error(function (data) {
+            $("#addUrlTemplateModal\\.flashes").empty().append(
+                '<div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> ' + 
+                data.responseJSON.message + '</div>'
+            );
+        });
+}
+
+// Calculate and display URL length with parameter and RID
+function updateURLLengthIndicator() {
+    var url = $("#url").val();
+    var urlParam = $("#urlparam").val() || 'rid';
+    
+    // RID length is typically 8 characters in Gophish
+    var ridLength = 8;
+    
+    // Calculate total length: URL + separator + param + = + RID
+    var separator = url.indexOf('?') !== -1 ? '&' : '?';
+    var totalLength = url.length + separator.length + urlParam.length + 1 + ridLength; // +1 for '='
+    
+    // Standard URL length limit (most browsers support up to 2048)
+    var maxLength = 2048;
+    var remaining = maxLength - totalLength;
+    
+    var indicator = $("#urlLengthIndicator");
+    
+    if (url.length === 0) {
+        indicator.html('');
+        return;
+    }
+    
+    var color = '';
+    var icon = '';
+    
+    if (remaining < 0) {
+        color = '#d9534f'; // red
+        icon = '<i class="fa fa-exclamation-triangle"></i> ';
+    } else if (remaining < 100) {
+        color = '#f0ad4e'; // orange
+        icon = '<i class="fa fa-exclamation-circle"></i> ';
+    } else {
+        color = '#5cb85c'; // green
+        icon = '<i class="fa fa-check-circle"></i> ';
+    }
+    
+    var fullUrl = url + separator + urlParam + '=' + '[RID]';
+    indicator.html(
+        icon + 
+        '<span style="color: ' + color + '; font-weight: bold;">' + 
+        totalLength + '/' + maxLength + ' chars</span> ' +
+        '<span class="text-muted">(with ?' + urlParam + '=[RID])</span>'
+    );
+}
+
 $(document).ready(function () {
+    // URL length indicator updates
+    $("#url").on('input', updateURLLengthIndicator);
+    $("#urlparam").on('input', updateURLLengthIndicator);
+    
+    // URL Template button click
+    $("#urlTemplateBtn").click(function (e) {
+        e.preventDefault();
+        loadURLTemplates();
+        $("#urlTemplateModal").modal('show');
+    });
+    
+    // Add custom template button
+    $("#addCustomTemplateBtn").click(function () {
+        // Pre-fill with current URL if available
+        var currentUrl = $("#url").val();
+        if (currentUrl) {
+            $("#customTemplateUrl").val(currentUrl);
+        }
+        $("#urlTemplateModal").modal('hide');
+        $("#addUrlTemplateModal").modal('show');
+    });
+    
+    // Save custom template button
+    $("#saveCustomTemplateBtn").click(function () {
+        saveCustomURLTemplate();
+    });
+    
+    // Clear custom template form when modal is closed
+    $("#addUrlTemplateModal").on('hidden.bs.modal', function () {
+        $("#customTemplateName").val('');
+        $("#customTemplateUrl").val('');
+        $("#addUrlTemplateModal\\.flashes").empty();
+    });
+    
     $("#launch_date").datetimepicker({
         "widgetPositioning": {
             "vertical": "bottom"
@@ -308,6 +1065,67 @@ $(document).ready(function () {
         "useCurrent": false,
         "format": "MMMM Do YYYY, h:mm a"
     })
+    
+    // Handle campaign type icon button clicks
+    $(".campaign-type-btn").click(function() {
+        var type = $(this).data("type");
+        
+        // Update hidden input
+        $("#campaign_type").val(type);
+        
+        // Update button styles
+        $(".campaign-type-btn").removeClass("btn-primary active").addClass("btn-default");
+        $(this).removeClass("btn-default").addClass("btn-primary active");
+        
+        // Show/hide appropriate fields
+        if (type === "email") {
+            $("#email_template_div").show();
+            $("#sms_template_div").hide();
+            $("#email_profile_div").show();
+            $("#sms_profile_div").hide();
+            $("#groups_div").show();
+            $("#generic_info_div").hide();
+            // Clear any previous error messages
+            $("#modal\\.flashes").empty();
+        } else if (type === "sms") {
+            $("#email_template_div").hide();
+            $("#sms_template_div").show();
+            $("#email_profile_div").hide();
+            $("#sms_profile_div").show();
+            $("#groups_div").show();
+            $("#generic_info_div").hide();
+            
+            // Clear any previous error messages
+            $("#modal\\.flashes").empty();
+            
+            // Check if SMS templates exist
+            api.smsTemplates.get()
+                .success(function (templates) {
+                    if (templates.length == 0) {
+                        modalError("No SMS templates found!");
+                    }
+                });
+            
+            // Check if SMS profiles exist
+            api.SMS.get()
+                .success(function (profiles) {
+                    if (profiles.length == 0) {
+                        modalError("No SMS sending profiles found!");
+                    }
+                });
+        } else if (type === "generic") {
+            // Hide all template and profile fields for generic campaigns
+            $("#email_template_div").hide();
+            $("#sms_template_div").hide();
+            $("#email_profile_div").hide();
+            $("#sms_profile_div").hide();
+            $("#groups_div").hide();
+            $("#generic_info_div").show();
+            
+            // Clear any previous error messages
+            $("#modal\\.flashes").empty();
+        }
+    });
     // Setup multiple modals
     // Code based on http://miles-by-motorcycle.com/static/bootstrap-modal/index.html
     $('.modal').on('hidden.bs.modal', function (event) {
@@ -373,16 +1191,64 @@ $(document).ready(function () {
 
                     //section for tooltips on the status of a campaign to show some quick stats
                     var launchDate;
+                    var quickStats;
                     if (moment(campaign.launch_date).isAfter(moment())) {
                         launchDate = "Scheduled to start: " + moment(campaign.launch_date).format('MMMM Do YYYY, h:mm:ss a')
-                        var quickStats = launchDate + "<br><br>" + "Number of recipients: " + campaign.stats.total
+                        if (campaign.type === 'generic') {
+                            quickStats = launchDate + "<br><br>" + "Number of links: " + campaign.stats.total
+                        } else {
+                            quickStats = launchDate + "<br><br>" + "Number of recipients: " + campaign.stats.total
+                        }
                     } else {
                         launchDate = "Launch Date: " + moment(campaign.launch_date).format('MMMM Do YYYY, h:mm:ss a')
-                        var quickStats = launchDate + "<br><br>" + "Number of recipients: " + campaign.stats.total + "<br><br>" + "Emails opened: " + campaign.stats.opened + "<br><br>" + "Emails clicked: " + campaign.stats.clicked + "<br><br>" + "Submitted Credentials: " + campaign.stats.submitted_data + "<br><br>" + "Errors : " + campaign.stats.error + "<br><br>" + "Reported : " + campaign.stats.email_reported
+                        
+                        // Customize stats based on campaign type
+                        if (campaign.type === 'generic') {
+                            // Generic campaigns: links, clicks, submissions only
+                            quickStats = launchDate + 
+                                "<br><br>" + "Number of links: " + campaign.stats.total + 
+                                "<br><br>" + "Links clicked: " + campaign.stats.clicked + 
+                                "<br><br>" + "Submitted Credentials: " + campaign.stats.submitted_data
+                        } else if (campaign.type === 'sms') {
+                            // SMS campaigns: no opens, no reports
+                            quickStats = launchDate + 
+                                "<br><br>" + "Number of recipients: " + campaign.stats.total + 
+                                "<br><br>" + "SMS sent: " + campaign.stats.sent + 
+                                "<br><br>" + "Links clicked: " + campaign.stats.clicked + 
+                                "<br><br>" + "Submitted Credentials: " + campaign.stats.submitted_data + 
+                                "<br><br>" + "Errors: " + campaign.stats.error
+                        } else {
+                            // Email campaigns: full stats
+                            quickStats = launchDate + 
+                                "<br><br>" + "Number of recipients: " + campaign.stats.total + 
+                                "<br><br>" + "Emails opened: " + campaign.stats.opened + 
+                                "<br><br>" + "Emails clicked: " + campaign.stats.clicked + 
+                                "<br><br>" + "Submitted Credentials: " + campaign.stats.submitted_data + 
+                                "<br><br>" + "Errors: " + campaign.stats.error + 
+                                "<br><br>" + "Reported: " + campaign.stats.email_reported
+                        }
                     }
 
+                    // Get campaign type icon
+                    var typeIcon = '';
+                    var typeTooltip = '';
+                    if (campaign.type === 'sms') {
+                        typeIcon = '<i class="fa fa-mobile text-info" data-toggle="tooltip" title="SMS Campaign"></i> ';
+                        typeTooltip = 'SMS Campaign';
+                    } else if (campaign.type === 'generic') {
+                        typeIcon = '<i class="fa fa-link text-warning" data-toggle="tooltip" title="Generic Campaign (Landing Page Only)"></i> ';
+                        typeTooltip = 'Generic Campaign';
+                    } else {
+                        typeIcon = '<i class="fa fa-envelope text-primary" data-toggle="tooltip" title="Email Campaign"></i> ';
+                        typeTooltip = 'Email Campaign';
+                    }
+
+                    // Determine if this is active or archived for the checkbox
+                    var tableType = campaign.status == 'Completed' ? 'archived' : 'active';
+                    
                     var row = [
-                        escapeHtml(campaign.name),
+                        "<input type='checkbox' class='campaign-checkbox' data-id='" + campaign.id + "' data-type='" + tableType + "'>",
+                        typeIcon + escapeHtml(campaign.name),
                         moment(campaign.created_date).format('MMMM Do YYYY, h:mm:ss a'),
                         "<span class=\"label " + label + "\" data-toggle=\"tooltip\" data-placement=\"right\" data-html=\"true\" title=\"" + quickStats + "\">" + campaign.status + "</span>",
                         "<div class='pull-right'><a class='btn btn-primary' href='/campaigns/" + campaign.id + "' data-toggle='tooltip' data-placement='left' title='View Results'>\
@@ -404,6 +1270,35 @@ $(document).ready(function () {
                 activeCampaignsTable.rows.add(rows['active']).draw()
                 archivedCampaignsTable.rows.add(rows['archived']).draw()
                 $('[data-toggle="tooltip"]').tooltip()
+                
+                // Set up checkbox event handlers
+                $('#selectAllActive').on('change', function() {
+                    currentTab = 'active';
+                    handleSelectAll();
+                });
+                
+                $('#selectAllArchived').on('change', function() {
+                    currentTab = 'archived';
+                    handleSelectAll();
+                });
+                
+                // Delegate checkbox change events
+                $(document).on('change', 'input.campaign-checkbox', function() {
+                    var campaignId = $(this).data('id');
+                    handleCheckboxChange(campaignId);
+                });
+                
+                // Clear selections when switching tabs
+                $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+                    var target = $(e.target).attr("href");
+                    if (target === '#activeCampaigns') {
+                        currentTab = 'active';
+                    } else if (target === '#archivedCampaigns') {
+                        currentTab = 'archived';
+                    }
+                    // Clear all selections when changing tabs
+                    clearSelections();
+                });
             } else {
                 $("#emptyMessage").show()
             }

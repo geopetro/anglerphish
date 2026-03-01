@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/mail"
+	"regexp"
+	"strings"
 	"time"
 
 	log "github.com/gophish/gophish/logger"
@@ -54,9 +56,11 @@ type Target struct {
 // struct used in members of groups and campaign results.
 type BaseRecipient struct {
 	Email     string `json:"email"`
+	Phone     string `json:"phone"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 	Position  string `json:"position"`
+	Custom    string `json:"custom"`
 }
 
 // FormatAddress returns the email address to use in the "To" header of the email
@@ -132,15 +136,72 @@ func GetGroupSummaries(uid int64) (GroupSummaries, error) {
 		log.Error(err)
 		return gs, err
 	}
+
+	log.WithFields(logrus.Fields{
+		"user_id":      uid,
+		"groups_count": len(gs.Groups),
+	}).Info("Fetched groups for user")
+
 	for i := range gs.Groups {
+		// Get the count of targets for this group
 		query = db.Table("group_targets").Where("group_id=?", gs.Groups[i].Id)
 		err = query.Count(&gs.Groups[i].NumTargets).Error
 		if err != nil {
+			log.WithFields(logrus.Fields{
+				"group_id": gs.Groups[i].Id,
+				"error":    err,
+			}).Error("Error counting targets for group")
 			return gs, err
 		}
+
+		// Log the count for debugging
+		log.WithFields(logrus.Fields{
+			"group_id":    gs.Groups[i].Id,
+			"group_name":  gs.Groups[i].Name,
+			"num_targets": gs.Groups[i].NumTargets,
+		}).Info("Group target count")
+
+		// Double-check by getting the actual targets
+		targets, err := GetTargets(gs.Groups[i].Id)
+		if err != nil {
+			log.WithFields(logrus.Fields{
+				"group_id": gs.Groups[i].Id,
+				"error":    err,
+			}).Error("Error getting targets for group")
+		} else {
+			log.WithFields(logrus.Fields{
+				"group_id":           gs.Groups[i].Id,
+				"targets_count":      len(targets),
+				"targets_with_email": countTargetsWithEmail(targets),
+				"targets_with_phone": countTargetsWithPhone(targets),
+			}).Info("Actual targets for group")
+		}
 	}
+
 	gs.Total = int64(len(gs.Groups))
 	return gs, nil
+}
+
+// Helper function to count targets with email
+func countTargetsWithEmail(targets []Target) int {
+	count := 0
+	for _, t := range targets {
+		if t.Email != "" {
+			count++
+		}
+	}
+	return count
+}
+
+// Helper function to count targets with phone
+func countTargetsWithPhone(targets []Target) int {
+	count := 0
+	for _, t := range targets {
+		if t.Phone != "" {
+			count++
+		}
+	}
+	return count
 }
 
 // GetGroup returns the group, if it exists, specified by the given id and user_id.
@@ -233,39 +294,110 @@ func PutGroup(g *Group) error {
 		}).Error("Error getting targets from group")
 		return err
 	}
-	// Preload the caches
-	cacheNew := make(map[string]int64, len(g.Targets))
+
+	// Log the existing and new targets for debugging
+	log.WithFields(logrus.Fields{
+		"group_id":         g.Id,
+		"existing_targets": len(ts),
+		"new_targets":      len(g.Targets),
+	}).Info("PutGroup called with targets")
+
+	// Preload the caches - we need to handle both email and phone identifiers
+	emailCacheNew := make(map[string]int64, len(g.Targets))
+	phoneCacheNew := make(map[string]int64, len(g.Targets))
 	for _, t := range g.Targets {
-		cacheNew[t.Email] = t.Id
+		if t.Email != "" {
+			emailCacheNew[t.Email] = t.Id
+		}
+		if t.Phone != "" {
+			phoneCacheNew[t.Phone] = t.Id
+		}
 	}
 
-	cacheExisting := make(map[string]int64, len(ts))
+	emailCacheExisting := make(map[string]int64, len(ts))
+	phoneCacheExisting := make(map[string]int64, len(ts))
 	for _, t := range ts {
-		cacheExisting[t.Email] = t.Id
+		if t.Email != "" {
+			emailCacheExisting[t.Email] = t.Id
+		}
+		if t.Phone != "" {
+			phoneCacheExisting[t.Phone] = t.Id
+		}
 	}
 
 	tx := db.Begin()
+
+	// IMPORTANT: We're removing this code that deletes targets not in the new list
+	// This was causing the issue where adding a new target would remove all others
+
 	// Check existing targets, removing any that are no longer in the group.
-	for _, t := range ts {
-		if _, ok := cacheNew[t.Email]; ok {
-			continue
+	for _, existing := range ts {
+		existsInNew := false
+
+		// Normalize
+		existingEmail := strings.ToLower(strings.TrimSpace(existing.Email))
+		existingPhone := regexp.MustCompile(`\D`).ReplaceAllString(existing.Phone, "")
+
+		for _, incoming := range g.Targets {
+			newEmail := strings.ToLower(strings.TrimSpace(incoming.Email))
+			newPhone := regexp.MustCompile(`\D`).ReplaceAllString(incoming.Phone, "")
+
+			if existingEmail != "" && existingEmail == newEmail {
+				existsInNew = true
+				break
+			}
+			if existingPhone != "" && existingPhone == newPhone {
+				existsInNew = true
+				break
+			}
 		}
 
-		// If the target does not exist in the group any longer, we delete it
-		err := tx.Where("group_id=? and target_id=?", g.Id, t.Id).Delete(&GroupTarget{}).Error
-		if err != nil {
-			tx.Rollback()
+		if !existsInNew {
 			log.WithFields(logrus.Fields{
-				"email": t.Email,
-			}).Error("Error deleting email")
+				"group_id":  g.Id,
+				"target_id": existing.Id,
+				"email":     existing.Email,
+				"phone":     existing.Phone,
+			}).Info("Removing target from group")
+
+			err := tx.Where("group_id = ? AND target_id = ?", g.Id, existing.Id).Delete(&GroupTarget{}).Error
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					"group_id": g.Id,
+					"error":    err,
+				}).Error("Failed to remove GroupTarget")
+				tx.Rollback()
+				return err
+			}
 		}
 	}
+
 	// Add any targets that are not in the database yet.
 	for _, nt := range g.Targets {
 		// If the target already exists in the database, we should just update
 		// the record with the latest information.
-		if id, ok := cacheExisting[nt.Email]; ok {
-			nt.Id = id
+		existingId := int64(0)
+
+		// Check by email if available
+		if nt.Email != "" && emailCacheExisting[nt.Email] != 0 {
+			existingId = emailCacheExisting[nt.Email]
+			log.WithFields(logrus.Fields{
+				"email":       nt.Email,
+				"existing_id": existingId,
+			}).Debug("Found existing target by email")
+		}
+
+		// Check by phone if available and we haven't found by email
+		if existingId == 0 && nt.Phone != "" && phoneCacheExisting[nt.Phone] != 0 {
+			existingId = phoneCacheExisting[nt.Phone]
+			log.WithFields(logrus.Fields{
+				"phone":       nt.Phone,
+				"existing_id": existingId,
+			}).Debug("Found existing target by phone")
+		}
+
+		if existingId != 0 {
+			nt.Id = existingId
 			err = UpdateTarget(tx, nt)
 			if err != nil {
 				log.Error(err)
@@ -312,30 +444,135 @@ func DeleteGroup(g *Group) error {
 	return err
 }
 
+// ErrNoContactInfoSpecified is thrown when neither email nor phone is provided for a target
+var ErrNoContactInfoSpecified = errors.New("Either email or phone must be specified")
+
 func insertTargetIntoGroup(tx *gorm.DB, t Target, gid int64) error {
-	if _, err := mail.ParseAddress(t.Email); err != nil {
-		log.WithFields(logrus.Fields{
-			"email": t.Email,
-		}).Error("Invalid email")
-		return err
+	// Check if either email or phone is provided
+	if t.Email == "" && t.Phone == "" {
+		return ErrNoContactInfoSpecified
 	}
-	err := tx.Where(t).FirstOrCreate(&t).Error
-	if err != nil {
+
+	// If email is provided, validate it
+	if t.Email != "" {
+		if _, err := mail.ParseAddress(t.Email); err != nil {
+			log.WithFields(logrus.Fields{
+				"email": t.Email,
+			}).Error("Invalid email")
+			return err
+		}
+	}
+
+	// If phone is provided, validate it (simple check for now)
+	if t.Phone != "" {
+		isValidPhone := false
+		for _, c := range t.Phone {
+			if !((c >= '0' && c <= '9') || c == '+' || c == '-' || c == '(' || c == ')' || c == ' ') {
+				log.WithFields(logrus.Fields{
+					"phone": t.Phone,
+				}).Error("Invalid phone number")
+				return errors.New("Invalid phone number format")
+			}
+			if c >= '0' && c <= '9' {
+				isValidPhone = true
+			}
+		}
+		if !isValidPhone {
+			log.WithFields(logrus.Fields{
+				"phone": t.Phone,
+			}).Error("Phone number must contain at least one digit")
+			return errors.New("Phone number must contain at least one digit")
+		}
+	}
+	// Create a query that can find targets by either email or phone
+	query := tx.Model(&Target{})
+
+	// Build a query that can find targets by either email or phone or both
+	if t.Email != "" && t.Phone != "" {
+		// If both email and phone are provided, check for either match
+		query = query.Where("email = ? OR phone = ?", t.Email, t.Phone)
 		log.WithFields(logrus.Fields{
 			"email": t.Email,
+			"phone": t.Phone,
+		}).Debug("Searching for target by both email and phone")
+	} else if t.Email != "" {
+		// If only email is provided
+		query = query.Where("email = ?", t.Email)
+		log.WithFields(logrus.Fields{
+			"email": t.Email,
+		}).Debug("Searching for target by email")
+	} else if t.Phone != "" {
+		// If only phone is provided
+		query = query.Where("phone = ?", t.Phone)
+		log.WithFields(logrus.Fields{
+			"phone": t.Phone,
+		}).Debug("Searching for target by phone")
+	}
+
+	// Try to find the target first
+	var existingTarget Target
+	err := query.First(&existingTarget).Error
+
+	// If the target doesn't exist, create it
+	if err == gorm.ErrRecordNotFound {
+		err = tx.Create(&t).Error
+		if err != nil {
+			log.WithFields(logrus.Fields{
+				"email": t.Email,
+				"phone": t.Phone,
+			}).Error(err)
+			return err
+		}
+	} else if err != nil {
+		log.WithFields(logrus.Fields{
+			"email": t.Email,
+			"phone": t.Phone,
 		}).Error(err)
 		return err
+	} else {
+		// Target exists, use its ID
+		t.Id = existingTarget.Id
 	}
-	err = tx.Save(&GroupTarget{GroupId: gid, TargetId: t.Id}).Error
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	if err != nil {
+	// Check if the group-target relationship already exists
+	var existingRelation GroupTarget
+	err = tx.Where("group_id = ? AND target_id = ?", gid, t.Id).First(&existingRelation).Error
+
+	// If the relationship doesn't exist, create it
+	if err == gorm.ErrRecordNotFound {
 		log.WithFields(logrus.Fields{
-			"email": t.Email,
-		}).Error("Error adding many-many mapping")
+			"group_id":  gid,
+			"target_id": t.Id,
+			"email":     t.Email,
+			"phone":     t.Phone,
+		}).Debug("Adding new target to group")
+
+		err = tx.Create(&GroupTarget{GroupId: gid, TargetId: t.Id}).Error
+		if err != nil {
+			log.WithFields(logrus.Fields{
+				"group_id":  gid,
+				"target_id": t.Id,
+				"email":     t.Email,
+				"phone":     t.Phone,
+				"error":     err,
+			}).Error("Error creating group-target relationship")
+			return err
+		}
+	} else if err != nil {
+		log.WithFields(logrus.Fields{
+			"group_id":  gid,
+			"target_id": t.Id,
+			"email":     t.Email,
+			"phone":     t.Phone,
+			"error":     err,
+		}).Error("Error checking for existing group-target relationship")
 		return err
+	} else {
+		log.WithFields(logrus.Fields{
+			"group_id":  gid,
+			"target_id": t.Id,
+			"email":     t.Email,
+			"phone":     t.Phone,
+		}).Debug("Target already in group, skipping")
 	}
 	return nil
 }
@@ -343,14 +580,18 @@ func insertTargetIntoGroup(tx *gorm.DB, t Target, gid int64) error {
 // UpdateTarget updates the given target information in the database.
 func UpdateTarget(tx *gorm.DB, target Target) error {
 	targetInfo := map[string]interface{}{
+		"email":      target.Email,
+		"phone":      target.Phone,
 		"first_name": target.FirstName,
 		"last_name":  target.LastName,
 		"position":   target.Position,
+		"custom":     target.Custom,
 	}
 	err := tx.Model(&target).Where("id = ?", target.Id).Updates(targetInfo).Error
 	if err != nil {
 		log.WithFields(logrus.Fields{
 			"email": target.Email,
+			"phone": target.Phone,
 		}).Error("Error updating target information")
 	}
 	return err
@@ -359,6 +600,12 @@ func UpdateTarget(tx *gorm.DB, target Target) error {
 // GetTargets performs a many-to-many select to get all the Targets for a Group
 func GetTargets(gid int64) ([]Target, error) {
 	ts := []Target{}
-	err := db.Table("targets").Select("targets.id, targets.email, targets.first_name, targets.last_name, targets.position").Joins("left join group_targets gt ON targets.id = gt.target_id").Where("gt.group_id=?", gid).Scan(&ts).Error
+	err := db.Table("targets").Select("targets.id, targets.email, targets.phone, targets.first_name, targets.last_name, targets.position, targets.custom").Joins("left join group_targets gt ON targets.id = gt.target_id").Where("gt.group_id=?", gid).Scan(&ts).Error
+	if err != nil {
+		log.WithFields(logrus.Fields{
+			"group_id": gid,
+			"error":    err,
+		}).Error("Error getting targets for group")
+	}
 	return ts, err
 }

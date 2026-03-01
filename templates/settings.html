@@ -25,13 +25,28 @@
                     <label class="form-label">{{.Version}}</label>
                 </div>
             </div>
+            <div class="row">
+                <label class="col-sm-2 control-label form-label">Anglerphish version
+                    <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Based on Gophish v0.12.1"></i>
+                </label>
+                <div class="col-md-6">
+                    <label class="form-label">{{.AnglerPhishVersion}}</label>
+                </div>
+            </div>
             <br />
             {{end}}
             <div class="row">
                 <label for="api_key" class="col-sm-2 control-label form-label">API Key:</label>
                 <div class="col-md-6">
-                    <input type="text" id="api_key" onclick="this.select();" value="{{.User.ApiKey}}"
-                        class="form-control" readonly />
+                    <div class="input-group">
+                        <input type="text" id="api_key" onclick="this.select();" value="{{.User.ApiKey}}"
+                            class="form-control" readonly />
+                        <span class="input-group-btn">
+                            <button class="btn btn-default" type="button" id="copyApiKey" title="Copy to clipboard">
+                                <i class="fa fa-copy"></i>
+                            </button>
+                        </span>
+                    </div>
                 </div>
                 <form id="apiResetForm">
                     <button class="btn btn-primary"><i class="fa fa-refresh" type="submit"></i> Reset</button>
@@ -91,156 +106,168 @@
                 <input id="use_map" type="checkbox">
                 <label for="use_map">Show campaign results map</label>
             </div>
+            <br />
+            <div class="form-group">
+                <label for="theme_selector" class="control-label">Theme:</label>
+                <select id="theme_selector" class="form-control" style="max-width: 300px;">
+                    <option value="default">Default (Light)</option>
+                    <option value="dark-teal">Dark - Teal</option>
+                    <option value="dark-crimson">Dark - Crimson</option>
+                </select>
+                <p class="help-block">Choose your preferred color theme for the interface</p>
+            </div>
         </div>
         <!-- Reporting Settings Begin -->
         <div role="tabpanel" class="tab-pane" id="reportingSettings">
-            <form id="imapForm" >
             <br />
             <div class="row">
-                <div class="col-md-6">
-                    Monitor an IMAP account for emails reported by users.
+                <div class="col-md-12">
+                    <p>Configure IMAP accounts to monitor for emails reported by users.</p>
+                    <div id="imap-instructions" class="alert alert-info">
+                        <p><i class="fa fa-info-circle"></i> You can add one or more IMAP configurations to monitor email accounts for reported phishing emails. Each configuration can have different settings (e.g. different folders, frequency, etc).</p>
+                    </div>
                 </div>
-             </div>
-            <br />
-
+            </div>
             <div class="row">
-                <div class="col-md-6">
-                <div class="checkbox checkbox-primary">
-                    <input id="use_imap" type="checkbox">
-                    <label for="use_imap">Enable Email Account Monitoring</label>
-                </div>
-                </div>
-             </div>
-            <br />
-
-            
-            <div class="row">
-                <label for="imaphost" class="col-sm-2 control-label form-label">IMAP Host:</label>
-                <div class="col-md-6">
-                    <input type="text" id="imaphost" name="imaphost" placeholder="imap.example.com"
-                        class="form-control" />
+                <div class="col-md-12">
+                    <button id="showNewIMAPModal" class="btn btn-primary">
+                        <i class="fa fa-plus"></i> Add Configuration
+                    </button>
                 </div>
             </div>
             <br />
-
             <div class="row">
-                <label for="imapport" class="col-sm-2 control-label form-label">IMAP Port:</label>
-                <div class="col-md-6">
-                    <input type="text" id="imapport" name="imapport" placeholder="993"
-                        class="form-control" />
+                <div class="col-md-12">
+                    <table id="imap-configs" class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Server</th>
+                                <th>Username</th>
+                                <th>Status</th>
+                                <th>Last Login</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- This will be populated by the JavaScript -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
-            <br />
-
-            <div class="row">
-                <label for="imapusername" class="col-sm-2 control-label form-label">IMAP Username:</label>
-                <div class="col-md-6">
-                    <input type="text" id="imapusername" name="imapusername" placeholder="Username"
-                        class="form-control" />
-                </div>
-            </div>
-            <br />
-
-            <div class="row">
-                <label for="imappassword" class="col-sm-2 control-label form-label">IMAP Password:</label>
-                <div class="col-md-6">
-                    <input type="password" id="imappassword" name="imappassword" placeholder="Password" autocomplete="off"
-                        class="form-control" />
-                </div>
-            </div>
-            <br />
-
-
-            <div class="row">
-                <label for="use_tls" class="col-sm-2 control-label form-label">Use TLS:</label>
-                <div class="col-md-6">
-                    <div class="checkbox checkbox-primary">
-                        <input id="use_tls" type="checkbox">
-                        <label for="use_tls"></label>
-                    </div>
-                    
-                </div>
-            </div>
-
-             <!-- Advanced Settings-->
-            <div id="advancedarea" style="display: none;">
-                <hr>
-                <div class="row">
-                <label for="folder" class="col-sm-2 control-label form-label">Folder:</label>
-                    <div class="col-md-6">
-                        <input type="text" id="folder" name="folder" placeholder="Leave blank for default of INBOX."
-                            class="form-control" />
-                    </div>
-                </div>
-                <br />
-
-                <div class="row">
-                    <label for="folder" class="col-sm-2 control-label form-label" data-toggle="tooltip" title="How often to check for new emails. 30 seconds minimum.">Polling frequency:</label>
-                        <div class="col-md-6">
-                            <input type="number" id="imapfreq" name="imapfreq" placeholder="Leave blank for default of every 60 seconds."
-                                class="form-control" />
-                        </div>
-                    </div>
-                    <br />
-        
-                <div class="row">
-                    <label for="restrictdomain" class="col-sm-2 control-label form-label" data-toggle="tooltip" title="Only check emails reported from the supplied domain.">Restrict to domain:</label>
-                    <div class="col-md-6">
-                        <input type="text" id="restrictdomain" name="restrictdomain" placeholder="e.g. widgets.com. Leave blank for all domains."
-                            class="form-control" />
-                    </div>
-                </div>
-                <br />
-
-                <div class="row">
-                    <label for="ignorecerterrors" class="col-sm-2 control-label form-label" data-toggle="tooltip" title="Ignore common certificate errors such as self-signed certs (exposes you to MiTM attacks - use carefully!)">Ignore Certificate Errors:</label>
-                    <div class="col-md-6">
-                        <div class="checkbox checkbox-primary">
-                            <input id="ignorecerterrors" type="checkbox">
-                            <label for="ignorecerterrors"></label>
-                        </div>
-                    </div>
-                </div>
-                <br />
-
-                <div class="row">
-                    <label for="deletecampaign" class="col-sm-2 control-label form-label" data-toggle="tooltip" title="Delete campaign emails after they've been reported.">Delete campaigns emails:</label>
-                    <div class="col-md-6">
-                        <div class="checkbox checkbox-primary">
-                            <input id="deletecampaign" type="checkbox">
-                            <label for="deletecampaign"></label>
-                        </div>
-                        
-                    </div>
-                </div>
-                <br />
-        
-                <div class="row" id="lastlogindiv">
-                <label for="lastlogin" class="col-sm-2 control-label form-label">Last succesful login:</label>
-                <div class="col-md-6">
-                    <input type="text" id="lastlogin" name="lastlogin" placeholder="Checking..." disabled
-                        class="form-control border-0" />
-                    </div>
-                </div>
-                <br />
-                <input type="hidden" id="lastloginraw" name="lastloginraw" value="">
-
-            </div>
-
-            <div class="row">
-                <label for="advancedsettings" class="col-sm-2 control-label form-label"></label>
-                <div class="col-md-6 text-right">
-                    <button class="btn-xs btn-link" id="advanced" type="button">Advanced Settings</button>
-                </div>
-            </div>
-
-            <button class="btn btn-primary" id ="savesettings" type="button"><i class="fa fa-save"></i> Save</button>
-            <button class="btn btn-primary" id="validateimap" type="button"><i class="fa fa-wrench"></i> Test Settings</button>
-
-
-        </form>
         </div>
         <!-- Reporting Settings End -->
+    </div>
+</div>
+
+<!-- IMAP Configuration Modal -->
+<div class="modal" id="newIMAPModal" tabindex="-1" role="dialog" aria-labelledby="imapModalLabel">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="imapModalLabel">New IMAP Configuration</h4>
+            </div>
+            <div class="modal-body">
+                <form id="imapForm">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="form-group">
+                                <label for="imapname" class="control-label">Configuration Name:</label>
+                                <input type="text" class="form-control" id="imapname" placeholder="e.g. Security Team Inbox" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="imaphost" class="control-label">IMAP Host:</label>
+                                <input type="text" class="form-control" id="imaphost" placeholder="imap.example.com" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="imapport" class="control-label">IMAP Port:</label>
+                                <input type="text" class="form-control" id="imapport" placeholder="993" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="imapusername" class="control-label">IMAP Username:</label>
+                                <input type="text" class="form-control" id="imapusername" placeholder="Username" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="imappassword" class="control-label">IMAP Password:</label>
+                                <input type="password" class="form-control" id="imappassword" placeholder="Password" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="checkbox checkbox-primary">
+                                <input id="use_tls" type="checkbox" checked>
+                                <label for="use_tls">Use TLS</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="trackingtype" class="control-label" data-toggle="tooltip" title="How to process emails containing campaign IDs">Tracking Type:</label>
+                                <select class="form-control" id="trackingtype">
+                                    <option value="0" selected>Report Tracking</option>
+                                    <option value="1">Reply Tracking</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    <h4>Advanced Settings <small><a id="advanced" href="javascript:void(0)">(toggle)</a></small></h4>
+                    <div id="advancedarea">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="folder" class="control-label" data-toggle="tooltip" title="The folder to monitor for reported emails">Folder:</label>
+                                    <input type="text" class="form-control" id="folder" placeholder="INBOX">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="imapfreq" class="control-label" data-toggle="tooltip" title="How often to check for new emails (in seconds, minimum 30)">Polling Frequency:</label>
+                                    <input type="number" class="form-control" id="imapfreq" placeholder="60">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="restrictdomain" class="control-label" data-toggle="tooltip" title="Only process emails from this domain">Restrict to Domain:</label>
+                                    <input type="text" class="form-control" id="restrictdomain" placeholder="e.g. company.com">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="checkbox checkbox-primary">
+                                    <input id="ignorecerterrors" type="checkbox">
+                                    <label for="ignorecerterrors" data-toggle="tooltip" title="Ignore certificate errors (not recommended for production)">Ignore Certificate Errors</label>
+                                </div>
+                                <div class="checkbox checkbox-primary">
+                                    <input id="deletecampaign" type="checkbox" checked>
+                                    <label for="deletecampaign" data-toggle="tooltip" title="Delete campaign emails after they've been reported">Delete Reported Emails</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="validateImapButton"><i class="fa fa-wrench"></i> Test Connection</button>
+                <button type="submit" class="btn btn-success" form="imapForm">Save</button>
+            </div>
+        </div>
     </div>
 </div>
 {{end}} {{define "scripts"}}

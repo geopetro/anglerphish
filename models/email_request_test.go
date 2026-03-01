@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/gophish/gomail"
-	"github.com/gophish/gophish/config"
 	"github.com/jordan-wright/email"
 	check "gopkg.in/check.v1"
 )
@@ -76,10 +75,8 @@ func (s *ModelsSuite) TestEmailRequestGenerate(ch *check.C) {
 		FromAddress: smtp.FromAddress,
 	}
 
-	s.config.ContactAddress = "test@test.com"
 	expectedHeaders := map[string]string{
-		"X-Mailer":          config.ServerName,
-		"X-Gophish-Contact": s.config.ContactAddress,
+		"X-Mailer": "",
 	}
 
 	msg := gomail.NewMessage()
@@ -164,14 +161,14 @@ func (s *ModelsSuite) TestEmailRequestURLTemplating(ch *check.C) {
 	err := req.Generate(msg)
 	ch.Assert(err, check.Equals, nil)
 
-	expectedURL := fmt.Sprintf("http://127.0.0.1/%s?%s=%s", req.Email, RecipientParameter, req.RId)
-
 	msgBuff := &bytes.Buffer{}
 	_, err = msg.WriteTo(msgBuff)
 	ch.Assert(err, check.Equals, nil)
 
 	got, err := email.NewEmailFromReader(msgBuff)
 	ch.Assert(err, check.Equals, nil)
+	// The URL should have proper query parameter formatting
+	expectedURL := "http://127.0.0.1/firstlast@example.com?rid=preview--foobar"
 	ch.Assert(got.Subject, check.Equals, expectedURL)
 	ch.Assert(string(got.Text), check.Equals, expectedURL)
 	ch.Assert(string(got.HTML), check.Equals, expectedURL)

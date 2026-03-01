@@ -39,6 +39,7 @@ func (as *Server) SendTestEmail(w http.ResponseWriter, r *http.Request) {
 			"{{if .FirstName}} First Name: {{.FirstName}}\n{{end}}" +
 			"{{if .LastName}} Last Name: {{.LastName}}\n{{end}}" +
 			"{{if .Position}} Position: {{.Position}}\n{{end}}" +
+			"{{if .Custom}} Custom: {{.Custom}}\n{{end}}" +
 			"\nNow go send some phish!"
 		t := models.Template{
 			Subject: "Default Email from Gophish",
@@ -131,4 +132,97 @@ func (as *Server) SendTestEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	JSONResponse(w, models.Response{Success: true, Message: "Email Sent"}, http.StatusOK)
+}
+
+// SendTestSMS sends a test SMS using the template text
+// and Target given.
+func (as *Server) SendTestSMS(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case r.Method == "POST":
+		s := &models.SMSRequest{
+			ErrorChan: make(chan error),
+			UserId:    ctx.Get(r, "user_id").(int64),
+		}
+		err := json.NewDecoder(r.Body).Decode(s)
+		if err != nil {
+			JSONResponse(w, models.Response{Success: false, Message: "Invalid request"}, http.StatusBadRequest)
+			return
+		}
+
+		storeRequest := false
+
+		// If a SMS Template is not specified use a default
+		if s.SMSTemplate.Name == "" {
+			// Default message text
+			text := "This is a test SMS from {{.From}}.\n\n" +
+				"Sent to: {{.Email}}\n" +
+				"{{if .FirstName}}First Name: {{.FirstName}}\n{{end}}" +
+				"{{if .LastName}}Last Name: {{.LastName}}\n{{end}}" +
+				"{{if .Position}}Position: {{.Position}}\n{{end}}" +
+				"{{if .Custom}}Custom: {{.Custom}}{{end}}"
+			t := models.SMSTemplate{
+				Name: "Default SMS Template",
+				Text: text,
+			}
+			s.SMSTemplate = t
+		} else {
+			// Get the SMS Template requested by name
+			s.SMSTemplate, err = models.GetSMSTemplateByName(s.SMSTemplate.Name, s.UserId)
+			if err == gorm.ErrRecordNotFound {
+				log.WithFields(logrus.Fields{
+					"template": s.SMSTemplate.Name,
+				}).Error("SMS Template does not exist")
+				JSONResponse(w, models.Response{Success: false, Message: "SMS Template not found"}, http.StatusBadRequest)
+				return
+			} else if err != nil {
+				log.Error(err)
+				JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusBadRequest)
+				return
+			}
+			s.SMSTemplateId = s.SMSTemplate.Id
+			// We'll only save the test request to the database if there is a
+			// user-specified template to use.
+			storeRequest = true
+		}
+
+		// If a complete SMS profile is provided use it
+		if err := s.SMS.Validate(); err != nil {
+			// Otherwise get the SMS profile requested by name
+			sms, lookupErr := models.GetSMSByName(s.SMS.Name, s.UserId)
+			// If the SMS Profile doesn't exist, let's err on the side
+			// of caution and assume that the validation failure was more important.
+			if lookupErr != nil {
+				log.Error(err)
+				JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusBadRequest)
+				return
+			}
+			s.SMS = sms
+			s.SMSId = sms.Id
+		}
+
+		// Validate the given request
+		if err = s.Validate(); err != nil {
+			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusBadRequest)
+			return
+		}
+
+		// Store the request if this wasn't the default template
+		if storeRequest {
+			err = models.PostSMSRequest(s)
+			if err != nil {
+				log.Error(err)
+				JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusInternalServerError)
+				return
+			}
+		}
+
+		// Process the request
+		err = as.worker.SendTestSMS(s)
+		if err != nil {
+			log.Error(err)
+			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusInternalServerError)
+			return
+		}
+		JSONResponse(w, models.Response{Success: true, Message: "SMS sent successfully!"}, http.StatusOK)
+	}
 }

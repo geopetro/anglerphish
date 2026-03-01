@@ -10,9 +10,36 @@
     <meta name="author" content="Jordan Wright (http://github.com/jordan-wright)">
     <link rel="shortcut icon" href="/images/favicon.ico">
 
-    <title>{{ .Title }} - Gophish</title>
+    <title>{{ .Title }} - Anglerphish</title>
 
     <link href="/css/dist/gophish.css" rel="stylesheet" type="text/css">
+    <link href="/css/dark-theme.css" rel="stylesheet" type="text/css">
+    <link href="/css/dark-crimson-theme.css" rel="stylesheet" type="text/css">
+    <script>
+        // Apply selected theme immediately to prevent flash of light theme
+        (function() {
+            // Migrate old boolean dark theme setting to new theme system
+            var oldDarkTheme = localStorage.getItem('gophish.use_dark_theme');
+            var currentTheme = localStorage.getItem('gophish.theme');
+            
+            if (!currentTheme && oldDarkTheme !== null) {
+                // Migrate: if old setting was true, use dark-teal theme
+                currentTheme = JSON.parse(oldDarkTheme) ? 'dark-teal' : 'default';
+                localStorage.setItem('gophish.theme', currentTheme);
+                localStorage.removeItem('gophish.use_dark_theme');
+            } else if (!currentTheme) {
+                // Default theme for new users
+                currentTheme = 'default';
+            }
+            
+            // Apply the theme class
+            if (currentTheme === 'dark-teal') {
+                document.documentElement.className += ' dark-theme';
+            } else if (currentTheme === 'dark-crimson') {
+                document.documentElement.className += ' crimson-theme';
+            }
+        })();
+    </script>
     <link href='https://fonts.googleapis.com/css?family=Roboto:700,500' rel='stylesheet' type='text/css'>
     <link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,300,600,700' rel='stylesheet' type='text/css'>
     <script>
@@ -29,6 +56,18 @@
 </head>
 
 <body>
+    <script>
+        // Apply selected theme to body immediately to prevent flash
+        (function() {
+            var currentTheme = localStorage.getItem('gophish.theme') || 'default';
+            
+            if (currentTheme === 'dark-teal') {
+                document.body.classList.add('dark-theme');
+            } else if (currentTheme === 'dark-crimson') {
+                document.body.classList.add('crimson-theme');
+            }
+        })();
+    </script>
     <div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
         <div class="container-fluid">
             <div class="navbar-header">
@@ -39,7 +78,7 @@
                     <span class="icon-bar"></span>
                 </button>
                 <img class="navbar-logo" src="/images/logo_inv_small.png" />
-                <a class="navbar-brand" href="/">&nbsp;gophish</a>
+                <a class="navbar-brand" href="/">&nbsp;&nbsp;Anglerphish</a>
             </div>
             <div class="navbar-collapse collapse">
                 <ul class="nav navbar-nav navbar-right">

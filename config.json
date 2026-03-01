@@ -19,5 +19,8 @@
 	"logging": {
 		"filename": "",
 		"level": ""
+	},
+	"reports": {
+		"storage_path": "./reports/files"
 	}
 }

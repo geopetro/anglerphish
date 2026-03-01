@@ -18,6 +18,32 @@ func (s *ModelsSuite) TestPostGroup(c *check.C) {
 	c.Assert(g.Targets[0].Email, check.Equals, "test@example.com")
 }
 
+func (s *ModelsSuite) TestPostGroupWithPhone(c *check.C) {
+	g := Group{Name: "Test Phone Group"}
+	g.Targets = []Target{Target{BaseRecipient: BaseRecipient{
+		Email: "test@example.com",
+		Phone: "+15551234567",
+	}}}
+	g.UserId = 1
+	err := PostGroup(&g)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(g.Name, check.Equals, "Test Phone Group")
+	c.Assert(g.Targets[0].Email, check.Equals, "test@example.com")
+	c.Assert(g.Targets[0].Phone, check.Equals, "+15551234567")
+}
+
+func (s *ModelsSuite) TestPostGroupPhoneOnly(c *check.C) {
+	g := Group{Name: "Test Phone Only Group"}
+	g.Targets = []Target{Target{BaseRecipient: BaseRecipient{
+		Phone: "+15551234567",
+	}}}
+	g.UserId = 1
+	err := PostGroup(&g)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(g.Name, check.Equals, "Test Phone Only Group")
+	c.Assert(g.Targets[0].Phone, check.Equals, "+15551234567")
+}
+
 func (s *ModelsSuite) TestPostGroupNoName(c *check.C) {
 	g := Group{Name: ""}
 	g.Targets = []Target{Target{BaseRecipient: BaseRecipient{Email: "test@example.com"}}}
@@ -172,6 +198,135 @@ func (s *ModelsSuite) TestPutGroupEmptyAttribute(c *check.C) {
 	c.Assert(targets[1].Email, check.Equals, "test2@example.com")
 	c.Assert(targets[1].FirstName, check.Equals, "Second")
 	c.Assert(targets[1].LastName, check.Equals, "Example")
+}
+
+func (s *ModelsSuite) TestPutGroupUpdatePhone(c *check.C) {
+	// Add test group with phone numbers.
+	group := Group{Name: "Test Phone Group"}
+	group.Targets = []Target{
+		Target{BaseRecipient: BaseRecipient{
+			Email:     "test1@example.com",
+			Phone:     "+15551234567",
+			FirstName: "First",
+			LastName:  "Example",
+		}},
+		Target{BaseRecipient: BaseRecipient{
+			Email:     "test2@example.com",
+			Phone:     "+15552345678",
+			FirstName: "Second",
+			LastName:  "Example",
+		}},
+	}
+	group.UserId = 1
+	PostGroup(&group)
+
+	// Update one of group's target's phone number.
+	group.Targets[0].Phone = "+15559876543"
+	err := PutGroup(&group)
+	c.Assert(err, check.Equals, nil)
+
+	// Verify updated phone number was saved.
+	targets, _ := GetTargets(group.Id)
+	c.Assert(targets[0].Email, check.Equals, "test1@example.com")
+	c.Assert(targets[0].Phone, check.Equals, "+15559876543")
+	c.Assert(targets[0].FirstName, check.Equals, "First")
+	c.Assert(targets[0].LastName, check.Equals, "Example")
+	c.Assert(targets[1].Email, check.Equals, "test2@example.com")
+	c.Assert(targets[1].Phone, check.Equals, "+15552345678")
+	c.Assert(targets[1].FirstName, check.Equals, "Second")
+	c.Assert(targets[1].LastName, check.Equals, "Example")
+}
+
+func (s *ModelsSuite) TestPostGroupInvalidPhone(c *check.C) {
+	g := Group{Name: "Test Invalid Phone Group"}
+	g.Targets = []Target{Target{BaseRecipient: BaseRecipient{
+		Phone: "invalid-phone",
+	}}}
+	g.UserId = 1
+	err := PostGroup(&g)
+	c.Assert(err, check.NotNil)
+	c.Assert(err.Error(), check.Equals, "Invalid phone number format")
+}
+
+func (s *ModelsSuite) TestPostGroupWithCustomField(c *check.C) {
+	g := Group{Name: "Test Custom Field Group"}
+	g.Targets = []Target{Target{BaseRecipient: BaseRecipient{
+		Email:     "test@example.com",
+		FirstName: "John",
+		LastName:  "Doe",
+		Custom:    "Department: Engineering",
+	}}}
+	g.UserId = 1
+	err := PostGroup(&g)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(g.Name, check.Equals, "Test Custom Field Group")
+	c.Assert(g.Targets[0].Email, check.Equals, "test@example.com")
+	c.Assert(g.Targets[0].Custom, check.Equals, "Department: Engineering")
+}
+
+func (s *ModelsSuite) TestPutGroupUpdateCustomField(c *check.C) {
+	// Add test group with custom field.
+	group := Group{Name: "Test Custom Group"}
+	group.Targets = []Target{
+		Target{BaseRecipient: BaseRecipient{
+			Email:     "test1@example.com",
+			FirstName: "First",
+			LastName:  "Example",
+			Custom:    "Original Custom Data",
+		}},
+		Target{BaseRecipient: BaseRecipient{
+			Email:     "test2@example.com",
+			FirstName: "Second",
+			LastName:  "Example",
+			Custom:    "Another Custom Field",
+		}},
+	}
+	group.UserId = 1
+	PostGroup(&group)
+
+	// Update one of group's target's custom field.
+	group.Targets[0].Custom = "Updated Custom Data"
+	err := PutGroup(&group)
+	c.Assert(err, check.Equals, nil)
+
+	// Verify updated custom field was saved.
+	targets, _ := GetTargets(group.Id)
+	c.Assert(targets[0].Email, check.Equals, "test1@example.com")
+	c.Assert(targets[0].Custom, check.Equals, "Updated Custom Data")
+	c.Assert(targets[0].FirstName, check.Equals, "First")
+	c.Assert(targets[0].LastName, check.Equals, "Example")
+	c.Assert(targets[1].Email, check.Equals, "test2@example.com")
+	c.Assert(targets[1].Custom, check.Equals, "Another Custom Field")
+	c.Assert(targets[1].FirstName, check.Equals, "Second")
+	c.Assert(targets[1].LastName, check.Equals, "Example")
+}
+
+func (s *ModelsSuite) TestPostGroupWithAllFields(c *check.C) {
+	// Test creating a group with all possible target fields
+	g := Group{Name: "Test All Fields Group"}
+	g.Targets = []Target{Target{BaseRecipient: BaseRecipient{
+		Email:     "complete@example.com",
+		Phone:     "+15551234567",
+		FirstName: "Complete",
+		LastName:  "User",
+		Position:  "Manager",
+		Custom:    "Custom: All fields test",
+	}}}
+	g.UserId = 1
+	err := PostGroup(&g)
+	c.Assert(err, check.Equals, nil)
+
+	// Verify all fields are saved correctly
+	saved, err := GetGroup(g.Id, g.UserId)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(len(saved.Targets), check.Equals, 1)
+	target := saved.Targets[0]
+	c.Assert(target.Email, check.Equals, "complete@example.com")
+	c.Assert(target.Phone, check.Equals, "+15551234567")
+	c.Assert(target.FirstName, check.Equals, "Complete")
+	c.Assert(target.LastName, check.Equals, "User")
+	c.Assert(target.Position, check.Equals, "Manager")
+	c.Assert(target.Custom, check.Equals, "Custom: All fields test")
 }
 
 func benchmarkPostGroup(b *testing.B, iter, size int) {

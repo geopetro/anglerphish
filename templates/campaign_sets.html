@@ -1,0 +1,373 @@
+{{define "body"}}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-3 col-md-2 sidebar">
+            {{template "nav" .}}
+        </div>
+        <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="page-header">
+                        <h1>Campaign Sets</h1>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12">
+                    <button type="button" class="btn btn-primary" data-toggle="modal" data-backdrop="static" data-target="#modal" id="new-campaign-set-btn">
+                        <i class="fa fa-plus"></i> New Campaign Set
+                    </button>
+                </div>
+            </div>
+            &nbsp;
+            <div class="row">
+                <div class="col-md-12">
+                    <div id="flashes" class="row"></div>
+                    <br />
+                    <table id="campaignSetTable" class="table table-hover table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Created Date</th>
+                                <th>Launch Date</th>
+                                <th>Send By Date</th>
+                                <th>Status</th>
+                                <th>Campaigns</th>
+                                <th class="no-sort"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Campaign Set Modal -->
+<div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="modalLabel">
+    <div class="modal-dialog modal-xl" role="document" style="width: 90%; max-width: 1200px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title" id="modalLabel">New Campaign Set</h4>
+            </div>
+            <div class="modal-body" id="modal_body">
+                <div class="row">
+                    <div class="col-sm-12">
+                        <div id="modal.flashes"></div>
+                    </div>
+                </div>
+                
+                <!-- Tabs Navigation -->
+                <ul class="nav nav-tabs" role="tablist">
+                    <li role="presentation" class="active">
+                        <a href="#generalSettings" aria-controls="generalSettings" role="tab" data-toggle="tab">General Settings</a>
+                    </li>
+                    <li role="presentation">
+                        <a href="#campaignsTab" aria-controls="campaignsTab" role="tab" data-toggle="tab">Campaigns</a>
+                    </li>
+                </ul>
+                
+                <!-- Tab Content -->
+                <div class="tab-content" style="margin-top: 20px;">
+                    <!-- General Settings Tab -->
+                    <div role="tabpanel" class="tab-pane active" id="generalSettings">
+                        <!-- Hidden checkboxes — still drive all JS logic, untouched -->
+                        <input id="useSharedPage"     type="checkbox" checked style="display:none">
+                        <input id="useSharedURL"      type="checkbox" checked style="display:none">
+                        <input id="useSharedURLParam" type="checkbox" checked style="display:none">
+                        <input id="useSharedQRSize"   type="checkbox" checked style="display:none">
+                        <input id="useSharedHTTPAuth" type="checkbox" checked style="display:none">
+                        <input id="useSharedSchedule" type="checkbox" checked style="display:none">
+
+                        <div class="form-group">
+                            <label class="control-label" for="name">Name:</label>
+                            <input type="text" class="form-control" placeholder="Campaign Set name" id="name" autofocus />
+                        </div>
+
+                        <div id="granularSettingsSection">
+                            <hr class="shared-settings-divider">
+                            <div class="shared-settings-header-row">
+                                <span class="shared-settings-header"><i class="fa fa-sliders"></i> Shared Settings
+                                    <small class="text-muted" style="font-weight:normal; margin-left:6px;">Toggle each setting between shared (applies to all campaigns) and per-campaign (set individually)</small>
+                                </span>
+                                <div class="btn-group shared-settings-global-btns" role="group">
+                                    <button type="button" class="btn btn-sm btn-primary active" id="setAllShared">All Shared</button>
+                                    <button type="button" class="btn btn-sm btn-default" id="setAllPerCampaign">All Per-Campaign</button>
+                                </div>
+                            </div>
+
+                            <!-- Landing Page row -->
+                            <div class="inline-setting-row" id="sharedPageRow">
+                                <div class="inline-setting-label-col">
+                                    <label class="control-label" for="page">Landing Page:</label>
+                                </div>
+                                <div class="inline-setting-field-col" id="sharedPageSection">
+                                    <select class="form-control" placeholder="Landing Page" id="page"></select>
+                                </div>
+                                <div class="inline-setting-toggle-col">
+                                    <div class="shared-toggle-group" data-target-checkbox="useSharedPage">
+                                        <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
+                                        <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- URL row -->
+                            <div class="inline-setting-row" id="sharedURLRow">
+                                <div class="inline-setting-label-col">
+                                    <label class="control-label" for="url">URL:
+                                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Location of Gophish listener (must be reachable by targets!)"></i>
+                                    </label>
+                                </div>
+                                <div class="inline-setting-field-col" id="sharedURLSection">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" placeholder="http://192.168.1.1" id="url" />
+                                        <span class="input-group-btn">
+                                            <button type="button" class="btn btn-default" id="urlTemplateBtn" data-toggle="tooltip" title="Use URL Template">
+                                                <i class="fa fa-list"></i>
+                                            </button>
+                                        </span>
+                                    </div>
+                                    <div style="margin-top:4px;">
+                                        <span id="urlLengthIndicator" style="font-size: 12px;"></span>
+                                    </div>
+                                </div>
+                                <div class="inline-setting-toggle-col">
+                                    <div class="shared-toggle-group" data-target-checkbox="useSharedURL">
+                                        <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
+                                        <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- URL Parameter row -->
+                            <div class="inline-setting-row" id="sharedURLParamRow">
+                                <div class="inline-setting-label-col">
+                                    <label class="control-label" for="urlparam">URL Parameter:
+                                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Sets the parameter used in the URL to track the target. Leave blank to use default (rid)."></i>
+                                    </label>
+                                </div>
+                                <div class="inline-setting-field-col" id="sharedURLParamSection">
+                                    <input type="text" class="form-control" placeholder="rid" id="urlparam" />
+                                </div>
+                                <div class="inline-setting-toggle-col">
+                                    <div class="shared-toggle-group" data-target-checkbox="useSharedURLParam">
+                                        <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
+                                        <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- QR Code Size row -->
+                            <div class="inline-setting-row" id="sharedQRSizeRow">
+                                <div class="inline-setting-label-col">
+                                    <label class="control-label" for="qrsize">QR Code Size:
+                                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Size of QR code images (px). Leave blank to use normal links only."></i>
+                                    </label>
+                                </div>
+                                <div class="inline-setting-field-col" id="sharedQRSizeSection">
+                                    <input type="number" class="form-control" placeholder="256" id="qrsize" />
+                                </div>
+                                <div class="inline-setting-toggle-col">
+                                    <div class="shared-toggle-group" data-target-checkbox="useSharedQRSize">
+                                        <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
+                                        <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- HTTP Auth row -->
+                            <div class="inline-setting-row" id="sharedHTTPAuthRow">
+                                <div class="inline-setting-label-col">
+                                    <label class="control-label">HTTP Auth:
+                                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Enables a landing page with HTTP Authentication"></i>
+                                    </label>
+                                </div>
+                                <div class="inline-setting-field-col" id="sharedHTTPAuthSection">
+                                    <div class="checkbox" style="margin-top:6px;">
+                                        <label>
+                                            <input type="checkbox" id="basicauth"> Use HTTP Basic Access Authentication
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="inline-setting-toggle-col">
+                                    <div class="shared-toggle-group" data-target-checkbox="useSharedHTTPAuth">
+                                        <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
+                                        <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Schedule row -->
+                            <div class="inline-setting-row inline-setting-row-schedule" id="sharedScheduleRow">
+                                <div class="inline-setting-label-col">
+                                    <label class="control-label">Schedule:</label>
+                                </div>
+                                <div class="inline-setting-field-col" id="sharedScheduleSection">
+                                    <div class="form-group" style="margin-bottom:8px;">
+                                        <label class="control-label" for="launch_date" style="font-weight:normal;">Launch Date:
+                                            <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="The date and time to launch the campaign."></i>
+                                        </label>
+                                        <input type="text" class="form-control" id="launch_date" />
+                                    </div>
+                                    <div class="form-group" style="margin-bottom:0;">
+                                        <label class="control-label" for="send_by_date" style="font-weight:normal;">Send Emails By <span class="text-muted">(Optional)</span>:
+                                            <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="If specified, Gophish will send messages evenly between the launch date and this date."></i>
+                                        </label>
+                                        <input type="text" class="form-control" id="send_by_date" />
+                                    </div>
+                                </div>
+                                <div class="inline-setting-toggle-col">
+                                    <div class="shared-toggle-group" data-target-checkbox="useSharedSchedule">
+                                        <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
+                                        <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                    
+                    <!-- Campaigns Tab -->
+                    <div role="tabpanel" class="tab-pane" id="campaignsTab">
+                        <div class="row">
+                            <div class="col-sm-12">
+                                <div class="split-view-container">
+                                    <!-- Left Panel - Campaign List -->
+                                    <div class="split-view-left">
+                                        <div class="panel panel-default">
+                                            <div class="panel-heading">
+                                                <h3 class="panel-title">Campaigns</h3>
+                                                <button type="button" class="btn btn-primary btn-sm" id="addCampaignButton">
+                                                    <i class="fa fa-plus"></i> Add Campaign
+                                                </button>
+                                            </div>
+                                            <div class="panel-body p-0">
+                                                <div class="list-group campaign-list" id="campaignList">
+                                                    <!-- Campaign list items will be added here dynamically -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Right Panel - Campaign Details -->
+                                    <div class="split-view-right">
+                                        <div class="panel panel-default">
+                                            <div class="panel-heading">
+                                                <h3 class="panel-title">Campaign Details</h3>
+                                                <button type="button" class="btn btn-xs btn-danger btn-remove-campaign" style="display: none;">
+                                                    <i class="fa fa-trash"></i> Delete Campaign
+                                                </button>
+                                            </div>
+                                            <div class="panel-body campaign-detail-panel" id="campaignDetail">
+                                                <!-- Campaign details form will be shown here -->
+                                                <div class="campaign-detail-placeholder text-center text-muted">
+                                                    <p><i class="fa fa-arrow-left fa-3x"></i></p>
+                                                    <p>Select a campaign from the list or add a new one</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" id="saveDraftButton">
+                    <i class="fa fa-save"></i> Save as Draft</button>
+                <button type="button" class="btn btn-primary" id="launchButton">
+                    <i class="fa fa-rocket"></i> Launch Campaign Set</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Launch Draft Modal -->
+<div class="modal fade" id="launchDraftModal" tabindex="-1" role="dialog" aria-labelledby="launchDraftModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title" id="launchDraftModalLabel">Launch Draft Campaign Set</h4>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to launch the draft campaign set "<span id="launchDraftName"></span>"?</p>
+                <p>This will convert the draft to a real campaign set and start sending emails/SMS messages according to the schedule.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="launchDraftButton">Launch</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- URL Template Modal -->
+<div class="modal fade" id="urlTemplateModal" tabindex="-1" role="dialog" aria-labelledby="urlTemplateModalLabel">
+    <div class="modal-dialog" role="document" style="width: 600px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title" id="urlTemplateModalLabel">
+                    Select URL Template
+                    <button type="button" class="btn btn-xs btn-success pull-right" id="addCustomTemplateBtn" style="margin-top: -3px;">
+                        <i class="fa fa-plus"></i> Add Custom
+                    </button>
+                </h4>
+            </div>
+            <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
+                <div id="urlTemplateList"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Custom URL Template Modal -->
+<div class="modal fade" id="addUrlTemplateModal" tabindex="-1" role="dialog" aria-labelledby="addUrlTemplateModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title" id="addUrlTemplateModalLabel">Save Custom URL Template</h4>
+            </div>
+            <div class="modal-body">
+                <div class="row" id="addUrlTemplateModal.flashes"></div>
+                <div class="form-group">
+                    <label for="customTemplateName">Template Name:</label>
+                    <input type="text" class="form-control" id="customTemplateName" placeholder="My Custom Template">
+                </div>
+                <div class="form-group">
+                    <label for="customTemplateUrl">URL:</label>
+                    <input type="text" class="form-control" id="customTemplateUrl" placeholder="https://example.com/path">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveCustomTemplateBtn">
+                    <i class="fa fa-save"></i> Save Template</button>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+{{define "scripts"}}
+<link href="/css/campaign-sets.css" rel="stylesheet" type="text/css">
+<script src="/js/dist/app/campaign_sets.min.js"></script>
+{{end}}

@@ -272,6 +272,10 @@ p {
     fill: #1abc9c !important;
 }
 
+.ct-point-replied {
+    fill: #E67E22 !important;
+}
+
 .ct-point-success {
     fill: #f05b4f !important;
 }
@@ -378,6 +382,10 @@ p {
     stroke: #F39C12 !important;
 }
 
+.ct-slice-donut.ct-slice-donut-replied {
+    stroke: #E67E22 !important;
+}
+
 .ct-slice-donut.ct-slice-donut-sending {
     stroke: #428bca !important;
 }
@@ -402,12 +410,20 @@ p {
     background-color: #F39C12 !important;
 }
 
+.ct-legend-replied {
+    background-color: #E67E22 !important;
+}
+
 .ct-legend-sending {
     background-color: #428bca !important;
 }
 
 .label-clicked {
     background-color: #F39C12 !important;
+}
+
+.label-mfa {
+    background-color: #9b59b6 !important;
 }
 
 .gophish-editor {
@@ -697,6 +713,11 @@ table.dataTable {
     color: #45d6ef;
 }
 
+.color-replied {
+    font-weight: bold;
+    color: #E67E22;
+}
+
 .color-success {
     color: #f05b4f;
 }
@@ -741,4 +762,14 @@ table.dataTable {
 }
 #password-strength-container {
     height: 40px;
+}
+
+/* Reports table highlight animation for smooth updates */
+#reports-table tbody tr.highlight-update {
+    background-color: #fcf8e3 !important;
+    transition: background-color 1s ease-out;
+}
+
+#reports-table tbody tr {
+    transition: background-color 0.3s ease;
 }

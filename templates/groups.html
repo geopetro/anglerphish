@@ -37,7 +37,7 @@
 </div>
 <!-- Modal -->
 <div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="modalLabel">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog" role="document" style="width: 80% !important;">
         <div class="modal-content">
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -51,6 +51,7 @@
                 <div class="form-group">
                     <input type="text" class="form-control" ng-model="group.name" placeholder="Group name" id="name"
                         autofocus />
+                    <input type="hidden" id="original_targets" value="" />
                 </div>
                 <div class="form-group">
                     <span class="btn btn-danger btn-file" data-toggle="tooltip" data-placement="right"
@@ -69,11 +70,17 @@
                         <div class="col-sm-2">
                             <input type="text" class="form-control" placeholder="Last Name" id="lastName">
                         </div>
-                        <div class="col-sm-3">
-                            <input type="email" class="form-control" placeholder="Email" id="email" required>
+                        <div class="col-sm-2">
+                            <input type="email" class="form-control" placeholder="Email" id="email">
                         </div>
-                        <div class="col-sm-3">
+                        <div class="col-sm-2">
+                            <input type="tel" class="form-control" placeholder="Phone" id="phone">
+                        </div>
+                        <div class="col-sm-2">
                             <input type="text" class="form-control" placeholder="Position" id="position">
+                        </div>
+                        <div class="col-sm-1">
+                            <input type="text" class="form-control" placeholder="Custom" id="custom">
                         </div>
                         <div class="col-sm-1">
                             <button type="submit" class="btn btn-danger btn-lg">
@@ -88,7 +95,9 @@
                             <th>First Name</th>
                             <th>Last Name</th>
                             <th>Email</th>
+                            <th>Phone</th>
                             <th>Position</th>
+                            <th>Custom</th>
                             <th class="no-sort"></th>
                     <tbody>
                     </tbody>

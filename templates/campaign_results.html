@@ -35,9 +35,33 @@
             <button id="refresh_btn" type="button" class="btn btn-blue" data-toggle="tooltip" onclick="refresh()">
                 <i class="fa fa-refresh fa-lg"></i> Refresh
             </button>
+            <button id="generate_link_btn" type="button" class="btn btn-success" data-toggle="tooltip" onclick="generateNewLink()" style="display:none;">
+                <i class="fa fa-link fa-lg"></i> Generate New Link
+            </button>
             <span id="refresh_message">
                 <i class="fa fa-spin fa-spinner"></i> Refreshing
             </span>
+        </div>
+        <!-- Tracking URL Section (for generic campaigns) -->
+        <div id="tracking_url_section" class="row" style="display:none; margin-top: 15px;">
+            <div class="col-md-12">
+                <div class="panel panel-primary">
+                    <div class="panel-heading">
+                        <i class="fa fa-link"></i> Tracking URL
+                    </div>
+                    <div class="panel-body">
+                        <p class="text-muted">Use this URL to track link clicks.</p>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="trackingUrlDisplay" readonly>
+                            <span class="input-group-btn">
+                                <button class="btn btn-primary" type="button" onclick="copyTrackingUrlResults()">
+                                    <i class="fa fa-copy"></i> Copy
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         <br />
         <div class="row">
@@ -48,13 +72,26 @@
                     </div>
                 </div>
                 <div class="row">
-                    <div style="height:200px;" class="col-lg-1 col-md-1"></div>
-                    <div id="sent_chart" style="height:200px;" class="col-lg-2 col-md-2"></div>
-                    <div id="opened_chart" style="height:200px;" class="col-lg-2 col-md-2"></div>
-                    <div id="clicked_chart" style="height:200px;" class="col-lg-2 col-md-2"></div>
-                    <div id="submitted_data_chart" style="height:200px;" class="col-lg-2 col-md-2"></div>
-                    <div id="reported_chart" style="height:200px;" class="col-lg-2 col-md-2"></div>
-                    <div style="height:200px;" class="col-lg-1 col-md-1"></div>
+                    <div class="col-md-4">
+                        <div id="sent_chart" style="height:200px;"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <div id="opened_chart" style="height:200px;"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <div id="clicked_chart" style="height:200px;"></div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div id="replied_chart" style="height:200px;"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <div id="submitted_data_chart" style="height:200px;"></div>
+                    </div>
+                    <div class="col-md-4">
+                        <div id="reported_chart" style="height:200px;"></div>
+                    </div>
                 </div>
                 <div class="row" id="resultsMapContainer">
                     <div class="col-md-6">
@@ -66,6 +103,7 @@
         </div>
         <div class="row">
             <h2>Details</h2>
+            <!-- Standard results table (for email/SMS campaigns) -->
             <table id="resultsTable" class="table">
                 <thead>
                     <tr>
@@ -77,6 +115,23 @@
                         <th>Position</th>
                         <th>Status</th>
                         <th class="text-center">Reported</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+            <!-- Generic campaign links table -->
+            <table id="genericLinksTable" class="table" style="display:none;">
+                <thead>
+                    <tr>
+                        <th>Link ID</th>
+                        <th class="no-sort"></th>
+                        <th>Link Name</th>
+                        <th>Tracking URL</th>
+                        <th class="text-center">Clicks</th>
+                        <th class="text-center">Submissions</th>
+                        <th>Status</th>
+                        <th>Created</th>
                     </tr>
                 </thead>
                 <tbody>

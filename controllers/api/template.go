@@ -22,6 +22,26 @@ func (as *Server) Templates(w http.ResponseWriter, r *http.Request) {
 			log.Error(err)
 		}
 		JSONResponse(w, ts, http.StatusOK)
+	// DELETE: Bulk delete templates
+	case r.Method == "DELETE":
+		var req struct {
+			IDs []int64 `json:"ids"`
+		}
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			JSONResponse(w, models.Response{Success: false, Message: "Invalid JSON structure"}, http.StatusBadRequest)
+			return
+		}
+		if len(req.IDs) == 0 {
+			JSONResponse(w, models.Response{Success: false, Message: "No template IDs provided"}, http.StatusBadRequest)
+			return
+		}
+		err = models.DeleteTemplates(req.IDs, ctx.Get(r, "user_id").(int64))
+		if err != nil {
+			JSONResponse(w, models.Response{Success: false, Message: "Error deleting templates: " + err.Error()}, http.StatusInternalServerError)
+			return
+		}
+		JSONResponse(w, models.Response{Success: true, Message: "Templates deleted successfully!"}, http.StatusOK)
 	//POST: Create a new template and return it as JSON
 	case r.Method == "POST":
 		t := models.Template{}

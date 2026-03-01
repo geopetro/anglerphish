@@ -1,0 +1,65 @@
+{{define "body"}}
+<div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+    <div class="row">
+        <h1 class="page-header">
+            QR Code Generator
+        </h1>
+    </div>
+    <div id="flashes" class="row"></div>
+    <div class="row">
+        <div class="col-md-6">
+            <form>
+                <label class="control-label" for="url">URL:</label>
+                <div class="form-group">
+                    <input type="text" class="form-control" placeholder="URL text" id="url" autofocus />
+                </div>
+                <label class="control-label" for="size">Size: <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Size is both the image width and height in pixels. If size is too small then a larger image is silently written. Negative values for size cause a variable sized image to be written."></i></label>
+                <div class="form-group">
+                    <input type="number" class="form-control" placeholder="256" id="size" min="1" />
+                </div>
+                <div class="form-group">
+                    <input class="form-check-input" type="checkbox" id="storeInDb" checked>
+                    <label class="form-check-label" for="storeInDb"> Store in database for later use</label>
+                </div>
+                <div class="alert alert-info">
+                    <i class="fa fa-info-circle"></i> The QR code will be automatically downloaded when generated.
+                </div>
+                <button type="button" class="btn btn-primary" id="generateButton" onclick="generate_code()">Generate QR Code</button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="row" style="margin-top: 30px;">
+        <div class="col-md-12">
+            <h2>Saved QR Codes</h2>
+            <div id="qr_code_list">
+                <table id="qrCodeTable" class="table table-hover table-striped">
+                    <thead>
+                        <tr>
+                            <th>URL</th>
+                            <th>Size</th>
+                            <th>Created</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- QR code list will be populated here by JavaScript -->
+                    </tbody>
+                </table>
+                <div id="loading_qr_codes" class="text-center">
+                    <i class="fa fa-spinner fa-spin fa-2x"></i>
+                </div>
+                <div id="no_qr_codes" class="text-center" style="display:none;">
+                    <span>No QR codes found.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+{{define "scripts"}}
+<script src="/js/src/vendor/ckeditor/ckeditor.js"></script>
+<script src="/js/src/vendor/ckeditor/adapters/jquery.js"></script>
+<script src="/js/dist/app/autocomplete.min.js"></script>
+<script src="/js/dist/app/qr_code.min.js"></script>
+{{end}}

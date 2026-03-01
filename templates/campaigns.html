@@ -10,6 +10,9 @@
         <button type="button" class="btn btn-primary" data-toggle="modal" data-backdrop="static" data-target="#modal"
             onclick="edit('new')">
             <i class="fa fa-plus"></i> New Campaign</button>
+        <button type="button" class="btn btn-danger" id="deleteSelectedCampaigns" style="display:none; margin-left: 10px;"
+            onclick="deleteSelectedCampaigns()">
+            <i class="fa fa-trash-o"></i> Delete Selected (<span id="selectedCount">0</span>)</button>
     </div>
     &nbsp;
 
@@ -36,6 +39,7 @@
                 <table id="campaignTable" class="table" style="display:none;">
                     <thead>
                         <tr>
+                            <th class="no-sort" style="width: 30px;"><input type="checkbox" id="selectAllActive" title="Select All"></th>
                             <th class="col-md-3">Name</th>
                             <th class="col-md-4">Created Date</th>
                             <th class="col-md-2">Status</th>
@@ -48,9 +52,7 @@
             </div>
         </div>
         <div role="tabpanel" class="tab-pane" id="archivedCampaigns">
-            </br>
-            <div id="emptyMessage" class="row" style="display:none;">
-                </br>
+            <div id="emptyMessageArchived" class="row" style="display:none;">
                 <div class="alert alert-info">
                     No archived campaigns.
                 </div>
@@ -59,6 +61,7 @@
                 <table id="campaignTableArchive" class="table" style="display:none;">
                     <thead>
                         <tr>
+                            <th class="no-sort" style="width: 30px;"><input type="checkbox" id="selectAllArchived" title="Select All"></th>
                             <th class="col-md-3">Name</th>
                             <th class="col-md-4">Created Date</th>
                             <th class="col-md-2">Status</th>
@@ -80,56 +83,181 @@
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="dismiss()">
                     <span aria-hidden="true">&times;</span>
                 </button>
-                <h4 class="modal-title" id="campaignModalLabel">New Campaign</h4>
+                <h4 class="modal-title" id="campaignModalLabel">
+                    New Campaign
+                    <div class="btn-group" role="group" style="margin-left: 15px;">
+                        <button type="button" class="btn btn-sm btn-primary campaign-type-btn active" data-type="email">
+                            <i class="fa fa-envelope"></i> Email
+                        </button>
+                        <button type="button" class="btn btn-sm btn-default campaign-type-btn" data-type="sms">
+                            <i class="fa fa-mobile"></i> SMS
+                        </button>
+                        <button type="button" class="btn btn-sm btn-default campaign-type-btn" data-type="generic">
+                            <i class="fa fa-link"></i> Generic
+                        </button>
+                    </div>
+                </h4>
             </div>
             <div class="modal-body" id="modal_body">
                 <div class="row" id="modal.flashes"></div>
                 <div class="form-group">
                     <label for="name">Name:</label>
                     <input type="text" class="form-control" id="name" placeholder="Campaign name" autofocus>
-                    <label class="control-label" for="template">Email Template:</label>
-                    <select class="form-control" placeholder="Template Name" id="template" />
-                    <option></option>
-                    </select>
+                    
+                    <input type="hidden" id="campaign_type" value="email">
+                    
+                    <!-- Email Template (shown for email campaigns) -->
+                    <div id="email_template_div">
+                        <label class="control-label" for="template">Email Template:</label>
+                        <select class="form-control" placeholder="Template Name" id="template" />
+                        <option></option>
+                        </select>
+                    </div>
+                    
+                    <!-- SMS Template (shown for SMS campaigns) -->
+                    <div id="sms_template_div" style="display:none;">
+                        <label class="control-label" for="sms_template">SMS Template:</label>
+                        <select class="form-control" placeholder="SMS Template Name" id="sms_template" />
+                        <option></option>
+                        </select>
+                    </div>
+                    
                     <label class="control-label" for="page">Landing Page:</label>
                     <select class="form-control" placeholder="Landing Page" id="page" />
                     <option></option>
                     </select>
+                    <input class="form-check-input" type="checkbox" id="basicauth">
+                    <label class="form-check-label" for="basicauth"> Use HTTP Basic Access Authentication
+                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Enables a landing page with HTTP Authentication"></i>
+                    </label><br>
                     <label class="control-label" for="url">URL:
                         <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Location of Gophish listener (must be reachable by targets!)"></i>
+                        <span id="urlLengthIndicator" style="margin-left: 10px; font-size: 12px;"></span>
                     </label>
-                    <input type="text" class="form-control" placeholder="http://192.168.1.1" id="url" />
+                    <div class="input-group">
+                        <input type="text" class="form-control" placeholder="http://192.168.1.1" id="url" />
+                        <span class="input-group-btn">
+                            <button type="button" class="btn btn-default" id="urlTemplateBtn" data-toggle="tooltip" title="Use URL Template">
+                                <i class="fa fa-list"></i>
+                            </button>
+                        </span>
+                    </div>
+                    <label class="control-label" for="urlparam">URL Parameter:
+                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Sets the parameter used in the URL to track the target. It is recommended to change this parameter, to make Gophish stealthier. Leave blank to use default (rid)."></i>
+                    </label>
+                    <input type="text" class="form-control" placeholder="rid" id="urlparam" />
+                    <label class="control-label" for="qrsize">QR Code Size:
+                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Size of QR code images (integer is height & width). Leave blank to not include QR code images and use normal links."></i>
+                    </label>
+                    <input type="number" class="form-control" placeholder="256" id="qrsize" />
                     <div class="row">
                         <div class="col-md-6">
                             <label class="control-label" for="url">Launch Date </label>
                             <input type="text" class="form-control" id="launch_date" />
                         </div>
                         <div class="col-md-6">
-                            <label class="control-label" for="delay">Send Emails By (Optional)
-                                <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="If specified, Gophish will send emails evenly between the campaign launch and this date."></i>
+                            <label class="control-label" for="delay">Send By (Optional)
+                                <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="If specified, Gophish will send messages evenly between the campaign launch and this date."></i>
                             </label>
                             <input type="text" class="form-control" id="send_by_date" autocomplete="random-data"/> <!--Chrome ignores autocomplete="off".-->
                         </div>
                     </div>
-                    <label class="control-label" for="profile">Sending Profile:</label>
-                    <div class="input-group">
-                        <select class="form-control" placeholder="Sending Profile" id="profile" />
+                    
+                    <!-- Email Sending Profile (shown for email campaigns) -->
+                    <div id="email_profile_div">
+                        <label class="control-label" for="profile">Email Sending Profile:</label>
+                        <div class="input-group">
+                            <select class="form-control" placeholder="Sending Profile" id="profile" />
+                            <option></option>
+                            </select>
+                            <span class="input-group-btn">
+                                <button type="button" data-toggle="modal" data-backdrop="static" data-target="#sendTestEmailModal"
+                                    class="btn btn-primary button">
+                                    <i class="fa fa-envelope"></i> Send Test Email</button>
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- SMS Sending Profile (shown for SMS campaigns) -->
+                    <div id="sms_profile_div" style="display:none;">
+                        <label class="control-label" for="sms_profile">SMS Sending Profile:</label>
+                        <select class="form-control" placeholder="SMS Sending Profile" id="sms_profile" />
                         <option></option>
                         </select>
-                        <span class="input-group-btn">
-                            <button type="button" data-toggle="modal" data-backdrop="static" data-target="#sendTestEmailModal"
-                                class="btn btn-primary button">
-                                <i class="fa fa-envelope"></i> Send Test Email</button>
-                        </span>
                     </div>
-                    <label class="control-label" for="users">Groups:</label>
-                    <select class="form-control" id="users" multiple="multiple"></select>
+                    
+                    <!-- Groups (hidden for generic campaigns) -->
+                    <div id="groups_div">
+                        <label class="control-label" for="users">Groups:</label>
+                        <select class="form-control" id="users" multiple="multiple"></select>
+                    </div>
+                    
+                    <!-- Generic campaign info message -->
+                    <div id="generic_info_div" style="display:none;">
+                        <div class="alert alert-info" style="margin-top: 15px;">
+                            <i class="fa fa-info-circle"></i> <strong>Generic Campaign:</strong>
+                            No emails or SMS will be sent. After launching, you'll receive a tracking URL to distribute manually (e.g., via QR codes, USB drops, or other methods).
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-default" data-dismiss="modal" onclick="dismiss()">Close</button>
                 <button type="button" id="launchButton" class="btn btn-primary" onclick="launch()">
                     <i class="fa fa-rocket"></i> Launch Campaign</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- URL Template Modal -->
+<div class="modal fade" id="urlTemplateModal" tabindex="-1" role="dialog" aria-labelledby="urlTemplateModalLabel">
+    <div class="modal-dialog" role="document" style="width: 600px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title" id="urlTemplateModalLabel">
+                    Select URL Template
+                    <button type="button" class="btn btn-xs btn-success pull-right" id="addCustomTemplateBtn" style="margin-top: -3px;">
+                        <i class="fa fa-plus"></i> Add Custom
+                    </button>
+                </h4>
+            </div>
+            <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
+                <div id="urlTemplateList"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Add Custom URL Template Modal -->
+<div class="modal fade" id="addUrlTemplateModal" tabindex="-1" role="dialog" aria-labelledby="addUrlTemplateModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title" id="addUrlTemplateModalLabel">Save Custom URL Template</h4>
+            </div>
+            <div class="modal-body">
+                <div class="row" id="addUrlTemplateModal.flashes"></div>
+                <div class="form-group">
+                    <label for="customTemplateName">Template Name:</label>
+                    <input type="text" class="form-control" id="customTemplateName" placeholder="My Custom Template">
+                </div>
+                <div class="form-group">
+                    <label for="customTemplateUrl">URL:</label>
+                    <input type="text" class="form-control" id="customTemplateUrl" placeholder="https://example.com/path">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveCustomTemplateBtn">
+                    <i class="fa fa-save"></i> Save Template</button>
             </div>
         </div>
     </div>

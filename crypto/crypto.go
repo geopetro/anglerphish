@@ -1,0 +1,275 @@
+// Package crypto provides AES-256-GCM encryption for sensitive database fields.
+// This package is intentionally isolated with only standard library dependencies
+// to avoid import cycles with other packages.
+package crypto
+
+import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+)
+
+const (
+	// EncryptionKeyEnvVar is the environment variable name for the encryption key
+	EncryptionKeyEnvVar = "ANGLERPHISH_ENCRYPTION_KEY"
+
+	// EncryptedPrefix is the prefix for encrypted values
+	EncryptedPrefix = "ENC:v1:"
+
+	// RequiredKeyLength is the required length for AES-256 (32 bytes)
+	RequiredKeyLength = 32
+)
+
+var (
+	// encryptionKey holds the encryption key in memory
+	encryptionKey []byte
+
+	// encryptionEnabled indicates if encryption is active
+	encryptionEnabled bool
+
+	// ErrNoKeyConfigured is returned when encryption is attempted without a key
+	ErrNoKeyConfigured = errors.New("encryption key not configured")
+
+	// ErrInvalidKeyLength is returned when the key length is incorrect
+	ErrInvalidKeyLength = errors.New("encryption key must be exactly 32 bytes")
+
+	// ErrDecryptionFailed is returned when decryption fails
+	ErrDecryptionFailed = errors.New("decryption failed - invalid ciphertext or wrong key")
+
+	// ErrInvalidEncryptedFormat is returned when the encrypted format is invalid
+	ErrInvalidEncryptedFormat = errors.New("invalid encrypted data format")
+)
+
+// InitEncryption initializes the encryption system with a key from environment variable.
+// Returns true if encryption was enabled, false otherwise.
+func InitEncryption() (bool, error) {
+	key := os.Getenv(EncryptionKeyEnvVar)
+	if key == "" {
+		encryptionEnabled = false
+		return false, nil
+	}
+
+	if len(key) != RequiredKeyLength {
+		return false, ErrInvalidKeyLength
+	}
+
+	encryptionKey = []byte(key)
+	encryptionEnabled = true
+	return true, nil
+}
+
+// InitEncryptionWithKey initializes the encryption system with a provided key.
+// This is useful for testing or when the key is provided programmatically.
+func InitEncryptionWithKey(key string) error {
+	if key == "" {
+		encryptionEnabled = false
+		return ErrNoKeyConfigured
+	}
+
+	if len(key) != RequiredKeyLength {
+		return ErrInvalidKeyLength
+	}
+
+	encryptionKey = []byte(key)
+	encryptionEnabled = true
+	return nil
+}
+
+// IsEncryptionEnabled returns whether encryption is currently enabled.
+func IsEncryptionEnabled() bool {
+	return encryptionEnabled
+}
+
+// GenerateEncryptionKey generates a new random 32-byte encryption key.
+// Returns the key as a string suitable for the environment variable.
+func GenerateEncryptionKey() (string, error) {
+	key := make([]byte, RequiredKeyLength)
+	if _, err := io.ReadFull(rand.Reader, key); err != nil {
+		return "", fmt.Errorf("failed to generate encryption key: %w", err)
+	}
+
+	// Use only alphanumeric characters for easy copy/paste
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	result := make([]byte, RequiredKeyLength)
+	for i := range result {
+		result[i] = charset[int(key[i])%len(charset)]
+	}
+
+	return string(result), nil
+}
+
+// IsEncrypted checks if a value is encrypted (has the encryption prefix).
+func IsEncrypted(value string) bool {
+	return strings.HasPrefix(value, EncryptedPrefix)
+}
+
+// Encrypt encrypts a plaintext string using AES-256-GCM.
+// If encryption is not enabled, returns the plaintext unchanged.
+// If the value is already encrypted, returns it unchanged.
+func Encrypt(plaintext string) (string, error) {
+	// Empty strings don't need encryption
+	if plaintext == "" {
+		return "", nil
+	}
+
+	// Already encrypted, return as-is
+	if IsEncrypted(plaintext) {
+		return plaintext, nil
+	}
+
+	// If encryption is not enabled, return plaintext
+	if !encryptionEnabled {
+		return plaintext, nil
+	}
+
+	// Create cipher block
+	block, err := aes.NewCipher(encryptionKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to create cipher: %w", err)
+	}
+
+	// Create GCM wrapper
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", fmt.Errorf("failed to create GCM: %w", err)
+	}
+
+	// Generate random nonce
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return "", fmt.Errorf("failed to generate nonce: %w", err)
+	}
+
+	// Encrypt the plaintext
+	ciphertext := gcm.Seal(nil, nonce, []byte(plaintext), nil)
+
+	// Encode nonce and ciphertext as base64
+	nonceB64 := base64.StdEncoding.EncodeToString(nonce)
+	ciphertextB64 := base64.StdEncoding.EncodeToString(ciphertext)
+
+	// Return formatted encrypted value: ENC:v1:nonce:ciphertext
+	return fmt.Sprintf("%s%s:%s", EncryptedPrefix, nonceB64, ciphertextB64), nil
+}
+
+// Decrypt decrypts an encrypted string using AES-256-GCM.
+// If the value is not encrypted (no prefix), returns it unchanged.
+// This allows backward compatibility with plaintext values.
+func Decrypt(ciphertext string) (string, error) {
+	// Empty strings don't need decryption
+	if ciphertext == "" {
+		return "", nil
+	}
+
+	// If not encrypted (no prefix), return as-is (backward compatibility)
+	if !IsEncrypted(ciphertext) {
+		return ciphertext, nil
+	}
+
+	// If encryption is not enabled but we have encrypted data, we can't decrypt
+	if !encryptionEnabled {
+		return "", ErrNoKeyConfigured
+	}
+
+	// Remove prefix and split into nonce:ciphertext
+	data := strings.TrimPrefix(ciphertext, EncryptedPrefix)
+	parts := strings.SplitN(data, ":", 2)
+	if len(parts) != 2 {
+		return "", ErrInvalidEncryptedFormat
+	}
+
+	// Decode nonce
+	nonce, err := base64.StdEncoding.DecodeString(parts[0])
+	if err != nil {
+		return "", fmt.Errorf("failed to decode nonce: %w", err)
+	}
+
+	// Decode ciphertext
+	encryptedData, err := base64.StdEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", fmt.Errorf("failed to decode ciphertext: %w", err)
+	}
+
+	// Create cipher block
+	block, err := aes.NewCipher(encryptionKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to create cipher: %w", err)
+	}
+
+	// Create GCM wrapper
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", fmt.Errorf("failed to create GCM: %w", err)
+	}
+
+	// Decrypt
+	plaintext, err := gcm.Open(nil, nonce, encryptedData, nil)
+	if err != nil {
+		return "", ErrDecryptionFailed
+	}
+
+	return string(plaintext), nil
+}
+
+// MustDecrypt is like Decrypt but returns the original value if decryption fails.
+// This is useful for GORM hooks where we want to fail gracefully.
+func MustDecrypt(ciphertext string) string {
+	plaintext, err := Decrypt(ciphertext)
+	if err != nil {
+		// If decryption fails, return the original value
+		// This handles cases where encryption key is not set
+		return ciphertext
+	}
+	return plaintext
+}
+
+// MustEncrypt is like Encrypt but returns the original value if encryption fails.
+// This is useful for GORM hooks where we want to fail gracefully.
+func MustEncrypt(plaintext string) string {
+	encrypted, err := Encrypt(plaintext)
+	if err != nil {
+		// If encryption fails, return the original value
+		return plaintext
+	}
+	return encrypted
+}
+
+// GetEncryptionStatus returns "encrypted", "plaintext", or "empty" for a value.
+func GetEncryptionStatus(value string) string {
+	if value == "" {
+		return "empty"
+	}
+	if IsEncrypted(value) {
+		return "encrypted"
+	}
+	return "plaintext"
+}
+
+// TestEncryptionKey tests if the current encryption key can encrypt and decrypt data.
+func TestEncryptionKey() error {
+	if !encryptionEnabled {
+		return ErrNoKeyConfigured
+	}
+
+	testData := "test-encryption-data"
+	encrypted, err := Encrypt(testData)
+	if err != nil {
+		return fmt.Errorf("encryption test failed: %w", err)
+	}
+
+	decrypted, err := Decrypt(encrypted)
+	if err != nil {
+		return fmt.Errorf("decryption test failed: %w", err)
+	}
+
+	if decrypted != testData {
+		return errors.New("encryption/decryption test failed: data mismatch")
+	}
+
+	return nil
+}

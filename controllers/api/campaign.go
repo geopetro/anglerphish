@@ -12,6 +12,11 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
+// bulkDeleteRequest is used to parse the JSON body for bulk campaign deletion
+type bulkDeleteRequest struct {
+	Ids []int64 `json:"ids"`
+}
+
 // Campaigns returns a list of campaigns if requested via GET.
 // If requested via POST, APICampaigns creates a new campaign and returns a reference to it.
 func (as *Server) Campaigns(w http.ResponseWriter, r *http.Request) {
@@ -22,6 +27,24 @@ func (as *Server) Campaigns(w http.ResponseWriter, r *http.Request) {
 			log.Error(err)
 		}
 		JSONResponse(w, cs, http.StatusOK)
+	//DELETE: Bulk delete campaigns
+	case r.Method == "DELETE":
+		var req bulkDeleteRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			JSONResponse(w, models.Response{Success: false, Message: "Invalid JSON structure"}, http.StatusBadRequest)
+			return
+		}
+		if len(req.Ids) == 0 {
+			JSONResponse(w, models.Response{Success: false, Message: "No campaign IDs provided"}, http.StatusBadRequest)
+			return
+		}
+		count, err := models.DeleteCampaigns(req.Ids, ctx.Get(r, "user_id").(int64))
+		if err != nil {
+			JSONResponse(w, models.Response{Success: false, Message: "Error deleting campaigns"}, http.StatusInternalServerError)
+			return
+		}
+		JSONResponse(w, models.Response{Success: true, Message: strconv.Itoa(count) + " campaign(s) deleted successfully!"}, http.StatusOK)
 	//POST: Create a new campaign and return it as JSON
 	case r.Method == "POST":
 		c := models.Campaign{}
@@ -37,8 +60,9 @@ func (as *Server) Campaigns(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// If the campaign is scheduled to launch immediately, send it to the worker.
-		// Otherwise, the worker will pick it up at the scheduled time
-		if c.Status == models.CampaignInProgress {
+		// Otherwise, the worker will pick it up at the scheduled time.
+		// Note: Generic campaigns don't need the worker - they don't send emails/SMS.
+		if c.Status == models.CampaignInProgress && c.Type != "generic" {
 			go as.worker.LaunchCampaign(c)
 		}
 		JSONResponse(w, c, http.StatusCreated)
@@ -133,5 +157,71 @@ func (as *Server) CampaignComplete(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		JSONResponse(w, models.Response{Success: true, Message: "Campaign completed successfully!"}, http.StatusOK)
+	}
+}
+
+// linkRequest is used to parse the JSON body for creating a new link
+type linkRequest struct {
+	Name string `json:"name"`
+}
+
+// CampaignLinks handles generating new tracking links for generic campaigns.
+// POST creates a new tracking link and returns the result with the URL.
+func (as *Server) CampaignLinks(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, _ := strconv.ParseInt(vars["id"], 0, 64)
+	uid := ctx.Get(r, "user_id").(int64)
+
+	switch {
+	case r.Method == "POST":
+		// Parse the optional link name from request body
+		var req linkRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil && err.Error() != "EOF" {
+			// Allow empty body for backward compatibility
+			log.Warn("Error decoding link request body: ", err)
+		}
+
+		// Generate a new tracking link for this generic campaign
+		result, err := models.GenerateCampaignLink(id, uid, req.Name)
+		if err != nil {
+			if err == models.ErrCampaignNotGeneric {
+				JSONResponse(w, models.Response{Success: false, Message: "This operation is only available for generic campaigns"}, http.StatusBadRequest)
+				return
+			}
+			if err == models.ErrCampaignCompleted {
+				JSONResponse(w, models.Response{Success: false, Message: "Cannot generate links for a completed campaign"}, http.StatusBadRequest)
+				return
+			}
+			log.Error(err)
+			JSONResponse(w, models.Response{Success: false, Message: "Error generating campaign link"}, http.StatusInternalServerError)
+			return
+		}
+
+		// Get the campaign to include the URL in response
+		c, err := models.GetCampaign(id, uid)
+		if err != nil {
+			log.Error(err)
+			JSONResponse(w, models.Response{Success: false, Message: "Error retrieving campaign"}, http.StatusInternalServerError)
+			return
+		}
+
+		// Build the full tracking URL
+		urlParam := c.URLParam
+		if urlParam == "" {
+			urlParam = "rid"
+		}
+		trackingURL := c.URL + "?" + urlParam + "=" + result.RId
+
+		// Return the result with the tracking URL
+		response := struct {
+			*models.Result
+			TrackingURL string `json:"tracking_url"`
+		}{
+			Result:      result,
+			TrackingURL: trackingURL,
+		}
+
+		JSONResponse(w, response, http.StatusCreated)
 	}
 }

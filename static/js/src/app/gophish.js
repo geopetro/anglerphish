@@ -84,6 +84,10 @@ var api = {
         // summary() - Queries the API for GET /campaigns/summary
         summary: function () {
             return query("/campaigns/summary", "GET", {}, false)
+        },
+        // bulkDelete() - Deletes multiple campaigns at DELETE /campaigns
+        bulkDelete: function (ids) {
+            return query("/campaigns/", "DELETE", { ids: ids }, false)
         }
     },
     // campaignId contains the endpoints for /campaigns/:id
@@ -107,6 +111,11 @@ var api = {
         // summary() - Queries the API for GET /campaigns/summary
         summary: function (id) {
             return query("/campaigns/" + id + "/summary", "GET", {}, true)
+        },
+        // generateLink() - Generates a new tracking link for generic campaigns
+        generateLink: function (id, linkName) {
+            var data = linkName ? { name: linkName } : {};
+            return query("/campaigns/" + id + "/links", "POST", data, true)
         }
     },
     // groups contains the endpoints for /groups
@@ -148,6 +157,10 @@ var api = {
         // post() - Posts a template to POST /templates
         post: function (template) {
             return query("/templates/", "POST", template, false)
+        },
+        // bulkDelete() - Deletes multiple templates at DELETE /templates
+        bulkDelete: function (ids) {
+            return query("/templates/", "DELETE", { ids: ids }, false)
         }
     },
     // templateId contains the endpoints for /templates/:id
@@ -165,6 +178,36 @@ var api = {
             return query("/templates/" + id, "DELETE", {}, false)
         }
     },
+    // smsTemplates contains the endpoints for /sms_templates
+    smsTemplates: {
+        // get() - Queries the API for GET /sms_templates
+        get: function () {
+            return query("/sms_templates/", "GET", {}, false)
+        },
+        // post() - Posts a template to POST /sms_templates
+        post: function (template) {
+            return query("/sms_templates/", "POST", template, false)
+        },
+        // bulkDelete() - Deletes multiple SMS templates at DELETE /sms_templates
+        bulkDelete: function (ids) {
+            return query("/sms_templates/", "DELETE", { ids: ids }, false)
+        }
+    },
+    // smsTemplateId contains the endpoints for /sms_templates/:id
+    smsTemplateId: {
+        // get() - Queries the API for GET /sms_templates/:id
+        get: function (id) {
+            return query("/sms_templates/" + id, "GET", {}, false)
+        },
+        // put() - Puts a template to PUT /sms_templates/:id
+        put: function (template) {
+            return query("/sms_templates/" + template.id, "PUT", template, false)
+        },
+        // delete() - Deletes a template at DELETE /sms_templates/:id
+        delete: function (id) {
+            return query("/sms_templates/" + id, "DELETE", {}, false)
+        }
+    },
     // pages contains the endpoints for /pages
     pages: {
         // get() - Queries the API for GET /pages
@@ -174,6 +217,10 @@ var api = {
         // post() - Posts a page to POST /pages
         post: function (page) {
             return query("/pages/", "POST", page, false)
+        },
+        // bulkDelete() - Deletes multiple pages at DELETE /pages
+        bulkDelete: function (ids) {
+            return query("/pages/", "DELETE", { ids: ids }, false)
         }
     },
     // pageId contains the endpoints for /pages/:id
@@ -189,6 +236,13 @@ var api = {
         // delete() - Deletes a page at DELETE /pages/:id
         delete: function (id) {
             return query("/pages/" + id, "DELETE", {}, false)
+        }
+    },
+    // mfaDefaultTemplate contains the endpoint for /pages/mfa_template
+    mfaDefaultTemplate: {
+        // get() - Queries the API for GET /pages/mfa_template
+        get: function () {
+            return query("/pages/mfa_template", "GET", {}, false)
         }
     },
     // SMTP contains the endpoints for /smtp
@@ -217,7 +271,7 @@ var api = {
             return query("/smtp/" + id, "DELETE", {}, false)
         }
     },
-    // IMAP containts the endpoints for /imap/
+    // IMAP contains the endpoints for /imap/
     IMAP: {
         get: function() {
             return query("/imap/", "GET", {}, !1)
@@ -227,6 +281,24 @@ var api = {
         },
         validate: function(e) {
             return query("/imap/validate", "POST", e, true)
+        },
+        getNonCampaignReports: function() {
+            return query("/imap/non_campaign_reports", "GET", {}, !1)
+        },
+        bulkDeleteReports: function(ids) {
+            return query("/imap/non_campaign_reports", "POST", { ids: ids }, !1)
+        }
+    },
+    // IMAPId contains the endpoints for /imap/:id
+    IMAPId: {
+        get: function(id) {
+            return query("/imap/" + id, "GET", {}, !1)
+        },
+        put: function(imap) {
+            return query("/imap/" + imap.id, "PUT", imap, !1)
+        },
+        delete: function(id) {
+            return query("/imap/" + id, "DELETE", {}, !1)
         }
     },
     // users contains the endpoints for /users
@@ -277,6 +349,121 @@ var api = {
             return query("/webhooks/" + id + "/validate", "POST", {}, true)
         },
     },
+    qr_code: {
+        // get() - Queries the API for GET /qr_code/
+        get: function () {
+            return query("/qr_code/", "GET", {}, false)
+        },
+        // post() - Posts qr code data to /qr_code/
+        post: function (qr_code) {
+            return query("/qr_code/", "POST", qr_code, true)
+        },
+        // delete() - Deletes a QR code at DELETE /qr_code/:id
+        delete: function (id) {
+            return query("/qr_code/" + id, "DELETE", {}, false)
+        }
+    },
+    // qrCodeId contains the endpoints for /qr_code/:id
+    qrCodeId: {
+        // get() - Queries the API for GET /qr_code/:id/download
+        get: function (id) {
+            return query("/qr_code/" + id + "/download", "GET", {}, false)
+        }
+    },
+    // campaignSets contains the endpoints for /campaign_sets
+    campaignSets: {
+        // get() - Queries the API for GET /campaign_sets
+        get: function () {
+            return query("/campaign_sets/", "GET", {}, false)
+        },
+        // post() - Posts a campaign set to POST /campaign_sets
+        post: function (campaignSet) {
+            return query("/campaign_sets/", "POST", campaignSet, false)
+        },
+        // summary() - Queries the API for GET /campaign_sets/summary
+        summary: function () {
+            return query("/campaign_sets/summary", "GET", {}, false)
+        }
+    },
+    // campaignSetId contains the endpoints for /campaign_sets/:id
+    campaignSetId: {
+        // get() - Queries the API for GET /campaign_sets/:id
+        get: function (id) {
+            return query("/campaign_sets/" + id, "GET", {}, true)
+        },
+        // put() - Updates a campaign set at PUT /campaign_sets/:id
+        put: function (id, campaignSet) {
+            return query("/campaign_sets/" + id, "PUT", campaignSet, false)
+        },
+        // delete() - Deletes a campaign set at DELETE /campaign_sets/:id
+        delete: function (id) {
+            return query("/campaign_sets/" + id, "DELETE", {}, false)
+        },
+        // complete() - Completes a campaign set at GET /campaign_sets/:id/complete
+        complete: function (id) {
+            return query("/campaign_sets/" + id + "/complete", "GET", {}, true)
+        }
+    },
+    // draftCampaignSets contains the endpoints for /draft_campaign_sets
+    draftCampaignSets: {
+        // get() - Queries the API for GET /draft_campaign_sets
+        get: function () {
+            return query("/draft_campaign_sets/", "GET", {}, false)
+        },
+        // post() - Posts a draft campaign set to POST /draft_campaign_sets
+        post: function (draftCampaignSet) {
+            return query("/draft_campaign_sets/", "POST", draftCampaignSet, false)
+        }
+    },
+    // draftCampaignSetId contains the endpoints for /draft_campaign_sets/:id
+    draftCampaignSetId: {
+        // get() - Queries the API for GET /draft_campaign_sets/:id
+        get: function (id) {
+            return query("/draft_campaign_sets/" + id, "GET", {}, true)
+        },
+        // put() - Updates a draft campaign set at PUT /draft_campaign_sets/:id
+        put: function (id, draftCampaignSet) {
+            return query("/draft_campaign_sets/" + id, "PUT", draftCampaignSet, false)
+        },
+        // delete() - Deletes a draft campaign set at DELETE /draft_campaign_sets/:id
+        delete: function (id) {
+            return query("/draft_campaign_sets/" + id, "DELETE", {}, false)
+        },
+        // launch() - Launches a draft campaign set at GET /draft_campaign_sets/:id/launch
+        launch: function (id) {
+            return query("/draft_campaign_sets/" + id + "/launch", "GET", {}, true)
+        }
+    },
+    // SMS contains the endpoints for /sms
+    SMS: {
+        // get() - Queries the API for GET /sms
+        get: function () {
+            return query("/sms/", "GET", {}, false)
+        },
+        // post() - Posts a SMS profile to POST /sms
+        post: function (sms) {
+            return query("/sms/", "POST", sms, false)
+        }
+    },
+    // SMSId contains the endpoints for /sms/:id
+    SMSId: {
+        // get() - Queries the API for GET /sms/:id
+        get: function (id) {
+            return query("/sms/" + id, "GET", {}, false)
+        },
+        // put() - Puts a SMS profile to PUT /sms/:id
+        put: function (sms) {
+            return query("/sms/" + sms.id, "PUT", sms, false)
+        },
+        // delete() - Deletes a SMS profile at DELETE /sms/:id
+        delete: function (id) {
+            return query("/sms/" + id, "DELETE", {}, false)
+        },
+        // balance() - Gets the balance for an SMS profile at GET /sms/:id/balance
+        balance: function (id) {
+            return query("/sms/" + id + "/balance", "GET", {}, true)
+        }
+    },
     // import handles all of the "import" functions in the api
     import_email: function (req) {
         return query("/import/email", "POST", req, false)
@@ -289,14 +476,84 @@ var api = {
     send_test_email: function (req) {
         return query("/util/send_test_email", "POST", req, true)
     },
+    // send_test_sms sends an SMS to the specified phone number
+    send_test_sms: function (req) {
+        return query("/util/send_test_sms", "POST", req, true)
+    },
     reset: function () {
         return query("/reset", "POST", {}, true)
+    },
+    // urlTemplates contains the endpoints for /url_templates
+    urlTemplates: {
+        // get() - Queries the API for GET /url_templates
+        get: function () {
+            return query("/url_templates/", "GET", {}, false)
+        },
+        // post() - Posts a URL template to POST /url_templates
+        post: function (template) {
+            return query("/url_templates/", "POST", template, false)
+        }
+    },
+    // urlTemplateId contains the endpoints for /url_templates/:id
+    urlTemplateId: {
+        // get() - Queries the API for GET /url_templates/:id
+        get: function (id) {
+            return query("/url_templates/" + id, "GET", {}, false)
+        },
+        // put() - Puts a URL template to PUT /url_templates/:id
+        put: function (template) {
+            return query("/url_templates/" + template.id, "PUT", template, false)
+        },
+        // delete() - Deletes a URL template at DELETE /url_templates/:id
+        delete: function (id) {
+            return query("/url_templates/" + id, "DELETE", {}, false)
+        }
     }
 }
 window.api = api
 
+// Global function to apply theme (supports: 'default', 'dark-teal', 'dark-crimson')
+function applyTheme(theme) {
+    // Remove all theme classes first
+    document.body.classList.remove('dark-theme', 'crimson-theme');
+    document.documentElement.classList.remove('dark-theme', 'crimson-theme');
+    
+    // Apply the selected theme
+    if (theme === 'dark-teal') {
+        document.body.classList.add('dark-theme');
+        document.documentElement.classList.add('dark-theme');
+    } else if (theme === 'dark-crimson') {
+        document.body.classList.add('crimson-theme');
+        document.documentElement.classList.add('crimson-theme');
+    }
+    // 'default' theme has no classes, so light theme is shown
+}
+window.applyTheme = applyTheme;
+
+// Legacy function for backward compatibility
+function applyDarkTheme(enabled) {
+    applyTheme(enabled ? 'dark-teal' : 'default');
+}
+window.applyDarkTheme = applyDarkTheme;
+
 // Register our moment.js datatables listeners
 $(document).ready(function () {
+    // Apply theme on page load (for all pages)
+    // Migrate old boolean setting if it exists
+    var oldDarkTheme = localStorage.getItem('gophish.use_dark_theme');
+    var currentTheme = localStorage.getItem('gophish.theme');
+    
+    if (!currentTheme && oldDarkTheme !== null) {
+        // Migrate: if old setting was true, use dark-teal theme
+        currentTheme = JSON.parse(oldDarkTheme) ? 'dark-teal' : 'default';
+        localStorage.setItem('gophish.theme', currentTheme);
+        localStorage.removeItem('gophish.use_dark_theme');
+    } else if (!currentTheme) {
+        currentTheme = 'default';
+    }
+    
+    applyTheme(currentTheme);
+
     // Setup nav highlighting
     var path = location.pathname;
     $('.nav-sidebar li').each(function () {

@@ -19,10 +19,22 @@ type Page struct {
 	CapturePasswords   bool      `json:"capture_passwords" gorm:"column:capture_passwords"`
 	RedirectURL        string    `json:"redirect_url" gorm:"column:redirect_url"`
 	ModifiedDate       time.Time `json:"modified_date"`
+	// MFA Configuration
+	EnableMFA       bool   `json:"enable_mfa" gorm:"column:enable_mfa;default:false"`
+	MFASMSProfileId int64  `json:"mfa_sms_profile_id" gorm:"column:mfa_sms_profile_id;default:0"`
+	MFAFrom         string `json:"mfa_from" gorm:"column:mfa_from"`
+	MFAMessage      string `json:"mfa_message" gorm:"column:mfa_message"`
+	MFACodeLength   int    `json:"mfa_code_length" gorm:"column:mfa_code_length;default:6"`
+	MFACodeType     string `json:"mfa_code_type" gorm:"column:mfa_code_type;default:'numeric'"`
+	MFAInjectPage   bool   `json:"mfa_inject_page" gorm:"column:mfa_inject_page;default:true"`
+	MFAPageHTML     string `json:"mfa_page_html" gorm:"column:mfa_page_html;type:text"`
 }
 
 // ErrPageNameNotSpecified is thrown if the name of the landing page is blank.
 var ErrPageNameNotSpecified = errors.New("Page Name not specified")
+
+// ErrRedirectUrlNotSpecified is thrown if the name of the landing page is blank.
+// var ErrRedirectUrlNotSpecified = errors.New("Redirect URL not specified")
 
 // parseHTML parses the page HTML on save to handle the
 // capturing (or lack thereof!) of credentials and passwords
@@ -74,6 +86,9 @@ func (p *Page) Validate() error {
 	if p.Name == "" {
 		return ErrPageNameNotSpecified
 	}
+	// if p.RedirectURL == "" {
+	// 	return ErrRedirectUrlNotSpecified
+	// }
 	// If the user specifies to capture passwords,
 	// we automatically capture credentials
 	if p.CapturePasswords && !p.CaptureCredentials {
@@ -156,4 +171,35 @@ func DeletePage(id int64, uid int64) error {
 		log.Error(err)
 	}
 	return err
+}
+
+// DeletePages deletes multiple pages in the database.
+// It verifies that each page belongs to the specified user before deletion.
+func DeletePages(ids []int64, uid int64) error {
+	// Start a transaction
+	tx := db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	for _, id := range ids {
+		// Verify the page belongs to this user
+		p := Page{}
+		err := tx.Where("user_id=? and id=?", uid, id).First(&p).Error
+		if err != nil {
+			tx.Rollback()
+			log.Error(err)
+			return err
+		}
+
+		// Delete the page
+		err = tx.Where("user_id=?", uid).Delete(Page{Id: id}).Error
+		if err != nil {
+			tx.Rollback()
+			log.Error(err)
+			return err
+		}
+	}
+
+	return tx.Commit().Error
 }

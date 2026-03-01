@@ -35,10 +35,11 @@ type AdminServerOption func(*AdminServer)
 // AdminServer is an HTTP server that implements the administrative Gophish
 // handlers, including the dashboard and REST API.
 type AdminServer struct {
-	server  *http.Server
-	worker  worker.Worker
-	config  config.AdminServer
-	limiter *ratelimit.PostLimiter
+	server     *http.Server
+	worker     worker.Worker
+	config     config.AdminServer
+	fullConfig *config.Config
+	limiter    *ratelimit.PostLimiter
 }
 
 var defaultTLSConfig = &tls.Config{
@@ -71,18 +72,19 @@ func WithWorker(w worker.Worker) AdminServerOption {
 
 // NewAdminServer returns a new instance of the AdminServer with the
 // provided config and options applied.
-func NewAdminServer(config config.AdminServer, options ...AdminServerOption) *AdminServer {
+func NewAdminServer(adminConfig config.AdminServer, fullConfig *config.Config, options ...AdminServerOption) *AdminServer {
 	defaultWorker, _ := worker.New()
 	defaultServer := &http.Server{
 		ReadTimeout: 10 * time.Second,
-		Addr:        config.ListenURL,
+		Addr:        adminConfig.ListenURL,
 	}
 	defaultLimiter := ratelimit.NewPostLimiter()
 	as := &AdminServer{
-		worker:  defaultWorker,
-		server:  defaultServer,
-		limiter: defaultLimiter,
-		config:  config,
+		worker:     defaultWorker,
+		server:     defaultServer,
+		limiter:    defaultLimiter,
+		config:     adminConfig,
+		fullConfig: fullConfig,
 	}
 	for _, opt := range options {
 		opt(as)
@@ -93,6 +95,13 @@ func NewAdminServer(config config.AdminServer, options ...AdminServerOption) *Ad
 
 // Start launches the admin server, listening on the configured address.
 func (as *AdminServer) Start() {
+	// Initialize report services
+	var reportsConfig *config.Reports
+	if as.fullConfig != nil {
+		reportsConfig = &as.fullConfig.ReportsConf
+	}
+	api.InitReportServices(reportsConfig)
+
 	if as.worker != nil {
 		go as.worker.Start()
 	}
@@ -113,6 +122,9 @@ func (as *AdminServer) Start() {
 
 // Shutdown attempts to gracefully shutdown the server.
 func (as *AdminServer) Shutdown() error {
+	// Stop report services
+	api.StopReportServices()
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	return as.server.Shutdown(ctx)
@@ -129,11 +141,16 @@ func (as *AdminServer) registerRoutes() {
 	router.HandleFunc("/reset_password", mid.Use(as.ResetPassword, mid.RequireLogin))
 	router.HandleFunc("/campaigns", mid.Use(as.Campaigns, mid.RequireLogin))
 	router.HandleFunc("/campaigns/{id:[0-9]+}", mid.Use(as.CampaignID, mid.RequireLogin))
+	router.HandleFunc("/campaign_sets", mid.Use(as.CampaignSets, mid.RequireLogin))
 	router.HandleFunc("/templates", mid.Use(as.Templates, mid.RequireLogin))
 	router.HandleFunc("/groups", mid.Use(as.Groups, mid.RequireLogin))
 	router.HandleFunc("/landing_pages", mid.Use(as.LandingPages, mid.RequireLogin))
 	router.HandleFunc("/sending_profiles", mid.Use(as.SendingProfiles, mid.RequireLogin))
+	router.HandleFunc("/non_campaign_reports", mid.Use(as.NonCampaignReports, mid.RequireLogin))
+	router.HandleFunc("/reports", mid.Use(as.Reports, mid.RequireLogin))
+	router.HandleFunc("/qr_code_generator", mid.Use(as.QRGenerator, mid.RequireLogin))
 	router.HandleFunc("/settings", mid.Use(as.Settings, mid.RequireLogin))
+	router.HandleFunc("/api_documentation", mid.Use(as.APIDocumentation, mid.RequireLogin))
 	router.HandleFunc("/users", mid.Use(as.UserManagement, mid.RequirePermission(models.PermissionModifySystem), mid.RequireLogin))
 	router.HandleFunc("/webhooks", mid.Use(as.Webhooks, mid.RequirePermission(models.PermissionModifySystem), mid.RequireLogin))
 	router.HandleFunc("/impersonate", mid.Use(as.Impersonate, mid.RequirePermission(models.PermissionModifySystem), mid.RequireLogin))
@@ -173,12 +190,13 @@ func (as *AdminServer) registerRoutes() {
 }
 
 type templateParams struct {
-	Title        string
-	Flashes      []interface{}
-	User         models.User
-	Token        string
-	Version      string
-	ModifySystem bool
+	Title              string
+	Flashes            []interface{}
+	User               models.User
+	Token              string
+	Version            string
+	AnglerPhishVersion string
+	ModifySystem       bool
 }
 
 // newTemplateParams returns the default template parameters for a user and
@@ -188,11 +206,12 @@ func newTemplateParams(r *http.Request) templateParams {
 	session := ctx.Get(r, "session").(*sessions.Session)
 	modifySystem, _ := user.HasPermission(models.PermissionModifySystem)
 	return templateParams{
-		Token:        csrf.Token(r),
-		User:         user,
-		ModifySystem: modifySystem,
-		Version:      config.Version,
-		Flashes:      session.Flashes(),
+		Token:              csrf.Token(r),
+		User:               user,
+		ModifySystem:       modifySystem,
+		Version:            config.Version,
+		AnglerPhishVersion: config.AnglerPhishVersion,
+		Flashes:            session.Flashes(),
 	}
 }
 
@@ -217,11 +236,25 @@ func (as *AdminServer) CampaignID(w http.ResponseWriter, r *http.Request) {
 	getTemplate(w, "campaign_results").ExecuteTemplate(w, "base", params)
 }
 
+// CampaignSets handles the campaign sets page
+func (as *AdminServer) CampaignSets(w http.ResponseWriter, r *http.Request) {
+	params := newTemplateParams(r)
+	params.Title = "Campaign Sets"
+	getTemplate(w, "campaign_sets").ExecuteTemplate(w, "base", params)
+}
+
 // Templates handles the default path and template execution
 func (as *AdminServer) Templates(w http.ResponseWriter, r *http.Request) {
 	params := newTemplateParams(r)
-	params.Title = "Email Templates"
+	params.Title = "Templates"
 	getTemplate(w, "templates").ExecuteTemplate(w, "base", params)
+}
+
+// SMSTemplates handles the default path and template execution for SMS templates
+func (as *AdminServer) SMSTemplates(w http.ResponseWriter, r *http.Request) {
+	params := newTemplateParams(r)
+	params.Title = "SMS Templates"
+	getTemplate(w, "sms_templates").ExecuteTemplate(w, "base", params)
 }
 
 // Groups handles the default path and template execution
@@ -243,6 +276,20 @@ func (as *AdminServer) SendingProfiles(w http.ResponseWriter, r *http.Request) {
 	params := newTemplateParams(r)
 	params.Title = "Sending Profiles"
 	getTemplate(w, "sending_profiles").ExecuteTemplate(w, "base", params)
+}
+
+// QRGenerator handles the default path and template execution
+func (as *AdminServer) QRGenerator(w http.ResponseWriter, r *http.Request) {
+	params := newTemplateParams(r)
+	params.Title = "QR Code Generator"
+	getTemplate(w, "qr_code_generator").ExecuteTemplate(w, "base", params)
+}
+
+// Reports handles the reports page
+func (as *AdminServer) Reports(w http.ResponseWriter, r *http.Request) {
+	params := newTemplateParams(r)
+	params.Title = "Reports"
+	getTemplate(w, "reports").ExecuteTemplate(w, "base", params)
 }
 
 // Settings handles the changing of settings
@@ -332,6 +379,13 @@ func (as *AdminServer) Webhooks(w http.ResponseWriter, r *http.Request) {
 	params := newTemplateParams(r)
 	params.Title = "Webhooks"
 	getTemplate(w, "webhooks").ExecuteTemplate(w, "base", params)
+}
+
+// APIDocumentation handles the API documentation page
+func (as *AdminServer) APIDocumentation(w http.ResponseWriter, r *http.Request) {
+	params := newTemplateParams(r)
+	params.Title = "API Documentation"
+	getTemplate(w, "api_documentation").ExecuteTemplate(w, "base", params)
 }
 
 // Impersonate allows an admin to login to a user account without needing the password

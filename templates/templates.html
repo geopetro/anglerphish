@@ -2,39 +2,364 @@
 <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
     <div class="row">
         <h1 class="page-header">
-            Email Templates
+            Templates
         </h1>
     </div>
     <div id="flashes" class="row"></div>
-    <div class="row">
-        <button type="button" class="btn btn-primary" onclick="edit(-1)" data-toggle="modal" data-backdrop="static"
-            data-target="#modal"><i class="fa fa-plus"></i> New Template</button>
-    </div>
-    &nbsp;
-    <div id="loading">
-        <i class="fa fa-spinner fa-spin fa-4x"></i>
-    </div>
-    <div id="emptyMessage" class="row" style="display:none;">
-        <div class="alert alert-info">
-            No templates yet. Let's create one!
+    
+    <!-- Tabs for Email and SMS Templates -->
+    <ul class="nav nav-tabs" role="tablist">
+        <li class="active" role="presentation">
+            <a href="#emailTemplates" aria-controls="emailTemplates" role="tab" data-toggle="tab">
+                <i class="fa fa-envelope"></i> Email Templates
+            </a>
+        </li>
+        <li role="presentation">
+            <a href="#smsTemplates" aria-controls="smsTemplates" role="tab" data-toggle="tab">
+                <i class="fa fa-mobile"></i> SMS Templates
+            </a>
+        </li>
+    </ul>
+    <!-- Tab content -->
+    <div class="tab-content">
+        <!-- Email Templates Tab -->
+        <div role="tabpanel" class="tab-pane active" id="emailTemplates">
+            <div class="row" style="margin-top: 10px;">
+                <button type="button" class="btn btn-primary" onclick="editEmailTemplate(-1)" data-toggle="modal" data-backdrop="static"
+                    data-target="#emailModal"><i class="fa fa-plus"></i> New Email Template</button>
+                <button type="button" class="btn btn-danger" id="deleteSelectedTemplates" style="display:none; margin-left: 10px;"
+                    onclick="deleteSelectedTemplates()">
+                    <i class="fa fa-trash-o"></i> Delete Selected (<span id="selectedTemplateCount">0</span>)</button>
+            </div>
+            &nbsp;
+            <div id="emailLoading">
+                <i class="fa fa-spinner fa-spin fa-4x"></i>
+            </div>
+            <div id="emailEmptyMessage" class="row" style="display:none;">
+                <div class="alert alert-info">
+                    No email templates yet. Let's create one!
+                </div>
+            </div>
+            <div class="row">
+                <table id="emailTemplateTable" class="table" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th class="no-sort" style="width: 30px;"><input type="checkbox" id="selectAllTemplates" title="Select All"></th>
+                            <th>Name</th>
+                            <th>Modified Date</th>
+                            <th class="col-md-2 no-sort"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- SMS Templates Tab -->
+        <div role="tabpanel" class="tab-pane" id="smsTemplates">
+            <div class="row" style="margin-top: 10px;">
+                <button type="button" class="btn btn-primary" onclick="editSMSTemplate(-1)" data-toggle="modal" data-backdrop="static"
+                    data-target="#smsModal"><i class="fa fa-plus"></i> New SMS Template</button>
+                <button type="button" class="btn btn-danger" id="deleteSelectedSMSTemplates" style="display:none; margin-left: 10px;"
+                    onclick="deleteSelectedSMSTemplates()">
+                    <i class="fa fa-trash-o"></i> Delete Selected (<span id="selectedSMSTemplateCount">0</span>)</button>
+            </div>
+            &nbsp;
+            <div id="smsLoading">
+                <i class="fa fa-spinner fa-spin fa-4x"></i>
+            </div>
+            <div id="smsEmptyMessage" class="row" style="display:none;">
+                <div class="alert alert-info">
+                    No SMS templates yet. Let's create one!
+                </div>
+            </div>
+            <div class="row">
+                <table id="smsTemplateTable" class="table" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th class="no-sort" style="width: 30px;"><input type="checkbox" id="selectAllSMSTemplates" title="Select All"></th>
+                            <th>Name</th>
+                            <th>Character Count</th>
+                            <th>Modified Date</th>
+                            <th class="col-md-2 no-sort"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
-    <div class="row">
-        <table id="templateTable" class="table" style="display:none;">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Modified Date</th>
-                    <th class="col-md-2 no-sort"></th>
-                </tr>
-            </thead>
-            <tbody>
-            </tbody>
-        </table>
+</div>
+
+<!-- Preview Modal for Email Templates -->
+<div class="modal fade" id="previewEmailModal" tabindex="-1" role="dialog" aria-labelledby="previewEmailModalLabel">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="previewEmailModalLabel">Email Template Preview</h4>
+            </div>
+            <div class="modal-body">
+                <!-- Subject Line Display -->
+                <div id="preview_email_subject_container" style="margin-bottom: 15px; padding: 10px; background-color: #f9f9f9; border-radius: 4px; border: 1px solid #e0e0e0;">
+                    <strong style="color: #666;"><i class="fa fa-envelope-o"></i> Subject:</strong>
+                    <span id="preview_email_subject" style="margin-left: 8px; font-size: 14px;"></span>
+                </div>
+                
+                <!-- Attachments Display -->
+                <div id="preview_email_attachments_container" style="margin-bottom: 15px; padding: 10px; background-color: #f9f9f9; border-radius: 4px; border: 1px solid #e0e0e0; display: none;">
+                    <strong style="color: #666;"><i class="fa fa-paperclip"></i> Attachments:</strong>
+                    <div id="preview_email_attachments" style="margin-top: 8px;"></div>
+                </div>
+                
+                <!-- Preview Controls -->
+                <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <!-- Device Preview Buttons -->
+                    <div class="btn-group" role="group" aria-label="Device Preview">
+                        <button type="button" class="btn btn-default btn-sm active" id="previewDesktopBtn" onclick="setEmailPreviewDevice('desktop')" title="Desktop View">
+                            <i class="fa fa-desktop"></i>
+                        </button>
+                        <button type="button" class="btn btn-default btn-sm" id="previewTabletBtn" onclick="setEmailPreviewDevice('tablet')" title="Tablet View">
+                            <i class="fa fa-tablet"></i>
+                        </button>
+                        <button type="button" class="btn btn-default btn-sm" id="previewMobileBtn" onclick="setEmailPreviewDevice('mobile')" title="Mobile View">
+                            <i class="fa fa-mobile"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Load Images Toggle -->
+                    <div style="display: flex; align-items: center;">
+                        <label class="toggle-switch" style="margin-bottom: 0; cursor: pointer;">
+                            <input type="checkbox" id="loadImagesToggle" onchange="toggleEmailImages()">
+                            <span style="margin-left: 5px; font-size: 13px;"><i class="fa fa-image"></i> Load Images</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Preview Frame Container -->
+                <div id="preview_email_frame_container" style="display: flex; justify-content: center; background: #e8e8e8; padding: 15px; border-radius: 4px; min-height: 450px;">
+                    <iframe id="preview_email_iframe" sandbox="allow-same-origin" style="width: 100%; height: 400px; border: 1px solid #ddd; background: white; transition: width 0.3s ease;"></iframe>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
     </div>
 </div>
-<!-- Modal -->
-<div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="modalLabel">
+
+<!-- Preview Modal for SMS Templates -->
+<div class="modal fade" id="previewSMSModal" tabindex="-1" role="dialog" aria-labelledby="previewSMSModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="previewSMSModalLabel">SMS Template Preview</h4>
+            </div>
+            <div class="modal-body" style="display: flex; justify-content: center; background: #e8e8e8; padding: 20px;">
+                <!-- Phone Frame -->
+                <div class="phone-frame" style="
+                    width: 320px;
+                    height: 640px;
+                    background: #1a1a1a;
+                    border-radius: 40px;
+                    padding: 15px;
+                    box-shadow: 0 10px 50px rgba(0,0,0,0.4), inset 0 0 0 2px #333;
+                    position: relative;
+                ">
+                    <!-- Dynamic Island / Notch -->
+                    <div style="
+                        position: absolute;
+                        top: 18px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        width: 90px;
+                        height: 25px;
+                        background: #000;
+                        border-radius: 15px;
+                        z-index: 10;
+                    "></div>
+                    
+                    <!-- Phone Screen -->
+                    <div class="phone-screen" style="
+                        width: 100%;
+                        height: 100%;
+                        background: linear-gradient(180deg, #f0f0f0 0%, #e8e8e8 100%);
+                        border-radius: 30px;
+                        overflow: hidden;
+                        display: flex;
+                        flex-direction: column;
+                    ">
+                        <!-- Status Bar -->
+                        <div class="phone-status-bar" style="
+                            height: 50px;
+                            background: #f8f8f8;
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: flex-end;
+                            padding: 0 20px 8px 20px;
+                            font-size: 12px;
+                            font-weight: 600;
+                            color: #000;
+                        ">
+                            <span id="sms-status-time" style="font-size: 14px; font-weight: 600;">9:41</span>
+                            <div style="display: flex; gap: 4px; align-items: center;">
+                                <i class="fa fa-signal" style="font-size: 12px;"></i>
+                                <i class="fa fa-wifi" style="font-size: 12px;"></i>
+                                <i class="fa fa-battery-full" style="font-size: 14px;"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- Messages Header -->
+                        <div class="phone-header" style="
+                            height: 60px;
+                            background: #f8f8f8;
+                            border-bottom: 1px solid #ddd;
+                            display: flex;
+                            align-items: center;
+                            padding: 0 15px;
+                        ">
+                            <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                                <i class="fa fa-chevron-left" style="color: #007AFF; font-size: 18px;"></i>
+                                <div style="
+                                    width: 35px;
+                                    height: 35px;
+                                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                    border-radius: 50%;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    color: white;
+                                    font-weight: 600;
+                                    font-size: 14px;
+                                " id="sms-sender-avatar">?</div>
+                                <div style="flex: 1;">
+                                    <div id="sms-sender-name" style="font-weight: 600; font-size: 14px; color: #000;">Unknown</div>
+                                    <div style="font-size: 11px; color: #888;">SMS/MMS</div>
+                                </div>
+                                <i class="fa fa-video-camera" style="color: #007AFF; font-size: 18px; margin-right: 15px;"></i>
+                                <i class="fa fa-info-circle" style="color: #007AFF; font-size: 18px;"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- Messages Area -->
+                        <div class="phone-messages" style="
+                            flex: 1;
+                            padding: 15px;
+                            overflow-y: auto;
+                            display: flex;
+                            flex-direction: column;
+                            gap: 8px;
+                        ">
+                            <!-- Date Separator -->
+                            <div style="text-align: center; margin-bottom: 10px;">
+                                <span style="
+                                    background: rgba(0,0,0,0.05);
+                                    color: #666;
+                                    font-size: 11px;
+                                    padding: 4px 12px;
+                                    border-radius: 10px;
+                                " id="sms-date">Today</span>
+                            </div>
+                            
+                            <!-- Received SMS Bubble -->
+                            <div style="display: flex; align-items: flex-end; gap: 8px;">
+                                <div style="
+                                    max-width: 220px;
+                                    background: #d3d2d2;
+                                    border-radius: 18px;
+                                    padding: 10px 14px;
+                                    font-size: 14px;
+                                    line-height: 1.4;
+                                    color: #000;
+                                    word-wrap: break-word;
+                                    position: relative;
+                                ">
+                                    <div id="preview_sms_content" style="white-space: pre-wrap; word-break: break-word;"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Time under message -->
+                            <div style="padding-left: 5px; margin-top: -5px;">
+                                <span style="font-size: 10px; color: #888;" id="sms-time">Delivered</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Input Area -->
+                        <div class="phone-input" style="
+                            height: 55px;
+                            background: #f8f8f8;
+                            border-top: 1px solid #ddd;
+                            display: flex;
+                            align-items: center;
+                            padding: 8px 10px;
+                            gap: 8px;
+                        ">
+                            <div style="
+                                width: 30px;
+                                height: 30px;
+                                background: #007AFF;
+                                border-radius: 50%;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            ">
+                                <i class="fa fa-plus" style="color: white; font-size: 14px;"></i>
+                            </div>
+                            <div style="
+                                flex: 1;
+                                background: #fff;
+                                border: 1px solid #ddd;
+                                border-radius: 20px;
+                                padding: 8px 15px;
+                                font-size: 13px;
+                                color: #888;
+                            ">Text Message</div>
+                            <div style="
+                                width: 30px;
+                                height: 30px;
+                                background: #e0e0e0;
+                                border-radius: 50%;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            ">
+                                <i class="fa fa-microphone" style="color: #666; font-size: 14px;"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- Home Indicator -->
+                        <div style="
+                            height: 25px;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            background: #f8f8f8;
+                        ">
+                            <div style="
+                                width: 120px;
+                                height: 5px;
+                                background: #333;
+                                border-radius: 3px;
+                            "></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <small class="text-muted" style="float: left; margin-top: 8px;">
+                    <i class="fa fa-info-circle"></i> Preview shows sample data replacement
+                </small>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Email Template Modal -->
+<div class="modal fade" id="emailModal" tabindex="-1" role="dialog" aria-labelledby="emailModalLabel">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <!-- New Template Modal -->
@@ -71,7 +396,7 @@
                 <!-- Tab panes -->
                 <div class="tab-content">
                     <div role="tabpanel" class="tab-pane active" id="text">
-                        <textarea rows="10" id="text_editor" class="gophish-editor form-control" placeholder="Plaintext"></textarea>
+                        <textarea rows="10" id="text_editor" class="gophish-editor form-control" placeholder="Plaintext" style="resize: vertical;"></textarea>
                     </div>
                     <div role="tabpanel" class="tab-pane" id="html">
                         <textarea id="html_editor"></textarea>
@@ -108,8 +433,46 @@
         </div>
     </div>
 </div>
-<!-- Modal -->
-<div class="modal fade" id="importEmailModal" tabindex="-1" role="dialog" aria-labelledby="modalLabel">
+<!-- SMS Template Modal -->
+<div class="modal fade" id="smsModal" tabindex="-1" role="dialog" aria-labelledby="smsModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <!-- New SMS Template Modal -->
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="dismissSMS()"><span
+                        aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="smsTemplateModalLabel">New SMS Template</h4>
+            </div>
+            <div class="modal-body">
+                <div class="row" id="smsModal.flashes"></div>
+                <label class="control-label" for="smsName">Name:</label>
+                <div class="form-group">
+                    <input type="text" class="form-control" placeholder="Template name" id="smsName" autofocus />
+                </div>
+                <label class="control-label" for="smsFrom">From (Optional): <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Optional sender ID or phone number. If set, this overrides the From value in the SMS Profile."></i></label>
+                <div class="form-group">
+                    <input type="text" class="form-control" placeholder="e.g., MyCompany or +1234567890" id="smsFrom" />
+                </div>
+                <label class="control-label" for="smsText">Message Text:</label>
+                <div class="form-group">
+                    <textarea rows="5" id="smsText" class="form-control" placeholder="SMS Message Text" style="resize: vertical;"></textarea>
+                </div>
+                <div class="form-group">
+                    <span id="smsCharCount">0</span> characters
+                    <span id="smsCount">1</span> SMS message(s)
+                </div>
+                <hr>
+            </div>
+            <div class="modal-footer">
+                <button type="button" data-dismiss="modal" class="btn btn-default" onclick="dismissSMS()">Cancel</button>
+                <button type="button" class="btn btn-primary" id="smsModalSubmit">Save Template</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import Email Modal -->
+<div class="modal fade" id="importEmailModal" tabindex="-1" role="dialog" aria-labelledby="importEmailModalLabel">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <!-- New Email Modal -->
@@ -136,9 +499,30 @@
     </div>
 </div>
 {{end}}
+
 {{define "scripts"}}
 <script src="/js/src/vendor/ckeditor/ckeditor.js"></script>
 <script src="/js/src/vendor/ckeditor/adapters/jquery.js"></script>
 <script src="/js/dist/app/autocomplete.min.js"></script>
 <script src="/js/dist/app/templates.min.js"></script>
+<script src="/js/dist/app/sms_templates.min.js"></script>
+<script>
+// Initialize both template types
+$(document).ready(function() {
+    // Setup tab switching
+    $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+        if (e.target.getAttribute('href') === '#smsTemplates') {
+            // Refresh SMS templates table when tab is shown
+            if (typeof loadSMSTemplates === 'function') {
+                loadSMSTemplates();
+            }
+        } else {
+            // Refresh email templates table when tab is shown
+            if (typeof loadEmailTemplates === 'function') {
+                loadEmailTemplates();
+            }
+        }
+    });
+});
+</script>
 {{end}}

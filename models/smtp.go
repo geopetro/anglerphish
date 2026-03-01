@@ -256,3 +256,45 @@ func DeleteSMTP(id int64, uid int64) error {
 	}
 	return err
 }
+
+// BeforeSave is a GORM hook that encrypts the password before saving to the database
+func (s *SMTP) BeforeSave() error {
+	if s.Password != "" {
+		encrypted, err := encryptSMTPPassword(s.Password)
+		if err != nil {
+			log.Warnf("Failed to encrypt SMTP password: %v", err)
+			// Continue without encryption rather than failing
+			return nil
+		}
+		s.Password = encrypted
+	}
+	return nil
+}
+
+// AfterFind is a GORM hook that decrypts the password after reading from the database
+func (s *SMTP) AfterFind() error {
+	if s.Password != "" {
+		decrypted, err := decryptSMTPPassword(s.Password)
+		if err != nil {
+			log.Warnf("Failed to decrypt SMTP password: %v", err)
+			// Return original value if decryption fails
+			return nil
+		}
+		s.Password = decrypted
+	}
+	return nil
+}
+
+// encryptSMTPPassword encrypts a password using the crypto package
+// This is a wrapper to avoid import cycles
+func encryptSMTPPassword(password string) (string, error) {
+	// Import crypto package dynamically to avoid circular imports
+	// The crypto package handles the case where encryption is not enabled
+	return encryptField(password)
+}
+
+// decryptSMTPPassword decrypts a password using the crypto package
+// This is a wrapper to avoid import cycles
+func decryptSMTPPassword(password string) (string, error) {
+	return decryptField(password)
+}

@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gophish/gophish/config"
-
 	"github.com/gophish/gomail"
 	"github.com/jordan-wright/email"
 	"gopkg.in/check.v1"
@@ -264,10 +262,8 @@ func (s *ModelsSuite) TestMailLogGenerate(ch *check.C) {
 }
 
 func (s *ModelsSuite) TestMailLogGenerateTransparencyHeaders(ch *check.C) {
-	s.config.ContactAddress = "test@test.com"
 	expectedHeaders := map[string]string{
-		"X-Mailer":          config.ServerName,
-		"X-Gophish-Contact": s.config.ContactAddress,
+		"X-Mailer": "",
 	}
 	campaign := s.createCampaign(ch)
 	got := s.emailFromFirstMailLog(campaign, ch)
@@ -278,8 +274,8 @@ func (s *ModelsSuite) TestMailLogGenerateTransparencyHeaders(ch *check.C) {
 
 func (s *ModelsSuite) TestMailLogGenerateOverrideTransparencyHeaders(ch *check.C) {
 	expectedHeaders := map[string]string{
-		"X-Mailer":          "",
-		"X-Gophish-Contact": "",
+		"X-Mailer":  "",
+		"X-Contact": "",
 	}
 	smtp := SMTP{
 		Name:        "Test SMTP",
@@ -287,7 +283,7 @@ func (s *ModelsSuite) TestMailLogGenerateOverrideTransparencyHeaders(ch *check.C
 		FromAddress: "foo@example.com",
 		UserId:      1,
 		Headers: []Header{
-			Header{Key: "X-Gophish-Contact", Value: ""},
+			Header{Key: "X-Contact", Value: ""},
 			Header{Key: "X-Mailer", Value: ""},
 		},
 	}

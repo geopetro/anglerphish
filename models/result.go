@@ -34,12 +34,25 @@ type Result struct {
 	Longitude    float64   `json:"longitude"`
 	SendDate     time.Time `json:"send_date"`
 	Reported     bool      `json:"reported" sql:"not null"`
+	Replied      bool      `json:"replied" sql:"not null;default:false"`
 	ModifiedDate time.Time `json:"modified_date"`
+	SMSTarget    bool      `json:"sms_target" sql:"default:false"`
 	BaseRecipient
 }
 
 func (r *Result) createEvent(status string, details interface{}) (*Event, error) {
-	e := &Event{Email: r.Email, Message: status}
+	// Choose the contact field based on the campaign type
+	contactField := r.Email
+	if r.SMSTarget {
+		// For SMS campaigns, use the phone number
+		contactField = r.Phone
+	}
+	// For generic campaigns (no email or phone), use the RId to identify events
+	if contactField == "" {
+		contactField = r.RId
+	}
+
+	e := &Event{Email: contactField, Message: status}
 	if details != nil {
 		dj, err := json.Marshal(details)
 		if err != nil {
@@ -60,6 +73,44 @@ func (r *Result) HandleEmailSent() error {
 	}
 	r.SendDate = event.Time
 	r.Status = EventSent
+	r.ModifiedDate = event.Time
+	return db.Save(r).Error
+}
+
+// HandleSMSSent updates a Result to indicate that the SMS has been
+// successfully sent to the remote SMS provider
+func (r *Result) HandleSMSSent() error {
+	event, err := r.createEvent(EventSMSSent, nil)
+	if err != nil {
+		return err
+	}
+	r.SendDate = event.Time
+	r.Status = EventSMSSent
+	r.ModifiedDate = event.Time
+	return db.Save(r).Error
+}
+
+// HandleSMSError updates a Result to indicate that there was an error when
+// attempting to send the SMS to the remote SMS provider.
+func (r *Result) HandleSMSError(err error) error {
+	event, err := r.createEvent(EventSMSError, EventError{Error: err.Error()})
+	if err != nil {
+		return err
+	}
+	r.Status = Error
+	r.ModifiedDate = event.Time
+	return db.Save(r).Error
+}
+
+// HandleSMSBackoff updates a Result to indicate that the SMS received a
+// temporary error and needs to be retried
+func (r *Result) HandleSMSBackoff(err error, sendDate time.Time) error {
+	event, err := r.createEvent(EventSMSError, EventError{Error: err.Error()})
+	if err != nil {
+		return err
+	}
+	r.Status = StatusRetry
+	r.SendDate = sendDate
 	r.ModifiedDate = event.Time
 	return db.Save(r).Error
 }
@@ -147,6 +198,76 @@ func (r *Result) HandleEmailReport(details EventDetails) error {
 	return db.Save(r).Error
 }
 
+// HandleMFACodeSent records when an MFA code is sent to the target
+func (r *Result) HandleMFACodeSent(details EventDetails) error {
+	event, err := r.createEvent(EventMFACodeSent, details)
+	if err != nil {
+		return err
+	}
+	r.ModifiedDate = event.Time
+	return db.Save(r).Error
+}
+
+// HandleMFACodeSendError records when an MFA SMS failed to be delivered to the provider.
+// The error reason is stored using the same EventError struct as email/SMS errors
+// so it renders identically in the campaign results timeline (expandable "View Details").
+func (r *Result) HandleMFACodeSendError(err error) error {
+	event, createErr := r.createEvent(EventMFACodeSendError, EventError{Error: err.Error()})
+	if createErr != nil {
+		return createErr
+	}
+	r.ModifiedDate = event.Time
+	return db.Save(r).Error
+}
+
+// HandleMFACodeVerified records when an MFA code is successfully verified
+func (r *Result) HandleMFACodeVerified(details EventDetails) error {
+	event, err := r.createEvent(EventMFACodeVerified, details)
+	if err != nil {
+		return err
+	}
+	r.ModifiedDate = event.Time
+	return db.Save(r).Error
+}
+
+// HandleMFACodeFailed records when an MFA code verification fails
+func (r *Result) HandleMFACodeFailed(details EventDetails) error {
+	event, err := r.createEvent(EventMFACodeFailed, details)
+	if err != nil {
+		return err
+	}
+	r.ModifiedDate = event.Time
+	return db.Save(r).Error
+}
+
+// HandleEmailReply updates a Result in the case where they reply to a simulated
+// phishing email.
+func (r *Result) HandleEmailReply(details EventDetails) error {
+	event, err := r.createEvent(EventReplied, details)
+	if err != nil {
+		return err
+	}
+
+	// Store IP and geolocation if provided in details
+	if details.Browser != nil {
+		if ip, ok := details.Browser["address"]; ok && ip != "" {
+			if err := r.UpdateGeo(ip); err != nil {
+				log.Warnf("Failed to update geo for reply IP: %v", err)
+				// Continue anyway - don't fail the reply recording
+			}
+		}
+	}
+
+	r.Replied = true
+	// Don't update the status if the user has already submitted data via the
+	// landing page form.
+	if r.Status != EventDataSubmit {
+		r.Status = EventReplied
+	}
+	r.ModifiedDate = event.Time
+	return db.Save(r).Error
+}
+
 // UpdateGeo updates the latitude and longitude of the result in
 // the database given an IP address
 func (r *Result) UpdateGeo(addr string) error {
@@ -206,5 +327,25 @@ func (r *Result) GenerateId(tx *gorm.DB) error {
 func GetResult(rid string) (Result, error) {
 	r := Result{}
 	err := db.Where("r_id=?", rid).First(&r).Error
+	if err != nil {
+		// Log detailed information for debugging
+		log.Errorf("Failed to find result with rid='%s': %v", rid, err)
+
+		// Try looking up with a LIKE query in case there's minor formatting issues
+		var count int
+		db.Model(&Result{}).Where("r_id LIKE ?", "%"+rid+"%").Count(&count)
+		if count > 0 {
+			log.Infof("Found %d potential matches for rid '%s' using LIKE query", count, rid)
+
+			// Grab the first match as a fallback
+			var results []Result
+			err2 := db.Where("r_id LIKE ?", "%"+rid+"%").Limit(1).Find(&results).Error
+			if err2 == nil && len(results) > 0 {
+				r = results[0]
+				log.Infof("Using closest match: rid='%s' for reported rid='%s'", r.RId, rid)
+				return r, nil
+			}
+		}
+	}
 	return r, err
 }

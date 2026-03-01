@@ -7,6 +7,9 @@
     <div class="row">
         <button type="button" class="btn btn-primary" onclick="edit(-1)" data-toggle="modal" data-backdrop="static"
             data-target="#modal"><i class="fa fa-plus"></i> New Page</button>
+        <button type="button" class="btn btn-danger" id="deleteSelectedPages" style="display:none; margin-left: 10px;"
+            onclick="deleteSelectedPages()">
+            <i class="fa fa-trash-o"></i> Delete Selected (<span id="selectedPageCount">0</span>)</button>
     </div>
     &nbsp;
     <div id="loading">
@@ -21,6 +24,7 @@
         <table id="pagesTable" class="table" style="display:none;">
             <thead>
                 <tr>
+                    <th class="no-sort" style="width: 30px;"><input type="checkbox" id="selectAllPages" title="Select All"></th>
                     <th>Name</th>
                     <th>Last Modified Date</th>
                     <th class="col-md-2 no-sort"></th>
@@ -83,6 +87,60 @@
                         <input id="redirect_url_input" class="form-control" placeholder="http://example.com" />
                     </div>
                 </div>
+                <hr>
+                <div class="checkbox checkbox-primary">
+                    <input id="enable_mfa_checkbox" type="checkbox">
+                    <label for="enable_mfa_checkbox"><i class="fa fa-mobile"></i> Enable MFA Simulation <i class="fa fa-question-circle"
+                            data-toggle="tooltip" data-placement="right" title="Send a verification code via SMS after data submission. Requires SMS profile and target phone number."></i></label>
+                </div>
+                <div id="mfa_settings" style="display:none; margin-left: 20px; padding: 15px; border-radius: 4px;">
+                    <div class="form-group">
+                        <label class="control-label" for="mfa_sms_profile">SMS Profile:</label>
+                        <select id="mfa_sms_profile" class="form-control">
+                            <option value="">-- Select SMS Profile --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label" for="mfa_from">From (Sender ID): <i class="fa fa-question-circle"
+                                data-toggle="tooltip" data-placement="right" title="Override the sender ID for MFA SMS. Leave empty to use the SMS profile's default sender."></i></label>
+                        <input id="mfa_from" class="form-control" placeholder="Leave empty to use profile default" />
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label" for="mfa_message">SMS Message:</label>
+                        <input id="mfa_message" class="form-control" placeholder="Your verification code is: {{"{{"}}.Code{{"}}"}}" />
+                        <small class="text-muted">Use {{"{{"}}.Code{{"}}"}} for the verification code</small>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="control-label" for="mfa_code_length">Code Length:</label>
+                                <select id="mfa_code_length" class="form-control">
+                                    <option value="4">4 digits</option>
+                                    <option value="6" selected>6 digits</option>
+                                    <option value="8">8 digits</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="control-label" for="mfa_code_type">Code Type:</label>
+                                <select id="mfa_code_type" class="form-control">
+                                    <option value="numeric" selected>Numeric (0-9)</option>
+                                    <option value="alpha">Alpha (A-Z)</option>
+                                    <option value="alphanumeric">Alphanumeric</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="checkbox checkbox-primary">
+                        <input id="mfa_inject_page_checkbox" type="checkbox" checked>
+                        <label for="mfa_inject_page_checkbox">Show built-in verification page <i class="fa fa-question-circle"
+                                data-toggle="tooltip" data-placement="right" title="If enabled, shows a built-in MFA code entry page. If disabled, you must handle the MFA code form in your landing page HTML."></i></label>
+                        <button type="button" id="mfa_customize_btn" class="btn btn-default btn-xs" style="margin-left: 10px;" onclick="openMFAPageEditor()">
+                            <i class="fa fa-paint-brush"></i> Customize
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" data-dismiss="modal" class="btn btn-default" onclick="dismiss()">Cancel</button>
@@ -114,7 +172,94 @@
         </div>
     </div>
 </div>
+
+<!-- MFA Page Editor Modal -->
+<div class="modal fade" id="mfaPageEditorModal" tabindex="-1" role="dialog" aria-labelledby="mfaPageEditorModalLabel">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="mfaPageEditorModalLabel"><i class="fa fa-paint-brush"></i> Customize MFA Verification Page</h4>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fa fa-info-circle"></i> <strong>Available variables:</strong>
+                    <ul style="margin-top: 5px;">
+                        <li><code>{{"{{"}} .RId {{"}}"}}</code> - Required in form (hidden field)</li>
+                        <li><code>{{"{{"}} if .Error {{"}}"}}...{{"{{"}} end {{"}}"}}</code> - Shows error message on failed verification</li>
+                    </ul>
+                    <small>Your form must POST <code>mfa_code</code> field to work.</small>
+                </div>
+                <!-- Nav tabs -->
+                <ul class="nav nav-tabs" role="tablist" id="mfaEditorTabs">
+                    <li role="presentation" class="active"><a href="#mfa_html_tab" aria-controls="mfa_html_tab" role="tab" data-toggle="tab"><i class="fa fa-code"></i> HTML</a></li>
+                    <li role="presentation"><a href="#mfa_preview_tab" aria-controls="mfa_preview_tab" role="tab" data-toggle="tab" onclick="previewMFAPage()"><i class="fa fa-eye"></i> Preview</a></li>
+                </ul>
+                <!-- Tab panes -->
+                <div class="tab-content" style="margin-top: 10px;">
+                    <div role="tabpanel" class="tab-pane active" id="mfa_html_tab">
+                        <textarea id="mfa_page_html_editor" style="width: 100%; height: 300px; font-family: monospace; font-size: 12px; resize: vertical;"></textarea>
+                    </div>
+                    <div role="tabpanel" class="tab-pane" id="mfa_preview_tab">
+                        <iframe id="mfa_preview_iframe" sandbox="allow-same-origin" style="width: 100%; height: 300px; border: 1px solid #ddd; background: white;"></iframe>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-warning" onclick="resetMFAPageToDefault()"><i class="fa fa-refresh"></i> Reset to Default</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveMFAPageHTML()"><i class="fa fa-save"></i> Apply</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modal for Landing Pages -->
+<div class="modal fade" id="previewPageModal" tabindex="-1" role="dialog" aria-labelledby="previewPageModalLabel">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="previewPageModalLabel">Landing Page Preview</h4>
+            </div>
+            <div class="modal-body">
+                <!-- Preview Controls -->
+                <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <!-- Device Preview Buttons -->
+                    <div class="btn-group" role="group" aria-label="Device Preview">
+                        <button type="button" class="btn btn-default btn-sm active" id="previewPageDesktopBtn" onclick="setPagePreviewDevice('desktop')" title="Desktop View">
+                            <i class="fa fa-desktop"></i>
+                        </button>
+                        <button type="button" class="btn btn-default btn-sm" id="previewPageTabletBtn" onclick="setPagePreviewDevice('tablet')" title="Tablet View">
+                            <i class="fa fa-tablet"></i>
+                        </button>
+                        <button type="button" class="btn btn-default btn-sm" id="previewPageMobileBtn" onclick="setPagePreviewDevice('mobile')" title="Mobile View">
+                            <i class="fa fa-mobile"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Load Images Toggle -->
+                    <div style="display: flex; align-items: center;">
+                        <label class="toggle-switch" style="margin-bottom: 0; cursor: pointer;">
+                            <input type="checkbox" id="loadPageImagesToggle" onchange="togglePageImages()">
+                            <span style="margin-left: 5px; font-size: 13px;"><i class="fa fa-image"></i> Load Images</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Preview Frame Container -->
+                <div id="preview_page_frame_container" style="display: flex; justify-content: center; background: #e8e8e8; padding: 15px; border-radius: 4px; min-height: 450px;">
+                    <iframe id="preview_page_iframe" sandbox="allow-same-origin" style="width: 100%; height: 400px; border: 1px solid #ddd; background: white; transition: width 0.3s ease;"></iframe>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 {{end}}
+
 {{define "scripts"}}
 <script src="/js/src/vendor/ckeditor/ckeditor.js"></script>
 <script src="/js/src/vendor/ckeditor/adapters/jquery.js"></script>

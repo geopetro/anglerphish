@@ -1,0 +1,1613 @@
+/*
+ * Anglerphish Crimson Theme
+ * A black and crimson dark theme for the Anglerphish UI
+ */
+
+/* ============================================
+   CSS Variables for easy customization
+   Scoped to .crimson-theme to avoid conflicts with other themes
+   ============================================ */
+.crimson-theme,
+html.crimson-theme {
+    --dark-bg-primary: #0a0a0a;
+    --dark-bg-secondary: #1a1a1a;
+    --dark-bg-tertiary: #2a0a0a;
+    --dark-bg-card: #141414;
+    --dark-bg-input: #1f1f1f;
+    --dark-border: #3a1a1a;
+    --dark-text-primary: #e8e8e8;
+    --dark-text-secondary: #b0b0b0;
+    --dark-text-muted: #707070;
+    --dark-accent: #dc143c;
+    --dark-accent-hover: #b01030;
+    --dark-navbar: #050505;
+    --dark-sidebar: #0f0f0f;
+    --dark-table-stripe: rgba(220, 20, 60, 0.03);
+    --dark-table-hover: rgba(220, 20, 60, 0.15);
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+/* Apply to html element to prevent flash during page load */
+html.crimson-theme {
+    background-color: var(--dark-bg-primary) !important;
+}
+
+body.crimson-theme {
+    background-color: var(--dark-bg-primary) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+/* Also apply when html has class but body might not yet */
+html.crimson-theme body {
+    background-color: var(--dark-bg-primary) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+/* Critical elements - apply via html.crimson-theme to prevent flash */
+html.crimson-theme .navbar-inverse {
+    background-color: var(--dark-navbar) !important;
+    border-color: var(--dark-border) !important;
+}
+
+html.crimson-theme .sidebar {
+    background-color: var(--dark-sidebar) !important;
+}
+
+html.crimson-theme .main {
+    background-color: var(--dark-bg-primary) !important;
+}
+
+body.crimson-theme a {
+    color: var(--dark-accent);
+}
+
+body.crimson-theme a:hover {
+    color: var(--dark-accent-hover);
+}
+
+/* ============================================
+   Navbar
+   ============================================ */
+body.crimson-theme .navbar-inverse {
+    background-color: var(--dark-navbar) !important;
+    border-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .navbar-inverse .navbar-brand {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .navbar-inverse .navbar-brand:hover,
+body.crimson-theme .navbar-inverse .navbar-brand:focus {
+    color: var(--dark-accent) !important;
+}
+
+body.crimson-theme .navbar-inverse .navbar-nav > li > a {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .navbar-inverse .navbar-nav > li > a:hover,
+body.crimson-theme .navbar-inverse .navbar-nav > li > a:focus {
+    color: var(--dark-accent) !important;
+}
+
+body.crimson-theme #navbar-dropdown .btn-primary {
+    background-color: var(--dark-accent) !important;
+    border-color: var(--dark-accent) !important;
+    color: #ffffff !important;
+}
+
+body.crimson-theme #navbar-dropdown .btn-primary:hover,
+body.crimson-theme #navbar-dropdown .btn-primary:focus {
+    background-color: var(--dark-accent-hover) !important;
+    border-color: var(--dark-accent-hover) !important;
+    color: #ffffff !important;
+}
+
+body.crimson-theme #navbar-dropdown .btn-primary i {
+    color: #ffffff !important;
+}
+
+body.crimson-theme .navbar-inverse .navbar-nav > li > a i {
+    color: var(--dark-text-primary) !important;
+}
+
+/* Button icons */
+body.crimson-theme .btn i,
+body.crimson-theme .btn .fa {
+    color: inherit !important;
+}
+
+body.crimson-theme .btn-info {
+    background-color: #3498db !important;
+    border-color: #3498db !important;
+    color: #ffffff !important;
+}
+
+body.crimson-theme .btn-info:hover {
+    background-color: #2980b9 !important;
+    border-color: #2980b9 !important;
+}
+
+/* Primary button (View Results, etc.) */
+body.crimson-theme .btn-primary {
+    background-color: #337ab7 !important;
+    border-color: #2e6da4 !important;
+    color: #ffffff !important;
+}
+
+body.crimson-theme .btn-primary:hover,
+body.crimson-theme .btn-primary:focus {
+    background-color: #286090 !important;
+    border-color: #204d74 !important;
+    color: #ffffff !important;
+}
+
+body.crimson-theme .btn-primary i,
+body.crimson-theme .btn-primary .fa {
+    color: #ffffff !important;
+}
+
+/* Success and Danger button consistency */
+body.crimson-theme .btn-success {
+    background-color: #5cb85c !important;
+    border-color: #4cae4c !important;
+    color: #ffffff !important;
+}
+
+body.crimson-theme .btn-success:hover,
+body.crimson-theme .btn-success:focus {
+    background-color: #449d44 !important;
+    border-color: #398439 !important;
+}
+
+body.crimson-theme .btn-danger {
+    background-color: #d9534f !important;
+    border-color: #d43f3a !important;
+    color: #ffffff !important;
+}
+
+body.crimson-theme .btn-danger:hover,
+body.crimson-theme .btn-danger:focus {
+    background-color: #c9302c !important;
+    border-color: #ac2925 !important;
+}
+
+body.crimson-theme .btn-warning {
+    background-color: #f0ad4e !important;
+    border-color: #eea236 !important;
+    color: #ffffff !important;
+}
+
+body.crimson-theme .btn-warning:hover,
+body.crimson-theme .btn-warning:focus {
+    background-color: #ec971f !important;
+    border-color: #d58512 !important;
+}
+
+/* ============================================
+   Sidebar
+   ============================================ */
+body.crimson-theme .sidebar {
+    background-color: var(--dark-sidebar) !important;
+    border-right-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .sidebar a {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .sidebar a:hover {
+    color: var(--dark-accent) !important;
+}
+
+body.crimson-theme .nav-sidebar > li > a {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .nav-sidebar > li > a:hover {
+    background-color: var(--dark-bg-tertiary) !important;
+    color: var(--dark-accent) !important;
+}
+
+body.crimson-theme .nav-sidebar > .active > a,
+body.crimson-theme .nav-sidebar > .active > a:hover,
+body.crimson-theme .nav-sidebar > .active > a:focus {
+    background-color: var(--dark-bg-tertiary) !important;
+    color: var(--dark-accent) !important;
+}
+
+/* ============================================
+   Main Content Area
+   ============================================ */
+body.crimson-theme .main {
+    background-color: var(--dark-bg-primary) !important;
+}
+
+body.crimson-theme .page-header {
+    border-bottom-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme h1, body.crimson-theme h2, body.crimson-theme h3,
+body.crimson-theme h4, body.crimson-theme h5, body.crimson-theme h6 {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme p {
+    color: var(--dark-text-primary) !important;
+}
+
+/* ============================================
+   Tables
+   ============================================ */
+body.crimson-theme .table {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .table > thead > tr > th,
+body.crimson-theme .table > tbody > tr > th,
+body.crimson-theme .table > tfoot > tr > th,
+body.crimson-theme .table > thead > tr > td,
+body.crimson-theme .table > tbody > tr > td,
+body.crimson-theme .table > tfoot > tr > td {
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .table > thead > tr > th {
+    background-color: var(--dark-bg-secondary) !important;
+}
+
+body.crimson-theme .table-striped > tbody > tr:nth-of-type(odd) {
+    background-color: var(--dark-table-stripe) !important;
+}
+
+body.crimson-theme .table-hover > tbody > tr:hover {
+    background-color: var(--dark-table-hover) !important;
+}
+
+body.crimson-theme .table-bordered {
+    border-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .dataTables_wrapper {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .dataTables_info {
+    color: var(--dark-text-secondary) !important;
+}
+
+body.crimson-theme .dataTables_filter input,
+body.crimson-theme .dataTables_length select {
+    background-color: var(--dark-bg-input) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+/* ============================================
+   Forms
+   ============================================ */
+body.crimson-theme .form-control {
+    background-color: var(--dark-bg-input) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .form-control:focus {
+    border-color: var(--dark-accent) !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 20, 60, 0.25) !important;
+}
+
+body.crimson-theme .form-control::placeholder {
+    color: var(--dark-text-muted) !important;
+}
+
+body.crimson-theme .form-control:-ms-input-placeholder {
+    color: var(--dark-text-muted) !important;
+}
+
+body.crimson-theme .form-control::-ms-input-placeholder {
+    color: var(--dark-text-muted) !important;
+}
+
+body.crimson-theme label {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .control-label {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .form-label {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .input-group-addon {
+    background-color: var(--dark-bg-tertiary) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+/* Checkbox and Radio */
+body.crimson-theme .checkbox label,
+body.crimson-theme .radio label {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .checkbox label::before {
+    background-color: var(--dark-bg-input) !important;
+    border-color: var(--dark-border) !important;
+}
+
+/* ============================================
+   Buttons
+   ============================================ */
+body.crimson-theme .btn-default {
+    background-color: var(--dark-bg-tertiary) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .btn-default:hover,
+body.crimson-theme .btn-default:focus {
+    background-color: var(--dark-bg-secondary) !important;
+    border-color: var(--dark-accent) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+/* ============================================
+   Modals
+   ============================================ */
+body.crimson-theme .modal-content {
+    background-color: var(--dark-bg-card) !important;
+    border-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .modal-header {
+    border-bottom-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .modal-header .close {
+    color: var(--dark-text-primary) !important;
+    opacity: 0.7;
+}
+
+body.crimson-theme .modal-header .close:hover {
+    color: var(--dark-accent) !important;
+    opacity: 1;
+}
+
+body.crimson-theme .modal-title {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .modal-body {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .modal-footer {
+    border-top-color: var(--dark-border) !important;
+}
+
+/* ============================================
+   Dropdowns
+   ============================================ */
+body.crimson-theme .dropdown-menu {
+    background-color: var(--dark-bg-card) !important;
+    border-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .dropdown-menu > li > a {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .dropdown-menu > li > a:hover,
+body.crimson-theme .dropdown-menu > li > a:focus {
+    background-color: var(--dark-bg-tertiary) !important;
+    color: var(--dark-accent) !important;
+}
+
+body.crimson-theme .dropdown-menu .divider {
+    background-color: var(--dark-border) !important;
+}
+
+/* ============================================
+   Tabs
+   ============================================ */
+body.crimson-theme .nav-tabs {
+    border-bottom-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .nav-tabs > li > a {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .nav-tabs > li > a:hover {
+    border-color: var(--dark-border) !important;
+    background-color: var(--dark-bg-tertiary) !important;
+}
+
+body.crimson-theme .nav-tabs > li.active > a,
+body.crimson-theme .nav-tabs > li.active > a:hover,
+body.crimson-theme .nav-tabs > li.active > a:focus {
+    background-color: var(--dark-bg-primary) !important;
+    border-color: var(--dark-border) !important;
+    border-bottom-color: var(--dark-bg-primary) !important;
+    color: var(--dark-accent) !important;
+}
+
+body.crimson-theme .tab-content {
+    background-color: var(--dark-bg-primary) !important;
+}
+
+/* ============================================
+   Panels / Cards
+   ============================================ */
+body.crimson-theme .panel {
+    background-color: var(--dark-bg-card) !important;
+    border-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .panel-default > .panel-heading {
+    background-color: var(--dark-bg-secondary) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .panel-body {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .panel-footer {
+    background-color: var(--dark-bg-secondary) !important;
+    border-color: var(--dark-border) !important;
+}
+
+/* Panel variants (info, success, warning, danger) */
+body.crimson-theme .panel-info {
+    border-color: #31708f !important;
+}
+
+body.crimson-theme .panel-info > .panel-heading {
+    background-color: #2a5f7a !important;
+    border-color: #31708f !important;
+    color: #ffffff !important;
+}
+
+body.crimson-theme .panel-info > .panel-heading .panel-title,
+body.crimson-theme .panel-info > .panel-heading h4,
+body.crimson-theme .panel-info > .panel-heading a {
+    color: #ffffff !important;
+}
+
+body.crimson-theme .panel-info > .panel-heading i {
+    color: #ffffff !important;
+}
+
+body.crimson-theme .panel-success {
+    border-color: #3c763d !important;
+}
+
+body.crimson-theme .panel-success > .panel-heading {
+    background-color: #2d5a2e !important;
+    border-color: #3c763d !important;
+    color: #ffffff !important;
+}
+
+body.crimson-theme .panel-warning {
+    border-color: #8a6d3b !important;
+}
+
+body.crimson-theme .panel-warning > .panel-heading {
+    background-color: #6b5430 !important;
+    border-color: #8a6d3b !important;
+    color: #ffffff !important;
+}
+
+body.crimson-theme .panel-danger {
+    border-color: #a94442 !important;
+}
+
+/* ── Campaign Sets: pill toggles & active item ── */
+body.crimson-theme .shared-toggle-group {
+    background: #2a1a1a;
+    border-color: #6a3a3a;
+}
+
+body.crimson-theme .shared-toggle-btn {
+    color: #ccc;
+}
+
+body.crimson-theme .shared-toggle-btn.active.shared-toggle-shared {
+    background: #4a9fd4;   /* brighter blue — visible on crimson dark bg */
+    color: #fff;
+}
+
+body.crimson-theme .shared-toggle-btn.active.shared-toggle-percampaign {
+    background: #d4821a;   /* stronger amber — visible on crimson dark bg */
+    color: #fff;
+}
+
+body.crimson-theme .campaign-list-item.active {
+    background-color: #3a1a2a;
+    border-left-color: #c0392b;
+    color: #f5a9a9;
+}
+
+body.crimson-theme .inline-setting-row {
+    border-bottom-color: #3a2a2a;
+}
+
+body.crimson-theme .shared-settings-header {
+    color: #ddb0b0;
+}
+
+body.crimson-theme .campaign-list-item:hover {
+    background-color: #2a1818;
+}
+
+body.crimson-theme .panel-danger > .panel-heading {
+    background-color: #7a3232 !important;
+    border-color: #a94442 !important;
+    color: #ffffff !important;
+}
+
+/* ============================================
+   Alerts
+   ============================================ */
+body.crimson-theme .alert {
+    border-width: 1px !important;
+}
+
+body.crimson-theme .alert-info {
+    background-color: rgba(52, 152, 219, 0.2) !important;
+    border-color: rgba(52, 152, 219, 0.5) !important;
+    color: #5dade2 !important;
+}
+
+body.crimson-theme .alert-success {
+    background-color: rgba(46, 204, 113, 0.2) !important;
+    border-color: rgba(46, 204, 113, 0.5) !important;
+    color: #58d68d !important;
+}
+
+body.crimson-theme .alert-warning {
+    background-color: rgba(241, 196, 15, 0.2) !important;
+    border-color: rgba(241, 196, 15, 0.5) !important;
+    color: #f4d03f !important;
+}
+
+body.crimson-theme .alert-danger {
+    background-color: rgba(231, 76, 60, 0.2) !important;
+    border-color: rgba(231, 76, 60, 0.5) !important;
+    color: #ec7063 !important;
+}
+
+/* ============================================
+   Labels and Badges
+   ============================================ */
+body.crimson-theme .label-default {
+    background-color: var(--dark-bg-tertiary) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+/* ============================================
+   List Groups (URL Template Modal, etc.)
+   ============================================ */
+body.crimson-theme .list-group-item,
+html.crimson-theme .list-group-item {
+    background-color: var(--dark-bg-card) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .list-group-item:hover,
+html.crimson-theme .list-group-item:hover {
+    background-color: var(--dark-bg-tertiary) !important;
+    color: var(--dark-accent) !important;
+}
+
+body.crimson-theme .list-group-item:focus,
+html.crimson-theme .list-group-item:focus {
+    background-color: var(--dark-bg-tertiary) !important;
+    color: var(--dark-accent) !important;
+    outline: none !important;
+}
+
+body.crimson-theme .list-group-item.active,
+html.crimson-theme .list-group-item.active {
+    background-color: var(--dark-accent) !important;
+    border-color: var(--dark-accent) !important;
+    color: #ffffff !important;
+}
+
+/* URL Template Modal specific */
+body.crimson-theme #urlTemplateModal .list-group-item,
+html.crimson-theme #urlTemplateModal .list-group-item {
+    background-color: var(--dark-bg-secondary) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme #urlTemplateModal .list-group-item:hover,
+html.crimson-theme #urlTemplateModal .list-group-item:hover {
+    background-color: var(--dark-bg-tertiary) !important;
+    border-color: var(--dark-accent) !important;
+    color: var(--dark-accent) !important;
+}
+
+body.crimson-theme #urlTemplateModal .list-group-item strong,
+body.crimson-theme #urlTemplateModal .list-group-item small,
+html.crimson-theme #urlTemplateModal .list-group-item strong,
+html.crimson-theme #urlTemplateModal .list-group-item small {
+    color: inherit !important;
+}
+
+body.crimson-theme #urlTemplateModal .list-group-item .text-muted,
+html.crimson-theme #urlTemplateModal .list-group-item .text-muted {
+    color: var(--dark-text-secondary) !important;
+}
+
+/* Category headers in URL Template list */
+body.crimson-theme #urlTemplateList h5,
+body.crimson-theme #urlTemplateList h4,
+body.crimson-theme #urlTemplateList .category-header,
+html.crimson-theme #urlTemplateList h5,
+html.crimson-theme #urlTemplateList h4,
+html.crimson-theme #urlTemplateList .category-header {
+    color: var(--dark-text-primary) !important;
+    border-bottom-color: var(--dark-border) !important;
+}
+
+/* URL Template Modal collapsible category headers */
+body.crimson-theme #urlTemplateList > div > a[data-toggle="collapse"],
+html.crimson-theme #urlTemplateList > div > a[data-toggle="collapse"] {
+    background: var(--dark-bg-tertiary) !important;
+    color: var(--dark-text-primary) !important;
+    border: 1px solid var(--dark-border) !important;
+}
+
+body.crimson-theme #urlTemplateList > div > a[data-toggle="collapse"]:hover,
+html.crimson-theme #urlTemplateList > div > a[data-toggle="collapse"]:hover {
+    background: var(--dark-accent) !important;
+    color: #ffffff !important;
+    border-color: var(--dark-accent) !important;
+}
+
+body.crimson-theme #urlTemplateList > div > a[data-toggle="collapse"] .badge,
+html.crimson-theme #urlTemplateList > div > a[data-toggle="collapse"] .badge {
+    background: var(--dark-accent) !important;
+    color: #ffffff !important;
+}
+
+body.crimson-theme #urlTemplateList .collapse,
+html.crimson-theme #urlTemplateList .collapse {
+    background-color: transparent !important;
+}
+
+/* Add URL Template Modal */
+body.crimson-theme #addUrlTemplateModal .modal-content,
+html.crimson-theme #addUrlTemplateModal .modal-content {
+    background-color: var(--dark-bg-card) !important;
+}
+
+/* ============================================
+   Pagination
+   ============================================ */
+body.crimson-theme .pagination > li > a,
+body.crimson-theme .pagination > li > span {
+    background-color: var(--dark-bg-card) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .pagination > li > a:hover,
+body.crimson-theme .pagination > li > span:hover {
+    background-color: var(--dark-bg-tertiary) !important;
+    color: var(--dark-accent) !important;
+}
+
+body.crimson-theme .pagination > .active > a,
+body.crimson-theme .pagination > .active > span {
+    background-color: var(--dark-accent) !important;
+    border-color: var(--dark-accent) !important;
+}
+
+/* ============================================
+   Well
+   ============================================ */
+body.crimson-theme .well {
+    background-color: var(--dark-bg-secondary) !important;
+    border-color: var(--dark-border) !important;
+}
+
+/* ============================================
+   Code / Pre
+   ============================================ */
+body.crimson-theme code {
+    background-color: var(--dark-bg-tertiary) !important;
+    color: #e74c3c !important;
+}
+
+body.crimson-theme pre {
+    background-color: var(--dark-bg-secondary) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+/* ============================================
+   Select2
+   ============================================ */
+body.crimson-theme .select2-container--bootstrap .select2-selection {
+    background-color: var(--dark-bg-input) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .select2-container--bootstrap .select2-selection--single .select2-selection__rendered {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .select2-dropdown {
+    background-color: var(--dark-bg-card) !important;
+    border-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .select2-results__option {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .select2-results__option--highlighted[aria-selected] {
+    background-color: var(--dark-accent) !important;
+}
+
+body.crimson-theme .select2-search--dropdown .select2-search__field {
+    background-color: var(--dark-bg-input) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+/* ============================================
+   SweetAlert2
+   ============================================ */
+body.crimson-theme .swal2-popup {
+    background-color: var(--dark-bg-card) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .swal2-title {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .swal2-content {
+    color: var(--dark-text-secondary) !important;
+}
+
+body.crimson-theme .swal2-input {
+    background-color: var(--dark-bg-input) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+/* ============================================
+   Tooltips
+   ============================================ */
+body.crimson-theme .tooltip-inner {
+    background-color: var(--dark-bg-secondary) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .tooltip.top .tooltip-arrow {
+    border-top-color: var(--dark-bg-secondary) !important;
+}
+
+body.crimson-theme .tooltip.bottom .tooltip-arrow {
+    border-bottom-color: var(--dark-bg-secondary) !important;
+}
+
+/* ============================================
+   Email/Landing Page Preview - Keep White Background
+   ============================================ */
+/* Preview iframes should maintain white background for email readability */
+body.crimson-theme iframe,
+body.crimson-theme .preview-iframe,
+body.crimson-theme #preview,
+body.crimson-theme #email-preview,
+body.crimson-theme #landing-preview,
+body.crimson-theme #page-preview,
+body.crimson-theme .email-preview,
+body.crimson-theme .landing-preview,
+body.crimson-theme .page-preview,
+body.crimson-theme #template-preview,
+body.crimson-theme .template-preview,
+body.crimson-theme #previewModal iframe,
+body.crimson-theme .modal-body iframe {
+    background-color: #ffffff !important;
+}
+
+/* CKEditor content area should stay white for WYSIWYG editing */
+body.crimson-theme .cke_wysiwyg_frame,
+body.crimson-theme .cke_contents iframe,
+body.crimson-theme .cke_editable {
+    background-color: #ffffff !important;
+}
+
+/* ============================================
+   Dashboard / Stats
+   ============================================ */
+/* Dashboard stats cards */
+body.crimson-theme .stats-card,
+body.crimson-theme .stat-card,
+body.crimson-theme .card-stats {
+    background-color: var(--dark-bg-card) !important;
+    border-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .dashboard-stat,
+body.crimson-theme .dashboard-card {
+    background-color: var(--dark-bg-card) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .dashboard-stat .number,
+body.crimson-theme .dashboard-stat .title {
+    color: var(--dark-text-primary) !important;
+}
+
+/* Progress bars */
+body.crimson-theme .progress {
+    background-color: var(--dark-bg-tertiary) !important;
+}
+
+/* jvectormap (world map) */
+body.crimson-theme .jvectormap-container {
+    background-color: var(--dark-bg-card) !important;
+}
+
+body.crimson-theme .jvectormap-zoomin,
+body.crimson-theme .jvectormap-zoomout {
+    background-color: var(--dark-bg-tertiary) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+/* Datamap (world map on campaign results) */
+body.crimson-theme .datamaps-hoverover {
+    background-color: var(--dark-bg-card) !important;
+    color: var(--dark-text-primary) !important;
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 4px !important;
+    padding: 8px 12px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
+}
+
+body.crimson-theme .datamaps-hoverover .hoverinfo {
+    background-color: transparent !important;
+    color: var(--dark-text-primary) !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+body.crimson-theme .hoverinfo {
+    background-color: var(--dark-bg-card) !important;
+    color: var(--dark-text-primary) !important;
+    border: 1px solid var(--dark-border) !important;
+    border-radius: 4px !important;
+    padding: 8px 12px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Make map markers larger in dark theme */
+.crimson-theme .datamaps-bubble {
+    r: 6 !important;
+}
+
+
+/* Timeline event results table (View Details) */
+body.crimson-theme .timeline-event-results,
+html.crimson-theme .timeline-event-results {
+    background-color: var(--dark-bg-secondary) !important;
+}
+
+body.crimson-theme .timeline-event-results table,
+html.crimson-theme .timeline-event-results table {
+    background-color: var(--dark-bg-card) !important;
+}
+
+body.crimson-theme .timeline-event-results table thead tr th,
+html.crimson-theme .timeline-event-results table thead tr th {
+    background-color: var(--dark-bg-secondary) !important;
+    color: var(--dark-text-primary) !important;
+    border-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .timeline-event-results table tbody tr,
+html.crimson-theme .timeline-event-results table tbody tr {
+    background-color: var(--dark-bg-card) !important;
+}
+
+body.crimson-theme .timeline-event-results table tbody tr td,
+html.crimson-theme .timeline-event-results table tbody tr td {
+    background-color: var(--dark-bg-card) !important;
+    color: var(--dark-text-primary) !important;
+    border-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .timeline-event-results table tbody tr:nth-child(odd),
+html.crimson-theme .timeline-event-results table tbody tr:nth-child(odd) {
+    background-color: var(--dark-bg-secondary) !important;
+}
+
+body.crimson-theme .timeline-event-results table tbody tr:nth-child(odd) td,
+html.crimson-theme .timeline-event-results table tbody tr:nth-child(odd) td {
+    background-color: var(--dark-bg-secondary) !important;
+}
+
+/* ============================================
+   Highcharts Dark Theme
+   ============================================ */
+body.crimson-theme .highcharts-background {
+    fill: transparent !important;
+}
+
+body.crimson-theme .highcharts-container {
+    background-color: transparent !important;
+}
+
+body.crimson-theme .highcharts-root {
+    background-color: transparent !important;
+}
+
+body.crimson-theme .highcharts-title,
+body.crimson-theme .highcharts-subtitle {
+    fill: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .highcharts-axis-title {
+    fill: var(--dark-text-secondary) !important;
+}
+
+body.crimson-theme .highcharts-axis-labels text {
+    fill: var(--dark-text-secondary) !important;
+    color: var(--dark-text-secondary) !important;
+}
+
+body.crimson-theme .highcharts-axis-line {
+    stroke: var(--dark-border) !important;
+}
+
+body.crimson-theme .highcharts-grid-line {
+    stroke: var(--dark-border) !important;
+}
+
+body.crimson-theme .highcharts-tick {
+    stroke: var(--dark-border) !important;
+}
+
+body.crimson-theme .highcharts-legend-item text {
+    fill: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .highcharts-legend-item-hidden text {
+    fill: var(--dark-text-muted) !important;
+}
+
+body.crimson-theme .highcharts-tooltip-box {
+    fill: var(--dark-bg-card) !important;
+    stroke: var(--dark-border) !important;
+}
+
+body.crimson-theme .highcharts-tooltip text {
+    fill: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .highcharts-label text,
+body.crimson-theme .highcharts-label tspan {
+    fill: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .highcharts-data-label text {
+    fill: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .highcharts-plot-border {
+    stroke: var(--dark-border) !important;
+}
+
+body.crimson-theme .highcharts-credits {
+    fill: var(--dark-text-muted) !important;
+}
+
+/* Highcharts specific chart containers */
+body.crimson-theme #overview_chart,
+body.crimson-theme #sent_chart,
+body.crimson-theme #sms_sent_chart,
+body.crimson-theme #opened_chart,
+body.crimson-theme #clicked_chart,
+body.crimson-theme #submitted_data_chart,
+body.crimson-theme #replied_chart,
+body.crimson-theme #email_reported_chart {
+    background-color: transparent !important;
+}
+
+body.crimson-theme #overview_chart .highcharts-background,
+body.crimson-theme #sent_chart .highcharts-background,
+body.crimson-theme #sms_sent_chart .highcharts-background,
+body.crimson-theme #opened_chart .highcharts-background,
+body.crimson-theme #clicked_chart .highcharts-background,
+body.crimson-theme #submitted_data_chart .highcharts-background,
+body.crimson-theme #replied_chart .highcharts-background,
+body.crimson-theme #email_reported_chart .highcharts-background {
+    fill: transparent !important;
+}
+
+/* Highcharts pie/donut text inside */
+body.crimson-theme .highcharts-pie-series text {
+    fill: var(--dark-text-primary) !important;
+}
+
+/* Highcharts zooming/selection */
+body.crimson-theme .highcharts-selection-marker {
+    fill: rgba(220, 20, 60, 0.2) !important;
+}
+
+body.crimson-theme .highcharts-button-box {
+    fill: var(--dark-bg-tertiary) !important;
+    stroke: var(--dark-border) !important;
+}
+
+body.crimson-theme .highcharts-button text {
+    fill: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .highcharts-range-selector-buttons text {
+    fill: var(--dark-text-secondary) !important;
+}
+
+body.crimson-theme .highcharts-range-input text {
+    fill: var(--dark-text-primary) !important;
+}
+
+/* Campaign results charts */
+body.crimson-theme #resultsMapContainer,
+body.crimson-theme #resultsChart,
+body.crimson-theme #chartContainer {
+    background-color: transparent !important;
+}
+
+/* ============================================
+   Timeline
+   ============================================ */
+body.crimson-theme .timeline {
+    background-color: var(--dark-bg-card) !important;
+}
+
+body.crimson-theme .timeline-bar {
+    background: var(--dark-border) !important;
+}
+
+body.crimson-theme .timeline-date {
+    color: var(--dark-text-muted) !important;
+}
+
+/* ============================================
+   Login Page
+   ============================================ */
+body.crimson-theme .form-signin {
+    background-color: var(--dark-bg-card) !important;
+    border-radius: 6px;
+    padding: 20px;
+}
+
+/* ============================================
+   Miscellaneous
+   ============================================ */
+body.crimson-theme hr {
+    border-top-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .text-muted {
+    color: var(--dark-text-muted) !important;
+}
+
+body.crimson-theme .help-block {
+    color: var(--dark-text-secondary) !important;
+}
+
+body.crimson-theme blockquote {
+    border-left-color: var(--dark-accent) !important;
+}
+
+/* API Documentation Page */
+body.crimson-theme .api_heading {
+    background-color: var(--dark-bg-secondary) !important;
+}
+
+/* Flashes */
+body.crimson-theme #flashes .alert {
+    margin-bottom: 15px;
+}
+
+/* ============================================
+   CKEditor Dark Theme (Full)
+   ============================================ */
+body.crimson-theme .cke_chrome {
+    border-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .cke_inner {
+    background-color: var(--dark-bg-card) !important;
+}
+
+body.crimson-theme .cke_top {
+    background-color: var(--dark-bg-secondary) !important;
+    border-bottom-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .cke_bottom {
+    background-color: var(--dark-bg-secondary) !important;
+    border-top-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .cke_toolgroup {
+    background-color: var(--dark-bg-tertiary) !important;
+    border-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .cke_button {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .cke_button:hover,
+body.crimson-theme .cke_button.cke_button_on {
+    background-color: var(--dark-bg-input) !important;
+}
+
+body.crimson-theme .cke_button_icon {
+    filter: invert(0.8) !important;
+}
+
+body.crimson-theme .cke_combo_button {
+    background-color: var(--dark-bg-tertiary) !important;
+    border-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .cke_combo_text {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .cke_path {
+    background-color: var(--dark-bg-secondary) !important;
+}
+
+body.crimson-theme .cke_path_item {
+    color: var(--dark-text-secondary) !important;
+}
+
+body.crimson-theme .cke_path_item:hover {
+    color: var(--dark-accent) !important;
+}
+
+/* CKEditor Source Code View - Cannot be styled via CSS (JavaScript inline styles override) */
+/* The source mode textarea will remain white with black text as CKEditor's default */
+
+/* CKEditor panel for source mode */
+body.crimson-theme .cke_panel {
+    background-color: var(--dark-bg-card) !important;
+    border-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .cke_panel_frame,
+body.crimson-theme .cke_panel_container {
+    background-color: var(--dark-bg-card) !important;
+}
+
+/* CKEditor dialogs */
+body.crimson-theme .cke_dialog {
+    background-color: var(--dark-bg-card) !important;
+}
+
+body.crimson-theme .cke_dialog_body {
+    background-color: var(--dark-bg-card) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .cke_dialog_title {
+    background-color: var(--dark-bg-secondary) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .cke_dialog_contents {
+    background-color: var(--dark-bg-card) !important;
+}
+
+body.crimson-theme .cke_dialog_contents_body {
+    background-color: var(--dark-bg-card) !important;
+}
+
+body.crimson-theme .cke_dialog_tab {
+    background-color: var(--dark-bg-secondary) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .cke_dialog_tab_selected {
+    background-color: var(--dark-bg-card) !important;
+}
+
+body.crimson-theme .cke_dialog_ui_input_text,
+body.crimson-theme .cke_dialog_ui_input_select,
+body.crimson-theme .cke_dialog_ui_input_textarea {
+    background-color: var(--dark-bg-input) !important;
+    color: var(--dark-text-primary) !important;
+    border-color: var(--dark-border) !important;
+}
+
+/* ============================================
+   CodeMirror Dark Theme (for HTML source view)
+   ============================================ */
+body.crimson-theme .CodeMirror {
+    background-color: #1e1e2e !important;
+    color: #e0e0e0 !important;
+    border-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .CodeMirror-gutters {
+    background-color: #16161e !important;
+    border-right-color: var(--dark-border) !important;
+}
+
+body.crimson-theme .CodeMirror-linenumber {
+    color: #6c7a89 !important;
+}
+
+body.crimson-theme .CodeMirror-cursor {
+    border-left-color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .CodeMirror-selected {
+    background-color: rgba(220, 20, 60, 0.2) !important;
+}
+
+body.crimson-theme .CodeMirror-line::selection,
+body.crimson-theme .CodeMirror-line > span::selection,
+body.crimson-theme .CodeMirror-line > span > span::selection {
+    background-color: rgba(220, 20, 60, 0.2) !important;
+}
+
+/* CodeMirror Syntax Highlighting for HTML */
+body.crimson-theme .cm-tag {
+    color: #f07178 !important;
+}
+
+body.crimson-theme .cm-attribute {
+    color: #ffcb6b !important;
+}
+
+body.crimson-theme .cm-string {
+    color: #c3e88d !important;
+}
+
+body.crimson-theme .cm-comment {
+    color: #676e95 !important;
+}
+
+body.crimson-theme .cm-keyword {
+    color: #c792ea !important;
+}
+
+body.crimson-theme .cm-number {
+    color: #f78c6c !important;
+}
+
+body.crimson-theme .cm-operator {
+    color: #89ddff !important;
+}
+
+body.crimson-theme .cm-bracket {
+    color: #89ddff !important;
+}
+
+body.crimson-theme .cm-property {
+    color: #82aaff !important;
+}
+
+body.crimson-theme .cm-variable {
+    color: #f07178 !important;
+}
+
+body.crimson-theme .cm-def {
+    color: #82aaff !important;
+}
+
+/* Ace Editor (alternative HTML editor) */
+body.crimson-theme .ace_editor {
+    background-color: #1e1e2e !important;
+    color: #e0e0e0 !important;
+}
+
+body.crimson-theme .ace_gutter {
+    background-color: #16161e !important;
+    color: #6c7a89 !important;
+}
+
+body.crimson-theme .ace_cursor {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme .ace_marker-layer .ace_selection {
+    background-color: rgba(220, 20, 60, 0.2) !important;
+}
+
+/* ============================================
+   MFA Settings Section (Landing Pages)
+   ============================================ */
+/* Override inline style background: #f9f9f9 */
+body.crimson-theme #mfa_settings {
+    background: var(--dark-bg-secondary) !important;
+    background-color: var(--dark-bg-secondary) !important;
+    border: 1px solid var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme #mfa_settings label,
+body.crimson-theme #mfa_settings .control-label {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme #mfa_settings .form-control {
+    background-color: var(--dark-bg-input) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme #mfa_settings .text-muted,
+body.crimson-theme #mfa_settings small {
+    color: var(--dark-text-secondary) !important;
+}
+
+body.crimson-theme #mfa_settings .checkbox label {
+    color: var(--dark-text-primary) !important;
+}
+
+/* MFA Page Editor Modal */
+body.crimson-theme #mfaPageEditorModal .modal-body {
+    background-color: var(--dark-bg-card) !important;
+}
+
+body.crimson-theme #mfa_page_html_editor {
+    background-color: #1e1e2e !important;
+    color: #e0e0e0 !important;
+    border-color: var(--dark-border) !important;
+}
+
+body.crimson-theme #mfa_preview_iframe {
+    border-color: var(--dark-border) !important;
+}
+
+/* ============================================
+   HTML Editors (CKEditor and Textareas)
+   ============================================ */
+/* Main HTML editor textarea (before CKEditor initializes) */
+body.crimson-theme #html_editor {
+    background-color: #1e1e2e !important;
+    color: #e0e0e0 !important;
+    border-color: var(--dark-border) !important;
+}
+
+/* All textarea editors in modals */
+body.crimson-theme .modal textarea,
+body.crimson-theme .modal-body textarea {
+    background-color: var(--dark-bg-input) !important;
+    color: var(--dark-text-primary) !important;
+    border-color: var(--dark-border) !important;
+}
+
+/* Monospace textareas (code editors) */
+body.crimson-theme textarea[style*="monospace"],
+body.crimson-theme textarea[style*="font-family: monospace"] {
+    background-color: #1e1e2e !important;
+    color: #e0e0e0 !important;
+}
+
+/* ============================================
+   Capture Password Warning
+   ============================================ */
+body.crimson-theme #capture_passwords .alert-warning {
+    background-color: rgba(241, 196, 15, 0.15) !important;
+    border-color: rgba(241, 196, 15, 0.4) !important;
+    color: #f4d03f !important;
+}
+
+/* ============================================
+   Form groups in modals/editors
+   ============================================ */
+body.crimson-theme .modal-body .form-group {
+    background-color: transparent !important;
+}
+
+body.crimson-theme .modal-body .well {
+    background-color: var(--dark-bg-secondary) !important;
+    border-color: var(--dark-border) !important;
+}
+
+/* DataTables specific */
+body.crimson-theme table.dataTable thead .sorting:after {
+    color: var(--dark-text-muted) !important;
+}
+
+body.crimson-theme table.dataTable thead .sorting_asc:after,
+body.crimson-theme table.dataTable thead .sorting_desc:after {
+    color: var(--dark-accent) !important;
+}
+
+/* ============================================
+   Python Dependency Installation Modal (Reports)
+   ============================================ */
+body.crimson-theme #dependency-modal .modal-content,
+html.crimson-theme #dependency-modal .modal-content {
+    background-color: var(--dark-bg-card) !important;
+}
+
+body.crimson-theme #dependency-install-progress,
+html.crimson-theme #dependency-install-progress {
+    background-color: var(--dark-bg-card) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme #dependency-install-progress h4,
+html.crimson-theme #dependency-install-progress h4 {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme #install-log-container,
+html.crimson-theme #install-log-container {
+    background-color: #0f0f0f !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme #install-log,
+html.crimson-theme #install-log {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme #install-log div,
+html.crimson-theme #install-log div {
+    color: inherit !important;
+}
+
+body.crimson-theme #install-log span,
+html.crimson-theme #install-log span {
+    color: var(--dark-text-muted) !important;
+}
+
+body.crimson-theme #install-current-package,
+html.crimson-theme #install-current-package {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme #install-current-package strong,
+html.crimson-theme #install-current-package strong {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme #install-package-name,
+html.crimson-theme #install-package-name {
+    color: var(--dark-accent) !important;
+}
+
+body.crimson-theme #dependency-details .alert,
+html.crimson-theme #dependency-details .alert {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme #dependency-details p,
+html.crimson-theme #dependency-details p {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme #dependency-table-body td,
+html.crimson-theme #dependency-table-body td {
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme #dependency-table-body .text-muted,
+html.crimson-theme #dependency-table-body .text-muted {
+    color: var(--dark-text-secondary) !important;
+}
+
+/* Progress bar styling for crimson theme */
+body.crimson-theme .progress,
+html.crimson-theme .progress {
+    background-color: var(--dark-bg-input) !important;
+}
+
+body.crimson-theme .progress-bar,
+html.crimson-theme .progress-bar {
+    background-color: var(--dark-accent) !important;
+    color: #ffffff !important;
+}
+
+/* ============================================
+   Email/Landing Page Preview Modal Controls
+   ============================================ */
+/* Subject line container */
+body.crimson-theme #preview_email_subject_container,
+html.crimson-theme #preview_email_subject_container {
+    background-color: var(--dark-bg-secondary) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme #preview_email_subject_container strong,
+html.crimson-theme #preview_email_subject_container strong {
+    color: var(--dark-text-secondary) !important;
+}
+
+body.crimson-theme #preview_email_subject,
+html.crimson-theme #preview_email_subject {
+    color: var(--dark-text-primary) !important;
+}
+
+/* Attachments container */
+body.crimson-theme #preview_email_attachments_container,
+html.crimson-theme #preview_email_attachments_container {
+    background-color: var(--dark-bg-secondary) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme #preview_email_attachments_container strong,
+html.crimson-theme #preview_email_attachments_container strong {
+    color: var(--dark-text-secondary) !important;
+}
+
+body.crimson-theme #preview_email_attachments span,
+html.crimson-theme #preview_email_attachments span {
+    background-color: var(--dark-bg-tertiary) !important;
+    border-color: var(--dark-border) !important;
+    color: var(--dark-text-primary) !important;
+}
+
+body.crimson-theme #preview_email_attachments span i,
+html.crimson-theme #preview_email_attachments span i {
+    color: var(--dark-text-secondary) !important;
+}
+
+/* Preview frame container (background) */
+body.crimson-theme #preview_email_frame_container,
+body.crimson-theme #preview_page_frame_container,
+html.crimson-theme #preview_email_frame_container,
+html.crimson-theme #preview_page_frame_container {
+    background: var(--dark-bg-tertiary) !important;
+}
+
+/* SMS Phone Preview Modal */
+body.crimson-theme #previewSMSModal .modal-body,
+html.crimson-theme #previewSMSModal .modal-body {
+    background: var(--dark-bg-tertiary) !important;
+}
+
+/* Scrollbars (webkit) */
+body.crimson-theme ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+body.crimson-theme ::-webkit-scrollbar-track {
+    background: var(--dark-bg-secondary);
+}
+
+body.crimson-theme ::-webkit-scrollbar-thumb {
+    background: var(--dark-bg-tertiary);
+    border-radius: 4px;
+}
+
+body.crimson-theme ::-webkit-scrollbar-thumb:hover {
+    background: var(--dark-accent);
+}

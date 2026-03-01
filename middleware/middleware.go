@@ -71,8 +71,9 @@ func GetContext(handler http.Handler) http.HandlerFunc {
 	}
 }
 
-// RequireAPIKey ensures that a valid API key is set as either the api_key GET
-// parameter, or a Bearer token.
+// RequireAPIKey ensures that a valid API key is set as a Bearer token
+// in the Authorization header. Query parameter authentication has been
+// disabled for security reasons (prevents API keys from appearing in logs).
 func RequireAPIKey(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -82,19 +83,15 @@ func RequireAPIKey(handler http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
 			return
 		}
-		r.ParseForm()
-		ak := r.Form.Get("api_key")
-		// If we can't get the API key, we'll also check for the
-		// Authorization Bearer token
-		if ak == "" {
-			tokens, ok := r.Header["Authorization"]
-			if ok && len(tokens) >= 1 {
-				ak = tokens[0]
-				ak = strings.TrimPrefix(ak, "Bearer ")
-			}
+		// Only accept API key via Authorization header for security
+		ak := ""
+		tokens, ok := r.Header["Authorization"]
+		if ok && len(tokens) >= 1 {
+			ak = tokens[0]
+			ak = strings.TrimPrefix(ak, "Bearer ")
 		}
 		if ak == "" {
-			JSONError(w, http.StatusUnauthorized, "API Key not set")
+			JSONError(w, http.StatusUnauthorized, "API Key must be provided in Authorization header (e.g., 'Authorization: Bearer YOUR_API_KEY')")
 			return
 		}
 		u, err := models.GetUserByAPIKey(ak)

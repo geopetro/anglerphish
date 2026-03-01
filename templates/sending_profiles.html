@@ -4,32 +4,80 @@
         Sending Profiles
     </h1>
     <div id="flashes" class="row"></div>
-    <div class="row">
-        <button type="button" class="btn btn-primary" onclick="edit(-1)" data-toggle="modal" data-backdrop="static"
-            data-target="#modal"><i class="fa fa-plus"></i> New Profile</button>
-    </div>
-    &nbsp;
-    <div id="loading">
-        <i class="fa fa-spinner fa-spin fa-4x"></i>
-    </div>
-    <div id="emptyMessage" class="row" style="display:none;">
-        <div class="alert alert-info">
-            No profiles created yet. Let's create one!
+    
+    <!-- Tabs for Email and SMS profiles -->
+    <ul class="nav nav-tabs" role="tablist">
+        <li class="active" role="presentation">
+            <a href="#email-profiles" role="tab" data-toggle="tab">Email Profiles</a>
+        </li>
+        <li role="presentation">
+            <a href="#sms-profiles" role="tab" data-toggle="tab">SMS Profiles</a>
+        </li>
+    </ul>
+    
+    <div class="tab-content">
+        <!-- Email Profiles Tab -->
+        <div role="tabpanel" class="tab-pane active" id="email-profiles">
+            <div class="row" style="margin-top: 10px;">
+                <button type="button" class="btn btn-primary" onclick="edit(-1)" data-toggle="modal" data-backdrop="static"
+                    data-target="#modal"><i class="fa fa-plus"></i> New Email Profile</button>
+            </div>
+            &nbsp;
+            <div id="loading">
+                <i class="fa fa-spinner fa-spin fa-4x"></i>
+            </div>
+            <div id="emptyMessage" class="row" style="display:none;">
+                <div class="alert alert-info">
+                    No email profiles created yet. Let's create one!
+                </div>
+            </div>
+            <div class="row">
+                <table id="profileTable" class="table" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th class="col-md-4">Name</th>
+                            <th>Interface Type</th>
+                            <th>Last Modified Date</th>
+                            <th class="col-md-2 no-sort"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
-    <div class="row">
-        <table id="profileTable" class="table" style="display:none;">
-            <thead>
-                <tr>
-                    <th class="col-md-4">Name</th>
-                    <th>Interface Type</th>
-                    <th>Last Modified Date</th>
-                    <th class="col-md-2 no-sort"></th>
-                </tr>
-            </thead>
-            <tbody>
-            </tbody>
-        </table>
+        
+        <!-- SMS Profiles Tab -->
+        <div role="tabpanel" class="tab-pane" id="sms-profiles">
+            <div class="row" style="margin-top: 10px;">
+                <button type="button" class="btn btn-primary" onclick="editSMSProfile(-1)" data-toggle="modal" data-backdrop="static"
+                    data-target="#smsModal"><i class="fa fa-plus"></i> New SMS Profile</button>
+            </div>
+            &nbsp;
+            <div id="smsLoading">
+                <i class="fa fa-spinner fa-spin fa-4x"></i>
+            </div>
+            <div id="smsEmptyMessage" class="row" style="display:none;">
+                <div class="alert alert-info">
+                    No SMS profiles created yet. Let's create one!
+                </div>
+            </div>
+            <div class="row">
+                <table id="smsProfileTable" class="table" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th class="col-md-3">Name</th>
+                            <th>Provider</th>
+                            <th>Balance</th>
+                            <th>Last Modified Date</th>
+                            <th class="col-md-2 no-sort"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 <!-- Modal -->
@@ -101,11 +149,65 @@
         </div>
     </div>
 </div>
-<!-- Send Test Email Modal -->
-<div class="modal" id="sendTestEmailModal" tabindex="-1" role="dialog" aria-labelledby="modalLabel">
+<!-- SMS Modal -->
+<div class="modal fade" id="smsModal" tabindex="-1" role="dialog" aria-labelledby="smsModalLabel">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <!-- New Email Modal -->
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="dismissSMSModal()"><span
+                        aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="smsModalLabel">New SMS Sending Profile</h4>
+            </div>
+            <div class="modal-body">
+                <div class="row" id="smsModal.flashes"></div>
+                <form>
+                    <div class="form-group">
+                        <label class="control-label" for="sms_name">Name:</label>
+                        <input type="text" class="form-control" placeholder="Profile name" id="sms_name" autofocus />
+                        
+                        <label class="control-label" for="sms_provider">Provider:</label>
+                        <select class="form-control" id="sms_provider">
+                            <option value="twilio">Twilio</option>
+                            <option value="nexmo">Nexmo/Vonage</option>
+                        </select>
+                        
+                        <label class="control-label" for="sms_from">From Number:</label>
+                        <input type="text" class="form-control" placeholder="+12025550147" id="sms_from" required />
+                        
+                        <!-- Provider-specific fields -->
+                        <div id="twilio-fields" class="provider-fields">
+                            <label class="control-label" for="twilio_account_sid">Account SID:</label>
+                            <input type="text" class="form-control" placeholder="ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" id="twilio_account_sid" />
+                            
+                            <label class="control-label" for="twilio_auth_token">Auth Token:</label>
+                            <input type="password" class="form-control" placeholder="YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY" id="twilio_auth_token" />
+                        </div>
+                        
+                        
+                        <div id="nexmo-fields" class="provider-fields" style="display:none;">
+                            <label class="control-label" for="nexmo_api_key">API Key:</label>
+                            <input type="text" class="form-control" placeholder="NEXMO_API_KEY" id="nexmo_api_key" />
+                            
+                            <label class="control-label" for="nexmo_api_secret">API Secret:</label>
+                            <input type="password" class="form-control" placeholder="NEXMO_API_SECRET" id="nexmo_api_secret" />
+                        </div>
+                    </div>
+                </form>
+                <button type="button" data-toggle="modal" data-backdrop="static" data-target="#sendTestSMSModal"
+                    class="btn btn-primary"><i class="fa fa-mobile"></i> Send Test SMS</button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" data-dismiss="modal" class="btn btn-default" onclick="dismissSMSModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" id="smsModalSubmit">Save Profile</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Send Test Email Modal -->
+<div class="modal" id="sendTestEmailModal" tabindex="-1" role="dialog" aria-labelledby="sendTestEmailModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                 <h4 class="modal-title" id="sendTestEmailModalTitle">Send Test Email</h4>
@@ -114,20 +216,29 @@
                 <div class="row" id="sendTestEmailModal.flashes"></div>
                 <div class="row">
                     <div class="col-sm-12">
-                        <label class="control-label" for="to">Send Test Email to:</label>
+                        <label class="control-label">Using profile: <span id="test_email_profile_name"></span></label>
                     </div>
-                    <br>
-                    <div class="col-sm-2">
+                    <div class="col-sm-12">
+                        <label class="control-label" for="test_email_from">From Address:</label>
+                        <input type="text" class="form-control" id="test_email_from" readonly>
+                    </div>
+                    <div class="col-sm-12">
+                        <label class="control-label" for="to_email">Send Test Email to:</label>
+                    </div>
+                    <div class="col-sm-4">
                         <input type="text" class="form-control" placeholder="First Name" name="to_first_name">
                     </div>
-                    <div class="col-sm-2">
+                    <div class="col-sm-4">
                         <input type="text" class="form-control" placeholder="Last Name" name="to_last_name">
                     </div>
                     <div class="col-sm-4">
                         <input type="email" class="form-control" placeholder="Email" name="to_email" required>
                     </div>
-                    <div class="col-sm-4">
+                    <div class="col-sm-6" style="margin-top: 10px;">
                         <input type="text" class="form-control" placeholder="Position" name="to_position">
+                    </div>
+                    <div class="col-sm-6" style="margin-top: 10px;">
+                        <input type="text" class="form-control" placeholder="Custom Field" name="to_custom">
                     </div>
                 </div>
             </div>
@@ -135,6 +246,53 @@
                 <button type="button" data-dismiss="modal" class="btn btn-default">Cancel</button>
                 <button type="button" class="btn btn-primary" id="sendTestModalSubmit" onclick="sendTestEmail()"><i
                         class="fa fa-envelope"></i> Send</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Send Test SMS Modal -->
+<div class="modal" id="sendTestSMSModal" tabindex="-1" role="dialog" aria-labelledby="sendTestSMSModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="sendTestSMSModalTitle">Send Test SMS</h4>
+            </div>
+            <div class="modal-body">
+                <div class="row" id="sendTestSMSModal.flashes"></div>
+                <div class="row">
+                    <div class="col-sm-12">
+                        <label class="control-label">Using profile: <span id="test_sms_profile_name"></span></label>
+                    </div>
+                    <div class="col-sm-12">
+                        <label class="control-label" for="test_sms_from">From Number:</label>
+                        <input type="text" class="form-control" id="test_sms_from" readonly>
+                    </div>
+                    <div class="col-sm-12">
+                        <label class="control-label" for="sms_to_phone">Send Test SMS to:</label>
+                    </div>
+                    <div class="col-sm-4">
+                        <input type="text" class="form-control" placeholder="First Name" name="sms_to_first_name">
+                    </div>
+                    <div class="col-sm-4">
+                        <input type="text" class="form-control" placeholder="Last Name" name="sms_to_last_name">
+                    </div>
+                    <div class="col-sm-4">
+                        <input type="text" class="form-control" placeholder="Phone Number" name="sms_to_phone" required>
+                    </div>
+                    <div class="col-sm-6" style="margin-top: 10px;">
+                        <input type="text" class="form-control" placeholder="Position" name="sms_to_position">
+                    </div>
+                    <div class="col-sm-6" style="margin-top: 10px;">
+                        <input type="text" class="form-control" placeholder="Custom Field" name="sms_to_custom">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" data-dismiss="modal" class="btn btn-default">Cancel</button>
+                <button type="button" class="btn btn-primary" id="sendTestSMSModalSubmit" onclick="sendTestSMS()"><i
+                        class="fa fa-mobile"></i> Send</button>
             </div>
         </div>
     </div>

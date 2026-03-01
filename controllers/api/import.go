@@ -24,7 +24,7 @@ type cloneRequest struct {
 
 func (cr *cloneRequest) validate() error {
 	if cr.URL == "" {
-		return errors.New("No URL Specified")
+		return errors.New("no url specified")
 	}
 	return nil
 }

@@ -6,6 +6,13 @@
 # Folders
 _obj
 _test
+venv
+files
+temp_qr_codes
+__pycache__
+
+# Tracking CSV
+tracked-data.csv
 
 # Node Modules
 node_modules
@@ -29,3 +36,9 @@ gophish_admin.key
 *.exe
 gophish.db*
 gophish
+gophish*.db*
+
+# Python bytecode and cache
+__pycache__
+*.py[cod]
+*$py.class
