@@ -6,7 +6,7 @@
 
 Anglerphish is an enhanced, feature-rich fork of [Gophish](https://github.com/gophish/gophish) aimed at providing more flexible campaign management, expanded phishing vectors, improved reporting capabilities, and numerous quality‑of‑life enhancements.
 
-See also the Medium article - *Coming Soon...*.
+See also the Medium [article](https://medium.com/@gpetro/anglerphish-6dc3e5520242).
 
 ---
 
