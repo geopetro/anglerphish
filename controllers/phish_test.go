@@ -2,15 +2,12 @@ package controllers
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"reflect"
 	"testing"
 
-	"github.com/gophish/gophish/config"
 	"github.com/gophish/gophish/models"
 )
 
@@ -123,32 +120,6 @@ func clickLink404(t *testing.T, ctx *testContext, rid string) {
 	expected := http.StatusNotFound
 	if got != expected {
 		t.Fatalf("invalid status code received for / endpoint. expected %d got %d", expected, got)
-	}
-}
-
-func transparencyRequest(t *testing.T, ctx *testContext, r models.Result, rid, path string) {
-	resp, err := http.Get(fmt.Sprintf("%s%s?%s=%s", ctx.phishServer.URL, path, models.RecipientParameter, rid))
-	if err != nil {
-		t.Fatalf("error requesting %s endpoint: %v", path, err)
-	}
-	defer resp.Body.Close()
-	got := resp.StatusCode
-	expected := http.StatusOK
-	if got != expected {
-		t.Fatalf("invalid status code received for / endpoint. expected %d got %d", expected, got)
-	}
-	tr := &TransparencyResponse{}
-	err = json.NewDecoder(resp.Body).Decode(tr)
-	if err != nil {
-		t.Fatalf("error unmarshaling transparency request: %v", err)
-	}
-	expectedResponse := &TransparencyResponse{
-		ContactAddress: ctx.config.ContactAddress,
-		SendDate:       r.SendDate,
-		Server:         config.ServerName,
-	}
-	if !reflect.DeepEqual(tr, expectedResponse) {
-		t.Fatalf("unexpected transparency response received. expected %v got %v", expectedResponse, tr)
 	}
 }
 
@@ -333,32 +304,6 @@ func TestPreviewClick(t *testing.T) {
 	defer tearDown(t, ctx)
 	req := getFirstEmailRequest(t)
 	clickLink(t, ctx, req.RId, req.Page.HTML)
-}
-
-func TestInvalidTransparencyRequest(t *testing.T) {
-	ctx := setupTest(t)
-	defer tearDown(t, ctx)
-	bogusRId := fmt.Sprintf("bogus%s", TransparencySuffix)
-	openEmail404(t, ctx, bogusRId)
-	clickLink404(t, ctx, bogusRId)
-	reportEmail404(t, ctx, bogusRId)
-}
-
-func TestTransparencyRequest(t *testing.T) {
-	ctx := setupTest(t)
-	defer tearDown(t, ctx)
-	campaign := getFirstCampaign(t)
-	result := campaign.Results[0]
-	rid := fmt.Sprintf("%s%s", result.RId, TransparencySuffix)
-	transparencyRequest(t, ctx, result, rid, "/")
-	transparencyRequest(t, ctx, result, rid, "/track")
-	transparencyRequest(t, ctx, result, rid, "/report")
-
-	// And check with the URL encoded version of a +
-	rid = fmt.Sprintf("%s%s", result.RId, "%2b")
-	transparencyRequest(t, ctx, result, rid, "/")
-	transparencyRequest(t, ctx, result, rid, "/track")
-	transparencyRequest(t, ctx, result, rid, "/report")
 }
 
 func TestRedirectTemplating(t *testing.T) {

@@ -51,9 +51,6 @@ var Version = ""
 // AnglerPhishVersion contains the current anglerphish version
 var AnglerPhishVersion = ""
 
-// ServerName is the server type that is returned in the transparency response.
-const ServerName = "IGNORE"
-
 // LoadConfig loads the configuration from the specified filepath
 func LoadConfig(filepath string) (*Config, error) {
 	// Get the config file
