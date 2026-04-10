@@ -261,43 +261,6 @@ func (s *ModelsSuite) TestMailLogGenerate(ch *check.C) {
 	ch.Assert(string(got.HTML), check.Equals, string(expected.HTML))
 }
 
-func (s *ModelsSuite) TestMailLogGenerateTransparencyHeaders(ch *check.C) {
-	expectedHeaders := map[string]string{
-		"X-Mailer": "",
-	}
-	campaign := s.createCampaign(ch)
-	got := s.emailFromFirstMailLog(campaign, ch)
-	for k, v := range expectedHeaders {
-		ch.Assert(got.Headers.Get(k), check.Equals, v)
-	}
-}
-
-func (s *ModelsSuite) TestMailLogGenerateOverrideTransparencyHeaders(ch *check.C) {
-	expectedHeaders := map[string]string{
-		"X-Mailer":  "",
-		"X-Contact": "",
-	}
-	smtp := SMTP{
-		Name:        "Test SMTP",
-		Host:        "1.1.1.1:25",
-		FromAddress: "foo@example.com",
-		UserId:      1,
-		Headers: []Header{
-			Header{Key: "X-Contact", Value: ""},
-			Header{Key: "X-Mailer", Value: ""},
-		},
-	}
-	ch.Assert(PostSMTP(&smtp), check.Equals, nil)
-	campaign := s.createCampaignDependencies(ch)
-	campaign.SMTP = smtp
-
-	ch.Assert(PostCampaign(&campaign, campaign.UserId), check.Equals, nil)
-	got := s.emailFromFirstMailLog(campaign, ch)
-	for k, v := range expectedHeaders {
-		ch.Assert(got.Headers.Get(k), check.Equals, v)
-	}
-}
-
 func (s *ModelsSuite) TestUnlockAllMailLogs(ch *check.C) {
 	campaign := s.createCampaign(ch)
 	ms, err := GetMailLogsByCampaign(campaign.Id)
