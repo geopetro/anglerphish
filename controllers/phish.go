@@ -719,7 +719,7 @@ func handleMFAFlow(w http.ResponseWriter, r *http.Request, rs models.Result, p m
 		}
 
 		// Inject MFA pending indicator before </body>
-		mfaIndicator := `<input type="hidden" id="mfa_pending" value="true"><script>window.mfaPending=true;</script>`
+		mfaIndicator := `<script>window.mfaPending=true;</script>`
 		html = strings.Replace(html, "</body>", mfaIndicator+"</body>", 1)
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -848,7 +848,7 @@ func handleMFAVerification(w http.ResponseWriter, r *http.Request, rs models.Res
 		}
 
 		// Inject MFA error indicator
-		mfaIndicator := `<input type="hidden" id="mfa_error" value="Invalid code"><script>window.mfaError="Invalid code";</script>`
+		mfaIndicator := `<script>window.mfaError="Invalid code";</script>`
 		html = strings.Replace(html, "</body>", mfaIndicator+"</body>", 1)
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

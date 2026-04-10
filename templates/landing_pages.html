@@ -115,9 +115,9 @@
                             <div class="form-group">
                                 <label class="control-label" for="mfa_code_length">Code Length:</label>
                                 <select id="mfa_code_length" class="form-control">
-                                    <option value="4">4 digits</option>
-                                    <option value="6" selected>6 digits</option>
-                                    <option value="8">8 digits</option>
+                                    <option value="4">4 characters</option>
+                                    <option value="6" selected>6 characters</option>
+                                    <option value="8">8 characters</option>
                                 </select>
                             </div>
                         </div>
@@ -183,12 +183,8 @@
             </div>
             <div class="modal-body">
                 <div class="alert alert-info">
-                    <i class="fa fa-info-circle"></i> <strong>Available variables:</strong>
-                    <ul style="margin-top: 5px;">
-                        <li><code>{{"{{"}} .RId {{"}}"}}</code> - Required in form (hidden field)</li>
-                        <li><code>{{"{{"}} if .Error {{"}}"}}...{{"{{"}} end {{"}}"}}</code> - Shows error message on failed verification</li>
-                    </ul>
-                    <small>Your form must POST <code>mfa_code</code> field to work.</small>
+                    <i class="fa fa-info-circle"></i> <strong>Required:</strong> Your form must use <code>method="POST"</code>, <code>action=""</code>, and include an input named <code>mfa_code</code>.
+                    <br><strong>Optional:</strong> Use <code>{{"{{"}} if .Error {{"}}"}}...{{"{{"}} end {{"}}"}}</code> to show an error message when the user enters a wrong code.
                 </div>
                 <!-- Nav tabs -->
                 <ul class="nav nav-tabs" role="tablist" id="mfaEditorTabs">
