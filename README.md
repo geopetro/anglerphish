@@ -106,7 +106,7 @@ See also the Medium [article](https://medium.com/@gpetro/anglerphish-6dc3e552024
 
 | Feature | Description | Relevant Context / Use Case |
 | :--- | :--- | :--- |
-| **Sneaky Tweaks** | Implements the **sneaky gophish tweaks** based on the [article](https://www.sprocketsecurity.com/resources/never-had-a-bad-day-phishing-how-to-set-up-gophish-to-evade-security-controls). | Provides a level of subtlety by reducing certain default signatures that normally identify a Gophish instance. |
+| **Transparency & Header Removal** | Completely removed GoPhish's **transparency request handler** (`+` suffix endpoint), **`X-Server`** response header, and **`X-Mailer`/`X-Contact`** email headers — all well-known GoPhish fingerprints that security tools and blue teams actively scan for. | Makes Anglerphish harder to fingerprint and detect during phishing simulations. |
 | **Default Landing Page** | A **default Error 404 landing** when visiting the domain, based on [edermi/gophish_mods](https://github.com/edermi/gophish_mods/tree/master). | Provides a clean 404 page for direct domain visits instead of a blank page. |
 
 ---
