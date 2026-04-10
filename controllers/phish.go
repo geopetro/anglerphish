@@ -346,7 +346,8 @@ func (ps *PhishingServer) PhishHandler(w http.ResponseWriter, r *http.Request) {
 	var ptx models.PhishingTemplateContext
 
 	// Create the appropriate template context based on campaign type
-	if c.Type == "sms" {
+	switch c.Type {
+	case "sms":
 		// For SMS campaigns, use SMSTemplateContext
 		stx, err := models.NewSMSTemplateContext(&c, rs.BaseRecipient, rs.RId)
 		if err != nil {
@@ -364,7 +365,7 @@ func (ps *PhishingServer) PhishHandler(w http.ResponseWriter, r *http.Request) {
 			From:          stx.From,
 			BaseURL:       stx.BaseURL,
 		}
-	} else if c.Type == "generic" {
+	case "generic":
 		// For generic campaigns, create a minimal template context
 		// Generic campaigns don't have email templates, they just serve the landing page
 		trackingURL, err := models.ExecuteTemplate(c.URL, nil)
@@ -380,7 +381,7 @@ func (ps *PhishingServer) PhishHandler(w http.ResponseWriter, r *http.Request) {
 			From:          "",
 			BaseURL:       c.URL,
 		}
-	} else {
+	default:
 		// For email campaigns, use PhishingTemplateContext
 		ptx, err = models.NewPhishingTemplateContext(&c, rs.BaseRecipient, rs.RId)
 		if err != nil {
@@ -679,7 +680,8 @@ func handleMFAFlow(w http.ResponseWriter, r *http.Request, rs models.Result, p m
 		// Re-render the original page - user's JS should handle showing MFA input
 		// We'll add a special header or hidden field to indicate MFA is pending
 		var ptx models.PhishingTemplateContext
-		if c.Type == "sms" {
+		switch c.Type {
+		case "sms":
 			stx, _ := models.NewSMSTemplateContext(&c, rs.BaseRecipient, rs.RId)
 			ptx = models.PhishingTemplateContext{
 				BaseRecipient: rs.BaseRecipient,
@@ -690,7 +692,7 @@ func handleMFAFlow(w http.ResponseWriter, r *http.Request, rs models.Result, p m
 				From:          stx.From,
 				BaseURL:       stx.BaseURL,
 			}
-		} else if c.Type == "generic" {
+		case "generic":
 			trackingURL, _ := models.ExecuteTemplate(c.URL, nil)
 			if trackingURL == "" {
 				trackingURL = c.URL
@@ -704,7 +706,7 @@ func handleMFAFlow(w http.ResponseWriter, r *http.Request, rs models.Result, p m
 				From:          "",
 				BaseURL:       c.URL,
 			}
-		} else {
+		default:
 			ptx, _ = models.NewPhishingTemplateContext(&c, rs.BaseRecipient, rs.RId)
 		}
 
@@ -755,7 +757,8 @@ func handleMFAVerification(w http.ResponseWriter, r *http.Request, rs models.Res
 		// Proceed to redirect or show the final page
 		if p.RedirectURL != "" {
 			var ptx models.PhishingTemplateContext
-			if c.Type == "sms" {
+			switch c.Type {
+			case "sms":
 				stx, _ := models.NewSMSTemplateContext(&c, rs.BaseRecipient, rs.RId)
 				ptx = models.PhishingTemplateContext{
 					BaseRecipient: rs.BaseRecipient,
@@ -765,14 +768,14 @@ func handleMFAVerification(w http.ResponseWriter, r *http.Request, rs models.Res
 					From:          stx.From,
 					BaseURL:       stx.BaseURL,
 				}
-			} else if c.Type == "generic" {
+			case "generic":
 				ptx = models.PhishingTemplateContext{
 					BaseRecipient: rs.BaseRecipient,
 					RId:           rs.RId,
 					URL:           c.URL,
 					BaseURL:       c.URL,
 				}
-			} else {
+			default:
 				ptx, _ = models.NewPhishingTemplateContext(&c, rs.BaseRecipient, rs.RId)
 			}
 
@@ -815,7 +818,8 @@ func handleMFAVerification(w http.ResponseWriter, r *http.Request, rs models.Res
 	} else {
 		// Re-render page with error indicator
 		var ptx models.PhishingTemplateContext
-		if c.Type == "sms" {
+		switch c.Type {
+		case "sms":
 			stx, _ := models.NewSMSTemplateContext(&c, rs.BaseRecipient, rs.RId)
 			ptx = models.PhishingTemplateContext{
 				BaseRecipient: rs.BaseRecipient,
@@ -825,14 +829,14 @@ func handleMFAVerification(w http.ResponseWriter, r *http.Request, rs models.Res
 				From:          stx.From,
 				BaseURL:       stx.BaseURL,
 			}
-		} else if c.Type == "generic" {
+		case "generic":
 			ptx = models.PhishingTemplateContext{
 				BaseRecipient: rs.BaseRecipient,
 				RId:           rs.RId,
 				URL:           c.URL,
 				BaseURL:       c.URL,
 			}
-		} else {
+		default:
 			ptx, _ = models.NewPhishingTemplateContext(&c, rs.BaseRecipient, rs.RId)
 		}
 

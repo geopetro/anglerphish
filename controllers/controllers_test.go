@@ -52,7 +52,7 @@ func setupTest(t *testing.T) *testContext {
 
 	// Create a second user to test account locked status
 	u2 := models.User{Username: "houdini", Hash: hash, AccountLocked: true}
-	models.PutUser(&u2)
+	err = models.PutUser(&u2)
 	if err != nil {
 		t.Fatalf("error creating new user: %v", err)
 	}
@@ -74,7 +74,7 @@ func setupTest(t *testing.T) *testContext {
 	return ctx
 }
 
-func tearDown(t *testing.T, ctx *testContext) {
+func tearDown(_ *testing.T, ctx *testContext) {
 	// Tear down the admin and phishing servers
 	ctx.adminServer.Close()
 	ctx.phishServer.Close()
@@ -82,12 +82,12 @@ func tearDown(t *testing.T, ctx *testContext) {
 	os.Chdir(ctx.origPath)
 }
 
-func createTestData(t *testing.T) {
+func createTestData(_ *testing.T) {
 	// Add a group
 	group := models.Group{Name: "Test Group"}
 	group.Targets = []models.Target{
-		models.Target{BaseRecipient: models.BaseRecipient{Email: "test1@example.com", FirstName: "First", LastName: "Example"}},
-		models.Target{BaseRecipient: models.BaseRecipient{Email: "test2@example.com", FirstName: "Second", LastName: "Example"}},
+		{BaseRecipient: models.BaseRecipient{Email: "test1@example.com", FirstName: "First", LastName: "Example"}},
+		{BaseRecipient: models.BaseRecipient{Email: "test2@example.com", FirstName: "Second", LastName: "Example"}},
 	}
 	group.UserId = 1
 	models.PostGroup(&group)
