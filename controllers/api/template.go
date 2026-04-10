@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -68,7 +69,7 @@ func (as *Server) Templates(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err != nil {
-			JSONResponse(w, models.Response{Success: false, Message: "Error inserting template into database"}, http.StatusInternalServerError)
+			JSONResponse(w, models.Response{Success: false, Message: fmt.Sprintf("Error inserting template into database (%s)", err.Error())}, http.StatusInternalServerError)
 			log.Error(err)
 			return
 		}
