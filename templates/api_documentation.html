@@ -1015,7 +1015,7 @@ Response: 200 OK
         <!-- Tab 3: Database Encryption -->
         <div role="tabpanel" class="tab-pane" id="database-encryption">
             <h3><i class="fa fa-lock"></i> Database Encryption</h3>
-            <p>AnglerPhish supports AES-256-GCM encryption for sensitive database fields including SMTP passwords, SMS provider credentials, and IMAP passwords.</p>
+            <p>AnglerPhish supports AES-256-GCM encryption for sensitive database fields including SMTP passwords, SMS provider credentials, IMAP passwords, and captured event details (credentials submitted by phishing targets).</p>
             
             <div class="alert alert-info">
                 <i class="fa fa-info-circle"></i> <strong>Note:</strong> Encryption is optional and backward compatible. The application works without an encryption key, and encrypted/plaintext data can coexist.
@@ -1062,6 +1062,7 @@ Migrating plaintext fields to encrypted...
 SMTP passwords: 5 encrypted, 0 skipped
 SMS provider configs: 3 encrypted, 0 skipped
 IMAP passwords: 2 encrypted, 0 skipped
+Event details (captured data): 10 encrypted, 0 skipped
 Migration complete!</code></pre>
                 </div>
             </div>
@@ -1082,6 +1083,7 @@ Decrypting all encrypted fields...
 SMTP passwords: 5 decrypted, 0 skipped
 SMS provider configs: 3 decrypted, 0 skipped
 IMAP passwords: 2 decrypted, 0 skipped
+Event details (captured data): 10 decrypted, 0 skipped
 Decryption complete!</code></pre>
                 </div>
             </div>
@@ -1098,6 +1100,7 @@ DRY RUN - Previewing encryption migration (no changes will be made)...
 SMTP passwords: 5 would be encrypted, 0 would be skipped
 SMS provider configs: 3 would be encrypted, 0 would be skipped
 IMAP passwords: 0 would be encrypted, 2 would be skipped
+Event details (captured data): 10 would be encrypted, 0 would be skipped
 
 Dry run complete. Use --migrate-encryption without --dry-run to apply changes.
 
@@ -1116,7 +1119,8 @@ Output:
 Encryption Enabled: Yes
 SMTP Passwords: 5 encrypted, 0 plaintext
 SMS Provider Configs: 3 encrypted, 0 plaintext
-IMAP Passwords: 2 encrypted, 0 plaintext</code></pre>
+IMAP Passwords: 2 encrypted, 0 plaintext
+Event Details: 10 encrypted, 0 plaintext</code></pre>
                 </div>
             </div>
 
@@ -1133,6 +1137,7 @@ IMAP Passwords: 2 encrypted, 0 plaintext</code></pre>
                     <tr><td>SMTP (Sending Profiles)</td><td><code>password</code></td><td>SMTP server password</td></tr>
                     <tr><td>SMS (SMS Profiles)</td><td><code>provider_config</code></td><td>Twilio/Vonage API credentials</td></tr>
                     <tr><td>IMAP</td><td><code>password</code></td><td>IMAP server password</td></tr>
+                    <tr><td>Events (Campaign Results)</td><td><code>details</code></td><td>Captured credentials and form data submitted by phishing targets</td></tr>
                 </tbody>
             </table>
 

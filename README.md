@@ -132,7 +132,7 @@ See also the Medium [article](https://medium.com/@gpetro/anglerphish-6dc3e552024
 
 ## A fork based on original Gophish v0.12.1:
 
-![Build Status](https://github.com/gophish/gophish/workflows/CI/badge.svg) [![GoDoc](https://godoc.org/github.com/gophish/gophish?status.svg)](https://godoc.org/github.com/gophish/gophish)
+![Build Status](https://github.com/geopetro/anglerphish/workflows/CI/badge.svg) [![GoDoc](https://godoc.org/github.com/gophish/gophish?status.svg)](https://godoc.org/github.com/gophish/gophish)
 
 ### Gophish: Open-Source Phishing Toolkit
 
