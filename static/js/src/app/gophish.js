@@ -494,6 +494,21 @@ var api = {
             return query("/url_templates/", "POST", template, false)
         }
     },
+    // errorPages contains the endpoints for /error_pages
+    errorPages: {
+        // get404() - Fetches the current 404 page HTML
+        get404: function () {
+            return query("/error_pages/404", "GET", {}, false)
+        },
+        // put404() - Updates the 404 page HTML
+        put404: function (html) {
+            return query("/error_pages/404", "PUT", { html: html }, false)
+        },
+        // reset404() - Resets the 404 page to default
+        reset404: function () {
+            return query("/error_pages/404/reset", "POST", {}, false)
+        }
+    },
     // urlTemplateId contains the endpoints for /url_templates/:id
     urlTemplateId: {
         // get() - Queries the API for GET /url_templates/:id

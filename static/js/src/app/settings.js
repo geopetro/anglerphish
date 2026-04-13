@@ -487,4 +487,83 @@ $(document).ready(function () {
 
     // Initialize everything
     loadIMAPSettings();
+
+    // ── 404 Error Page Editor ──────────────────────────────────────────────
+    // Load the current 404 page HTML into the textarea when the tab is shown
+    $('a[href="#errorPageSettings"]').on('shown.bs.tab', function () {
+        load404PageContent();
+    });
+
+    function load404PageContent() {
+        api.errorPages.get404()
+        .done(function (data) {
+            $("#error_page_html").val(data.html);
+        })
+        .fail(function () {
+            errorFlash("Failed to load 404 page content");
+        });
+    }
+
+    // Save 404 page
+    $("#save404PageBtn").click(function () {
+        var html = $("#error_page_html").val().trim();
+        if (html === "") {
+            errorFlash("404 page HTML cannot be empty");
+            return;
+        }
+        api.errorPages.put404(html)
+        .done(function (data) {
+            if (data.success) {
+                successFlash(data.message);
+            } else {
+                errorFlash(data.message);
+            }
+        })
+        .fail(function (xhr) {
+            var msg = xhr.responseJSON ? xhr.responseJSON.message : "Failed to save 404 page";
+            errorFlash(msg);
+        });
+    });
+
+    // Reset 404 page to default
+    $("#reset404PageBtn").click(function () {
+        Swal.fire({
+            title: "Reset 404 Page?",
+            text: "This will replace the current 404 page with the default content.",
+            type: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Reset",
+            confirmButtonColor: "#d9534f",
+            reverseButtons: true,
+            allowOutsideClick: false,
+        }).then(function (result) {
+            if (result.value) {
+                api.errorPages.reset404()
+                .done(function (data) {
+                    successFlash(data.message || "404 page reset to default");
+                    $("#error_page_html").val(data.html);
+                })
+                .fail(function (xhr) {
+                    var msg = xhr.responseJSON ? xhr.responseJSON.message : "Failed to reset 404 page";
+                    errorFlash(msg);
+                });
+            }
+        });
+    });
+
+    // Preview 404 page in a modal
+    $("#preview404PageBtn").click(function () {
+        var html = $("#error_page_html").val();
+        var previewFrame = document.getElementById("preview404Frame");
+        var doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+        doc.open();
+        doc.write(html);
+        doc.close();
+        $("#preview404Modal").modal("show");
+    });
+
+    // Load on initial tab activation if the hash is already #errorPageSettings
+    if (window.location.hash === "#errorPageSettings") {
+        load404PageContent();
+    }
 });

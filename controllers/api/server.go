@@ -105,6 +105,8 @@ func (as *Server) registerRoutes() {
 	router.HandleFunc("/webhooks/", mid.Use(as.Webhooks, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/webhooks/{id:[0-9]+}/validate", mid.Use(as.ValidateWebhook, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/webhooks/{id:[0-9]+}", mid.Use(as.Webhook, mid.RequirePermission(models.PermissionModifySystem)))
+	router.HandleFunc("/error_pages/404", mid.Use(as.ErrorPage, mid.RequirePermission(models.PermissionModifySystem)))
+	router.HandleFunc("/error_pages/404/reset", mid.Use(as.ErrorPageReset, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/qr_code/", as.Qr_code)                            // QR code endpoint
 	router.HandleFunc("/qr_code/{id:[0-9]+}", as.DeleteQRCode)            // Delete QR code endpoint
 	router.HandleFunc("/qr_code/{id:[0-9]+}/download", as.DownloadQRCode) // Download QR code endpoint

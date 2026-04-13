@@ -13,6 +13,10 @@
                 Settings</a></li>
         <li role="reportingSettings"><a href="#reportingSettings" aria-controls="reportingSettings" role="tab" id="reporttab"
             data-toggle="tab">Reporting Settings</a></li>
+        {{- if .ModifySystem}}
+        <li role="errorPageSettings"><a href="#errorPageSettings" aria-controls="errorPageSettings" role="tab"
+                data-toggle="tab">Default Error Page</a></li>
+        {{- end}}
     </ul>
     <!-- Tab Panes -->
     <div class="tab-content">
@@ -157,6 +161,67 @@
             </div>
         </div>
         <!-- Reporting Settings End -->
+
+        <!-- 404 Error Page Settings Begin -->
+        {{if .ModifySystem}}
+        <div role="tabpanel" class="tab-pane" id="errorPageSettings">
+            <br />
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="alert alert-info">
+                        <p><i class="fa fa-info-circle"></i> Edit the HTML served by the phishing server when a 404 Not Found error occurs. Changes take effect immediately, no restart required.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="form-group">
+                        <label for="error_page_html" class="control-label">404 Page HTML:</label>
+                        <textarea id="error_page_html" class="form-control" rows="20" spellcheck="false"
+                            style="font-family: monospace; font-size: 13px; resize: vertical;"
+                            placeholder="Loading..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12">
+                    <button id="save404PageBtn" class="btn btn-primary">
+                        <i class="fa fa-save"></i> Save
+                    </button>
+                    &nbsp;
+                    <button id="preview404PageBtn" class="btn btn-default">
+                        <i class="fa fa-eye"></i> Preview
+                    </button>
+                    &nbsp;
+                    <button id="reset404PageBtn" class="btn btn-danger">
+                        <i class="fa fa-undo"></i> Reset to Default
+                    </button>
+                </div>
+            </div>
+            <br />
+        </div>
+        {{end}}
+        <!-- 404 Error Page Settings End -->
+    </div>
+</div>
+
+<!-- 404 Page Preview Modal -->
+<div class="modal fade" id="preview404Modal" tabindex="-1" role="dialog" aria-labelledby="preview404ModalLabel">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title" id="preview404ModalLabel"><i class="fa fa-eye"></i> 404 Page Preview</h4>
+            </div>
+            <div class="modal-body" style="padding: 0;">
+                <iframe id="preview404Frame" style="width:100%; height:500px; border:none;" sandbox="allow-same-origin"></iframe>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
     </div>
 </div>
 

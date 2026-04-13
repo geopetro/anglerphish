@@ -2,7 +2,7 @@
     font-size: 1.6rem !important;
   }
 
-.nav-tabs {
+.nav-tabs > li {
     cursor: pointer;
 }
 
