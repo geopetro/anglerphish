@@ -40,6 +40,7 @@ type AdminServer struct {
 	config     config.AdminServer
 	fullConfig *config.Config
 	limiter    *ratelimit.PostLimiter
+	oidc       *auth.OIDCClient
 }
 
 var defaultTLSConfig = &tls.Config{
@@ -89,6 +90,13 @@ func NewAdminServer(adminConfig config.AdminServer, fullConfig *config.Config, o
 	for _, opt := range options {
 		opt(as)
 	}
+	if as.fullConfig != nil && as.fullConfig.OIDC.Enabled {
+		oidcClient, err := auth.NewOIDCClient(oidcConfigFrom(as.fullConfig.OIDC))
+		if err != nil {
+			log.Fatal(err)
+		}
+		as.oidc = oidcClient
+	}
 	as.registerRoutes()
 	return as
 }
@@ -137,6 +145,10 @@ func (as *AdminServer) registerRoutes() {
 	// Base Front-end routes
 	router.HandleFunc("/", mid.Use(as.Base, mid.RequireLogin))
 	router.HandleFunc("/login", mid.Use(as.Login, as.limiter.Limit))
+	if as.oidc != nil {
+		router.HandleFunc("/auth/oidc/login", mid.Use(as.OIDCLogin))
+		router.HandleFunc("/auth/oidc/callback", mid.Use(as.OIDCCallback))
+	}
 	router.HandleFunc("/logout", mid.Use(as.Logout, mid.RequireLogin))
 	router.HandleFunc("/reset_password", mid.Use(as.ResetPassword, mid.RequireLogin))
 	router.HandleFunc("/campaigns", mid.Use(as.Campaigns, mid.RequireLogin))
@@ -353,25 +365,56 @@ func (as *AdminServer) nextOrIndex(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, next, http.StatusFound)
 }
 
-func (as *AdminServer) handleInvalidLogin(w http.ResponseWriter, r *http.Request, message string) {
-	session := ctx.Get(r, "session").(*sessions.Session)
-	Flash(w, r, "danger", message)
-	params := struct {
-		User    models.User
-		Title   string
-		Flashes []interface{}
-		Token   string
-	}{Title: "Login", Token: csrf.Token(r)}
-	params.Flashes = session.Flashes()
-	session.Save(r, w)
+type loginParams struct {
+	User        models.User
+	Title       string
+	Flashes     []interface{}
+	Token       string
+	OIDCEnabled bool
+}
+
+func (as *AdminServer) oidcEnabled() bool {
+	return as.oidc != nil
+}
+
+func oidcConfigFrom(cfg config.OIDC) auth.OIDCConfig {
+	return auth.OIDCConfig{
+		Enabled:           cfg.Enabled,
+		Issuer:            cfg.Issuer,
+		ClientID:          cfg.ClientID,
+		RedirectURL:       cfg.RedirectURL,
+		RequiredGroup:     cfg.RequiredGroup,
+		GroupsClaim:       cfg.GroupsClaim,
+		UsernameFromEmail: cfg.UsernameFromEmail,
+	}
+}
+
+func (as *AdminServer) renderLogin(w http.ResponseWriter, r *http.Request, params loginParams, status int) {
 	templates := template.New("template")
 	_, err := templates.ParseFiles("templates/login.html", "templates/flashes.html")
 	if err != nil {
 		log.Error(err)
 	}
-	// w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusUnauthorized)
+	w.WriteHeader(status)
 	template.Must(templates, err).ExecuteTemplate(w, "base", params)
+}
+
+func (as *AdminServer) handleInvalidLogin(w http.ResponseWriter, r *http.Request, message string) {
+	session := ctx.Get(r, "session").(*sessions.Session)
+	Flash(w, r, "danger", message)
+	params := loginParams{Title: "Login", Token: csrf.Token(r), OIDCEnabled: as.oidcEnabled()}
+	params.Flashes = session.Flashes()
+	session.Save(r, w)
+	as.renderLogin(w, r, params, http.StatusUnauthorized)
+}
+
+func (as *AdminServer) handleOIDCLoginFailure(w http.ResponseWriter, r *http.Request, message string) {
+	session := ctx.Get(r, "session").(*sessions.Session)
+	Flash(w, r, "danger", message)
+	params := loginParams{Title: "Login", Token: csrf.Token(r), OIDCEnabled: as.oidcEnabled()}
+	params.Flashes = session.Flashes()
+	session.Save(r, w)
+	as.renderLogin(w, r, params, http.StatusForbidden)
 }
 
 // Webhooks is an admin-only handler that handles webhooks
@@ -406,29 +449,112 @@ func (as *AdminServer) Impersonate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
+// OIDCLogin starts the OIDC authorization-code flow.
+func (as *AdminServer) OIDCLogin(w http.ResponseWriter, r *http.Request) {
+	if as.oidc == nil {
+		http.NotFound(w, r)
+		return
+	}
+	session := ctx.Get(r, "session").(*sessions.Session)
+	state := auth.GenerateOAuthState()
+	session.Values["oidc_state"] = state
+	if err := session.Save(r, w); err != nil {
+		log.Error(err)
+		as.handleOIDCLoginFailure(w, r, "Access denied")
+		return
+	}
+	authURL, err := as.oidc.AuthCodeURL(state)
+	if err != nil {
+		log.Error(err)
+		as.handleOIDCLoginFailure(w, r, "Access denied")
+		return
+	}
+	http.Redirect(w, r, authURL, http.StatusFound)
+}
+
+// OIDCCallback completes the OIDC flow and creates an admin session.
+func (as *AdminServer) OIDCCallback(w http.ResponseWriter, r *http.Request) {
+	if as.oidc == nil {
+		http.NotFound(w, r)
+		return
+	}
+	session := ctx.Get(r, "session").(*sessions.Session)
+	expectedState, _ := session.Values["oidc_state"].(string)
+	delete(session.Values, "oidc_state")
+	if expectedState == "" || r.URL.Query().Get("state") != expectedState {
+		log.Warn("OIDC callback received invalid state")
+		as.handleOIDCLoginFailure(w, r, "Access denied")
+		return
+	}
+	if errMsg := r.URL.Query().Get("error"); errMsg != "" {
+		log.Warn("OIDC provider returned error")
+		as.handleOIDCLoginFailure(w, r, "Access denied")
+		return
+	}
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		log.Warn("OIDC callback missing authorization code")
+		as.handleOIDCLoginFailure(w, r, "Access denied")
+		return
+	}
+	claims, err := as.oidc.Exchange(r.Context(), code)
+	if err != nil {
+		if err == auth.ErrOIDCAccessDenied {
+			log.Warn("OIDC login denied")
+		} else {
+			log.Error(err)
+		}
+		as.handleOIDCLoginFailure(w, r, "Access denied")
+		return
+	}
+	username, err := auth.UsernameFromEmail(claims.Email, as.oidc.UsernameMapping())
+	if err != nil {
+		log.Warn("OIDC login could not map email to username")
+		as.handleOIDCLoginFailure(w, r, "Access denied")
+		return
+	}
+	u, err := models.GetUserByUsername(username)
+	if err != nil {
+		log.Warn("OIDC login for unprovisioned user")
+		as.handleOIDCLoginFailure(w, r, "Access denied")
+		return
+	}
+	if u.AccountLocked {
+		log.Warn("OIDC login for locked account")
+		as.handleOIDCLoginFailure(w, r, "Access denied")
+		return
+	}
+	u.LastLogin = time.Now().UTC()
+	if err = models.PutUser(&u); err != nil {
+		log.Error(err)
+	}
+	session.Values["id"] = u.Id
+	session.Values["auth_method"] = "oidc"
+	if err = session.Save(r, w); err != nil {
+		log.Error(err)
+		as.handleOIDCLoginFailure(w, r, "Access denied")
+		return
+	}
+	as.nextOrIndex(w, r)
+}
+
 // Login handles the authentication flow for a user. If credentials are valid,
 // a session is created
 func (as *AdminServer) Login(w http.ResponseWriter, r *http.Request) {
-	params := struct {
-		User    models.User
-		Title   string
-		Flashes []interface{}
-		Token   string
-	}{Title: "Login", Token: csrf.Token(r)}
+	params := loginParams{Title: "Login", Token: csrf.Token(r), OIDCEnabled: as.oidcEnabled()}
 	session := ctx.Get(r, "session").(*sessions.Session)
 	switch {
 	case r.Method == "GET":
 		params.Flashes = session.Flashes()
 		session.Save(r, w)
-		templates := template.New("template")
-		_, err := templates.ParseFiles("templates/login.html", "templates/flashes.html")
-		if err != nil {
-			log.Error(err)
-		}
-		template.Must(templates, err).ExecuteTemplate(w, "base", params)
+		as.renderLogin(w, r, params, http.StatusOK)
 	case r.Method == "POST":
 		// Find the user with the provided username
 		username, password := r.FormValue("username"), r.FormValue("password")
+		if as.oidcEnabled() && username != models.DefaultAdminUsername {
+			as.handleInvalidLogin(w, r, "Use SSO to sign in")
+			return
+		}
 		u, err := models.GetUserByUsername(username)
 		if err != nil {
 			log.Error(err)
@@ -452,6 +578,7 @@ func (as *AdminServer) Login(w http.ResponseWriter, r *http.Request) {
 			log.Error(err)
 		}
 		// If we've logged in, save the session and redirect to the dashboard
+		delete(session.Values, "auth_method")
 		session.Values["id"] = u.Id
 		session.Save(r, w)
 		as.nextOrIndex(w, r)
@@ -462,6 +589,7 @@ func (as *AdminServer) Login(w http.ResponseWriter, r *http.Request) {
 func (as *AdminServer) Logout(w http.ResponseWriter, r *http.Request) {
 	session := ctx.Get(r, "session").(*sessions.Session)
 	delete(session.Values, "id")
+	delete(session.Values, "auth_method")
 	Flash(w, r, "success", "You have successfully logged out")
 	session.Save(r, w)
 	http.Redirect(w, r, "/login", http.StatusFound)

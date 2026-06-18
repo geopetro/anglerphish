@@ -22,5 +22,14 @@
 	},
 	"reports": {
 		"storage_path": "./reports/files"
+	},
+	"oidc": {
+		"enabled": false,
+		"issuer": "",
+		"client_id": "",
+		"redirect_url": "",
+		"required_group": "",
+		"groups_claim": "groups",
+		"username_from_email": "local_part"
 	}
 }

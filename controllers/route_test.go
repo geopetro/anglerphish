@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -126,5 +127,70 @@ func TestAccountLocked(t *testing.T) {
 	expected := http.StatusUnauthorized
 	if got != expected {
 		t.Fatalf("invalid status code received. expected %d got %d", expected, got)
+	}
+}
+
+func TestPasswordLoginBlockedWhenOIDCEnabled(t *testing.T) {
+	ctx := setupOIDCTest(t)
+	defer tearDown(t, ctx)
+	resp := attemptLogin(t, ctx, nil, "houdini", "gophish", "")
+	got := resp.StatusCode
+	expected := http.StatusUnauthorized
+	if got != expected {
+		t.Fatalf("invalid status code received. expected %d got %d", expected, got)
+	}
+}
+
+func TestAdminPasswordLoginAllowedWhenOIDCEnabled(t *testing.T) {
+	ctx := setupOIDCTest(t)
+	defer tearDown(t, ctx)
+	resp := attemptLogin(t, ctx, nil, "admin", "gophish", "")
+	got := resp.StatusCode
+	expected := http.StatusOK
+	if got != expected {
+		t.Fatalf("invalid status code received. expected %d got %d", expected, got)
+	}
+}
+
+func TestOIDCLoginShowsSSOButton(t *testing.T) {
+	ctx := setupOIDCTest(t)
+	defer tearDown(t, ctx)
+	resp, err := http.Get(fmt.Sprintf("%s/login", ctx.adminServer.URL))
+	if err != nil {
+		t.Fatalf("error requesting /login: %v", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading response: %v", err)
+	}
+	if !strings.Contains(string(body), "/auth/oidc/login") {
+		t.Fatal("expected SSO login link on login page when OIDC is enabled")
+	}
+}
+
+func TestOIDCCallbackInvalidState(t *testing.T) {
+	ctx := setupOIDCTest(t)
+	defer tearDown(t, ctx)
+
+	loginResp, err := http.Get(fmt.Sprintf("%s/login", ctx.adminServer.URL))
+	if err != nil {
+		t.Fatalf("error requesting /login: %v", err)
+	}
+	loginResp.Body.Close()
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/auth/oidc/callback?code=test&state=invalid", ctx.adminServer.URL), nil)
+	if err != nil {
+		t.Fatalf("error creating callback request: %v", err)
+	}
+	req.Header.Set("Cookie", loginResp.Header.Get("Set-Cookie"))
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("error requesting callback: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", resp.StatusCode)
 	}
 }
