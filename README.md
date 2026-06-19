@@ -47,6 +47,7 @@ See also the Medium [article](https://medium.com/@gpetro/anglerphish-6dc3e552024
 | **Dashboard Filtering** | Allows **filtering the campaign list** on the dashboard to show only **Email**, **SMS**, or **Generic** campaigns. | Improved management and viewing of campaigns on the main dashboard. |
 | **Generic Campaigns** | Run flexible campaigns not tied to email/SMS. Creates trackable links that can be distributed via any channel (QR codes, social media, flyers, etc.). | Ideal for scenarios where the phishing link is delivered outside of email/SMS, such as QR code posters, USB drops, or manual distribution. |
 | **QR Code Generator** | Built-in tool to **generate QR codes**. | Useful for Generic Campaigns and other phishing scenarios requiring QR code delivery. |
+| **Resend Failed Emails** | Re-queue **all failed/errored emails** in a campaign with one click, or resend to a **single recipient** directly from the results page. | Recovers from SMTP errors or transient delivery failures without restarting the campaign. |
 
 ---
 
@@ -81,6 +82,8 @@ See also the Medium [article](https://medium.com/@gpetro/anglerphish-6dc3e552024
 | **New Template Variables** | Introduces **`{{.Custom}}`**, **`{{.Phone}}`**, **`{{.CurrentDateTime}}`**, **`{{.CurrentDate}}`**, **`{{.CurrentTime}}`**, and **`{{.CurrentTime24}}`** for use in emails, landing pages, and attachments. | Enables deeper personalization with custom data fields, phone numbers for SMS, and dynamic time-sensitive scenarios. |
 | **URL Templates** | Provides **ready-to-use URL examples** of popular services to modify, and allows for the creation/reuse of URL templates. | Speeds up campaign creation by offering common, complex URL structures. |
 | **Preview Templates / Landing Pages** | Added the ability to **preview Email, SMS, and Landing Page Templates directly**—no need to open the editor. | Faster workflow and template QA. |
+| **Global Variables** | Define **system-wide variables** (e.g. company name, helpdesk URL) once and reuse them across email/SMS templates and landing pages. | Eliminates repetition and keeps campaigns consistent without editing each template individually. |
+| **Group Locking** | **Lock groups** to prevent accidental edits or deletions while they are in active use. | Protects target lists during live campaigns from being modified unintentionally. |
 | **Group Export** | Supports **exporting user groups to `.csv`** for easy backup and editing. | Simplifies group management and allows for external modifications. |
 
 ---
@@ -106,8 +109,8 @@ See also the Medium [article](https://medium.com/@gpetro/anglerphish-6dc3e552024
 
 | Feature | Description | Relevant Context / Use Case |
 | :--- | :--- | :--- |
-| **Transparency & Header Removal** | Completely removed GoPhish's **transparency request handler** (`+` suffix endpoint), **`X-Server`** response header, and **`X-Mailer`/`X-Contact`** email headers — all well-known GoPhish fingerprints that security tools and blue teams actively scan for. | Makes Anglerphish harder to fingerprint and detect during phishing simulations. |
-| **Default Landing Page** | A **default Error 404 landing** when visiting the domain, based on [edermi/gophish_mods](https://github.com/edermi/gophish_mods/tree/master). | Provides a clean 404 page for direct domain visits instead of a blank page. |
+| **Transparency & Header Removal** | Completely removed GoPhish's **transparency request handler** (`+` suffix endpoint), **`X-Server`** response header, and **`X-Mailer`/`X-Contact`** email headers — known GoPhish detection fingerprints. | Removes basic detectability hints for Anglerphish. |
+| **Default Landing Page** | A **default Error 404 landing** when visiting the domain, based on [edermi/gophish_mods](https://github.com/edermi/gophish_mods/tree/master). The page content is **fully editable from Settings**. | Provides a clean 404 page for direct domain visits instead of a blank page, customizable without touching code. |
 
 ---
 
