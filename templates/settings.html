@@ -17,6 +17,8 @@
         <li role="errorPageSettings"><a href="#errorPageSettings" aria-controls="errorPageSettings" role="tab"
                 data-toggle="tab">Default Error Page</a></li>
         {{- end}}
+        <li role="globalVariablesSettings"><a href="#globalVariablesSettings" aria-controls="globalVariablesSettings" role="tab"
+                data-toggle="tab">Global Variables</a></li>
     </ul>
     <!-- Tab Panes -->
     <div class="tab-content">
@@ -202,6 +204,58 @@
         </div>
         {{end}}
         <!-- 404 Error Page Settings End -->
+
+        <!-- Global Variables Settings Begin -->
+        <div role="tabpanel" class="tab-pane" id="globalVariablesSettings">
+            <br />
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="alert alert-info">
+                        <p><i class="fa fa-info-circle"></i> Set global template variable overrides. When a field is non-empty, it replaces the per-target value from groups for <strong>all campaigns</strong>. Leave a field blank to use the group's value for that variable.</p>
+                        <p>These values apply to <code>&#123;&#123;.FirstName&#125;&#125;</code>, <code>&#123;&#123;.LastName&#125;&#125;</code>, <code>&#123;&#123;.Email&#125;&#125;</code>, <code>&#123;&#123;.Phone&#125;&#125;</code>, <code>&#123;&#123;.Position&#125;&#125;</code>, and <code>&#123;&#123;.Custom&#125;&#125;</code> in email templates, landing pages, and attachments.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="control-label">First Name <small class="text-muted">&#123;&#123;.FirstName&#125;&#125;</small></label>
+                        <input type="text" id="gv_first_name" class="form-control" placeholder="Leave blank to use group value" />
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">Last Name <small class="text-muted">&#123;&#123;.LastName&#125;&#125;</small></label>
+                        <input type="text" id="gv_last_name" class="form-control" placeholder="Leave blank to use group value" />
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">Email <small class="text-muted">&#123;&#123;.Email&#125;&#125;</small></label>
+                        <input type="text" id="gv_email" class="form-control" placeholder="Leave blank to use group value" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="control-label">Phone <small class="text-muted">&#123;&#123;.Phone&#125;&#125;</small></label>
+                        <input type="text" id="gv_phone" class="form-control" placeholder="Leave blank to use group value" />
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">Position <small class="text-muted">&#123;&#123;.Position&#125;&#125;</small></label>
+                        <input type="text" id="gv_position" class="form-control" placeholder="Leave blank to use group value" />
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label">Custom <small class="text-muted">&#123;&#123;.Custom&#125;&#125;</small></label>
+                        <input type="text" id="gv_custom" class="form-control" placeholder="Leave blank to use group value" />
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12">
+                    <button id="saveGlobalVariablesBtn" class="btn btn-primary">
+                        <i class="fa fa-save"></i> Save Global Variables
+                    </button>
+                </div>
+            </div>
+            <br />
+        </div>
+        <!-- Global Variables Settings End -->
     </div>
 </div>
 

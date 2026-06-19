@@ -190,7 +190,11 @@ func (m *MailLog) Generate(msg *gomail.Message) error {
 	}
 	msg.SetAddressHeader("From", f.Address, f.Name)
 
-	ptx, err := NewPhishingTemplateContext(c, r.BaseRecipient, r.RId)
+	recipientForTemplate := r.BaseRecipient
+	if gv, gvErr := GetGlobalVariables(m.UserId); gvErr == nil {
+		gv.ApplyTo(&recipientForTemplate)
+	}
+	ptx, err := NewPhishingTemplateContext(c, recipientForTemplate, r.RId)
 	if err != nil {
 		return err
 	}
@@ -363,4 +367,138 @@ func addAttachment(msg *gomail.Message, a Attachment, ptx PhishingTemplateContex
 	} else {
 		msg.Attach(a.Name, copyFunc)
 	}
+}
+
+// ResendFailedEmailsInCampaign re-queues all results in Error or Retrying status
+// for the given campaign by replacing existing MailLog rows and resetting their
+// status to StatusSending. Returns the number of emails re-queued.
+func ResendFailedEmailsInCampaign(cid, uid int64) (int, error) {
+	c, err := GetCampaign(cid, uid)
+	if err != nil {
+		return 0, err
+	}
+	if c.Status != CampaignInProgress {
+		return 0, errors.New("campaign must be In Progress to resend emails")
+	}
+	if c.Type == "sms" || c.Type == "generic" {
+		return 0, errors.New("resend is only available for email campaigns")
+	}
+
+	var results []Result
+	if err := db.Where("campaign_id = ? AND (status = ? OR status = ?)", cid, Error, StatusRetry).Find(&results).Error; err != nil {
+		return 0, err
+	}
+	if len(results) == 0 {
+		return 0, nil
+	}
+
+	tx := db.Begin()
+	count := 0
+	for _, r := range results {
+		// If a MailLog already exists (Retrying case), delete it so we can re-queue immediately.
+		var existing MailLog
+		if err := tx.Where("r_id = ?", r.RId).First(&existing).Error; err == nil {
+			if err := tx.Delete(&existing).Error; err != nil {
+				tx.Rollback()
+				return 0, err
+			}
+		}
+
+		m := MailLog{
+			UserId:      uid,
+			CampaignId:  cid,
+			RId:         r.RId,
+			SendDate:    time.Now().UTC(),
+			SendAttempt: 0,
+			Processing:  false,
+		}
+		if err := tx.Save(&m).Error; err != nil {
+			tx.Rollback()
+			return 0, err
+		}
+
+		r.Status = StatusSending
+		r.ModifiedDate = time.Now().UTC()
+		if err := tx.Save(&r).Error; err != nil {
+			tx.Rollback()
+			return 0, err
+		}
+		count++
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return 0, err
+	}
+
+	// Fire-and-forget event
+	if err := AddEvent(&Event{Message: "Failed Emails Re-queued"}, cid); err != nil {
+		log.Error(err)
+	}
+
+	return count, nil
+}
+
+// ResendFailedEmail re-queues a single failed email result (identified by rid)
+// within the given campaign for re-sending. Works for both Error and Retrying results.
+func ResendFailedEmail(cid int64, rid string, uid int64) error {
+	c, err := GetCampaign(cid, uid)
+	if err != nil {
+		return err
+	}
+	if c.Status != CampaignInProgress {
+		return errors.New("campaign must be In Progress to resend emails")
+	}
+	if c.Type == "sms" || c.Type == "generic" {
+		return errors.New("resend is only available for email campaigns")
+	}
+
+	var r Result
+	if err := db.Where("r_id = ? AND campaign_id = ?", rid, cid).First(&r).Error; err != nil {
+		return err
+	}
+	if r.Status != Error && r.Status != StatusRetry {
+		return errors.New("result is not in a failed state")
+	}
+
+	tx := db.Begin()
+
+	// If a MailLog already exists (Retrying case), delete it so we can re-queue immediately.
+	var existing MailLog
+	if err := tx.Where("r_id = ?", rid).First(&existing).Error; err == nil {
+		if err := tx.Delete(&existing).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	m := MailLog{
+		UserId:      uid,
+		CampaignId:  cid,
+		RId:         r.RId,
+		SendDate:    time.Now().UTC(),
+		SendAttempt: 0,
+		Processing:  false,
+	}
+	if err := tx.Save(&m).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	r.Status = StatusSending
+	r.ModifiedDate = time.Now().UTC()
+	if err := tx.Save(&r).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	// Fire-and-forget event
+	if err := AddEvent(&Event{Message: "Email Re-queued", Email: r.Email}, cid); err != nil {
+		log.Error(err)
+	}
+
+	return nil
 }

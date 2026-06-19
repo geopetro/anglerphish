@@ -70,6 +70,8 @@ func (as *Server) registerRoutes() {
 	router.HandleFunc("/campaigns/{id:[0-9]+}/summary", as.CampaignSummary)
 	router.HandleFunc("/campaigns/{id:[0-9]+}/complete", as.CampaignComplete)
 	router.HandleFunc("/campaigns/{id:[0-9]+}/links", as.CampaignLinks)
+	router.HandleFunc("/campaigns/{id:[0-9]+}/resend", as.CampaignResendFailed)
+	router.HandleFunc("/campaigns/{id:[0-9]+}/results/{rid}/resend", as.CampaignResultResend)
 	router.HandleFunc("/campaign_sets/", as.CampaignSets)
 	router.HandleFunc("/campaign_sets/summary", as.CampaignSetsSummary)
 	router.HandleFunc("/campaign_sets/{id:[0-9]+}", as.CampaignSet)
@@ -81,6 +83,7 @@ func (as *Server) registerRoutes() {
 	router.HandleFunc("/groups/summary", as.GroupsSummary)
 	router.HandleFunc("/groups/{id:[0-9]+}", as.Group)
 	router.HandleFunc("/groups/{id:[0-9]+}/summary", as.GroupSummary)
+	router.HandleFunc("/groups/{id:[0-9]+}/lock", as.GroupLock)
 	router.HandleFunc("/templates/", as.Templates)
 	router.HandleFunc("/templates/{id:[0-9]+}", as.Template)
 	router.HandleFunc("/sms_templates/", as.SMSTemplates)
@@ -107,6 +110,7 @@ func (as *Server) registerRoutes() {
 	router.HandleFunc("/webhooks/{id:[0-9]+}", mid.Use(as.Webhook, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/error_pages/404", mid.Use(as.ErrorPage, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/error_pages/404/reset", mid.Use(as.ErrorPageReset, mid.RequirePermission(models.PermissionModifySystem)))
+	router.HandleFunc("/global_variables", mid.Use(as.GlobalVariables))
 	router.HandleFunc("/qr_code/", as.Qr_code)                            // QR code endpoint
 	router.HandleFunc("/qr_code/{id:[0-9]+}", as.DeleteQRCode)            // Delete QR code endpoint
 	router.HandleFunc("/qr_code/{id:[0-9]+}/download", as.DownloadQRCode) // Download QR code endpoint

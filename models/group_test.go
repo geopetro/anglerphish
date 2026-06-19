@@ -329,6 +329,69 @@ func (s *ModelsSuite) TestPostGroupWithAllFields(c *check.C) {
 	c.Assert(target.Custom, check.Equals, "Custom: All fields test")
 }
 
+func (s *ModelsSuite) TestToggleGroupLock(c *check.C) {
+	g := Group{Name: "Test Lock Group"}
+	g.Targets = []Target{Target{BaseRecipient: BaseRecipient{Email: "test@example.com"}}}
+	g.UserId = 1
+	c.Assert(PostGroup(&g), check.Equals, nil)
+	c.Assert(g.Locked, check.Equals, false)
+
+	// Lock the group
+	locked, err := ToggleGroupLock(g.Id, 1)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(locked.Locked, check.Equals, true)
+
+	// Unlock the group
+	unlocked, err := ToggleGroupLock(g.Id, 1)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(unlocked.Locked, check.Equals, false)
+}
+
+func (s *ModelsSuite) TestToggleGroupLockWrongUser(c *check.C) {
+	g := Group{Name: "Test Lock Group Wrong User"}
+	g.Targets = []Target{Target{BaseRecipient: BaseRecipient{Email: "test@example.com"}}}
+	g.UserId = 1
+	c.Assert(PostGroup(&g), check.Equals, nil)
+
+	// Attempt to lock with a different user ID
+	_, err := ToggleGroupLock(g.Id, 2)
+	c.Assert(err, check.NotNil)
+}
+
+func (s *ModelsSuite) TestGetGroupSummariesLockedField(c *check.C) {
+	// Create one unlocked and one locked group
+	g1 := Group{Name: "Unlocked Group"}
+	g1.Targets = []Target{Target{BaseRecipient: BaseRecipient{Email: "a@example.com"}}}
+	g1.UserId = 1
+	c.Assert(PostGroup(&g1), check.Equals, nil)
+
+	g2 := Group{Name: "Locked Group"}
+	g2.Targets = []Target{Target{BaseRecipient: BaseRecipient{Email: "b@example.com"}}}
+	g2.UserId = 1
+	c.Assert(PostGroup(&g2), check.Equals, nil)
+	_, err := ToggleGroupLock(g2.Id, 1)
+	c.Assert(err, check.Equals, nil)
+
+	summaries, err := GetGroupSummaries(1)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(len(summaries.Groups), check.Equals, 2)
+
+	// Find each summary by name and check locked field
+	var foundUnlocked, foundLocked bool
+	for _, s := range summaries.Groups {
+		if s.Name == "Unlocked Group" {
+			c.Assert(s.Locked, check.Equals, false)
+			foundUnlocked = true
+		}
+		if s.Name == "Locked Group" {
+			c.Assert(s.Locked, check.Equals, true)
+			foundLocked = true
+		}
+	}
+	c.Assert(foundUnlocked, check.Equals, true)
+	c.Assert(foundLocked, check.Equals, true)
+}
+
 func benchmarkPostGroup(b *testing.B, iter, size int) {
 	b.StopTimer()
 	g := &Group{

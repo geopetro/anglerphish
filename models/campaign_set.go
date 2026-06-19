@@ -181,13 +181,6 @@ func GetCampaignSets(uid int64) ([]CampaignSet, error) {
 			return css, err
 		}
 
-		// Get details for each campaign
-		for j := range css[i].Campaigns {
-			err = css[i].Campaigns[j].getDetails()
-			if err != nil {
-				log.Error(err)
-			}
-		}
 	}
 
 	return css, nil
@@ -209,10 +202,9 @@ func GetCampaignSet(id int64, uid int64) (CampaignSet, error) {
 		return cs, err
 	}
 
-	// Get details for each campaign
+	// Load summary (id+name only) for each campaign's related entities
 	for i := range cs.Campaigns {
-		err = cs.Campaigns[i].getDetails()
-		if err != nil {
+		if err = cs.Campaigns[i].getCampaignSummary(); err != nil {
 			log.Error(err)
 		}
 	}

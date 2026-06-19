@@ -497,10 +497,47 @@ function deleteCampaign(idx) {
     })
 }
 
+function resendFailed(campaignId) {
+    Swal.fire({
+        title: "Resend failed messages?",
+        text: "All recipients with send errors will be re-queued. They should be sent within the next minute.",
+        type: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Resend",
+        confirmButtonColor: "#f0ad4e",
+        reverseButtons: true,
+        showLoaderOnConfirm: true,
+        preConfirm: function() {
+            return new Promise(function(resolve) {
+                api.campaignId.resendFailed(campaignId)
+                    .success(function(msg) { resolve(msg) })
+                    .error(function(data) {
+                        var msg = (data.responseJSON && data.responseJSON.message) || 'An error occurred';
+                        Swal.showValidationMessage(msg);
+                        resolve(false);
+                    })
+            })
+        }
+    }).then(function(result) {
+        if (result.value) {
+            Swal.fire({
+                title: 'Queued!',
+                text: result.value.message,
+                type: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(function() {
+                location.reload();
+            });
+        }
+    })
+}
+window.resendFailed = resendFailed;
+
 function setupOptions() {
     api.groups.summary()
         .success(function (summaries) {
-            groups = summaries.groups
+            groups = summaries.groups.filter(function (g) { return !g.locked; })
             if (groups.length == 0) {
                 modalError("No groups found!")
                 return false;
@@ -779,128 +816,65 @@ function loadURLTemplates() {
 function displayURLTemplates() {
     var templateList = $("#urlTemplateList");
     templateList.empty();
-    
-    // Group templates by category
-    var grouped = {};
-    urlTemplates.forEach(function (template) {
-        if (!grouped[template.category]) {
-            grouped[template.category] = [];
-        }
-        grouped[template.category].push(template);
-    });
-    
-    // Display preset templates first
-    var presetCategories = Object.keys(grouped).filter(function(cat) {
-        return grouped[cat].some(function(t) { return t.is_preset; });
-    }).sort();
-    
-    presetCategories.forEach(function (category, index) {
-        var categoryTemplates = grouped[category].filter(function(t) { return t.is_preset; });
-        if (categoryTemplates.length > 0) {
-            var categoryId = 'category-' + index;
-            var isFirstCategory = index === 0;
-            
-            // Create collapsible category header
-            var chevronClass = isFirstCategory ? 'fa-chevron-down' : 'fa-chevron-right';
-            var categoryHeader = $('<div style="margin-top: 10px;">' +
-                '<a data-toggle="collapse" href="#' + categoryId + '" style="display: block; padding: 8px; background: #f5f5f5; border-radius: 4px; text-decoration: none; color: #333;">' +
-                '<i class="fa ' + chevronClass + '"></i> ' +
-                '<i class="fa fa-folder-open" style="margin-left: 5px;"></i> ' +
-                '<strong>' + escapeHtml(category) + '</strong> ' +
-                '<span class="badge" style="background: #428bca;">' + categoryTemplates.length + '</span>' +
-                '</a>' +
-                '</div>');
-            
-            // Create collapsible content container
-            var collapseDiv = $('<div id="' + categoryId + '" class="collapse ' + (isFirstCategory ? 'in' : '') + '" style="margin-left: 10px;"></div>');
-            
-            categoryTemplates.forEach(function (template) {
-                var templateItem = $('<div class="list-group-item" style="cursor: pointer; padding: 8px 12px; margin-top: 5px;">' +
-                    '<div style="display: flex; justify-content: space-between; align-items: center;">' +
-                    '<div><i class="fa fa-link"></i> ' + escapeHtml(template.name) + '</div>' +
-                    '</div>' +
-                    '<small class="text-muted" style="display: block; margin-top: 4px; word-break: break-all;">' + escapeHtml(template.url) + '</small>' +
-                    '</div>');
-                templateItem.click(function () {
-                    $("#url").val(template.url);
-                    $("#urlTemplateModal").modal('hide');
-                    updateURLLengthIndicator();
-                });
-                collapseDiv.append(templateItem);
-            });
-            
-            templateList.append(categoryHeader);
-            templateList.append(collapseDiv);
-            
-            // Toggle chevron icon on collapse
-            categoryHeader.find('a').on('click', function() {
-                var icon = $(this).find('.fa-chevron-down, .fa-chevron-right');
-                if (icon.hasClass('fa-chevron-down')) {
-                    icon.removeClass('fa-chevron-down').addClass('fa-chevron-right');
-                } else {
-                    icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
-                }
-            });
-        }
-    });
-    
-    // Display custom templates
+    $("#urlTemplateSearch").val('');
+
+    if (urlTemplates.length === 0) {
+        templateList.append('<div class="alert alert-info">No URL templates available. Click "Add Custom" to create one.</div>');
+        return;
+    }
+
+    // Custom templates at the top
     var customTemplates = urlTemplates.filter(function(t) { return !t.is_preset; });
     if (customTemplates.length > 0) {
-        var customCategoryId = 'category-custom';
-        
-        var customHeader = $('<div style="margin-top: 15px;">' +
-            '<a data-toggle="collapse" href="#' + customCategoryId + '" style="display: block; padding: 8px; background: #f5f5f5; border-radius: 4px; text-decoration: none; color: #333;">' +
-            '<i class="fa fa-chevron-down"></i> ' +
-            '<i class="fa fa-star" style="margin-left: 5px; color: #f0ad4e;"></i> ' +
-            '<strong>Your Custom Templates</strong> ' +
-            '<span class="badge" style="background: #f0ad4e;">' + customTemplates.length + '</span>' +
-            '</a>' +
-            '</div>');
-        
-        var customCollapseDiv = $('<div id="' + customCategoryId + '" class="collapse in" style="margin-left: 10px;"></div>');
-        
-        customTemplates.forEach(function (template) {
-            var templateItem = $('<div class="list-group-item" style="cursor: pointer; padding: 8px 12px; margin-top: 5px;">' +
-                '<div style="display: flex; justify-content: space-between; align-items: center;">' +
-                '<div><i class="fa fa-bookmark"></i> ' + escapeHtml(template.name) + '</div>' +
-                '<button class="btn btn-xs btn-danger delete-template-btn" data-template-id="' + template.id + '" style="margin-left: 10px;">' +
-                '<i class="fa fa-trash"></i></button>' +
+        templateList.append(
+            '<div class="url-template-divider" style="padding:4px 2px;margin-bottom:2px;font-size:11px;font-weight:bold;color:#f0ad4e;text-transform:uppercase;letter-spacing:1px;">' +
+            '<i class="fa fa-star"></i> Your Custom Templates</div>'
+        );
+        customTemplates.forEach(function(template) {
+            var item = $('<div class="list-group-item url-template-item" style="cursor:pointer;padding:8px 12px;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                '<div><i class="fa fa-bookmark"></i> <strong>' + escapeHtml(template.name) + '</strong></div>' +
+                '<button class="btn btn-xs btn-danger delete-template-btn" style="flex-shrink:0;margin-left:10px;"><i class="fa fa-trash"></i></button>' +
                 '</div>' +
-                '<small class="text-muted" style="display: block; margin-top: 4px; word-break: break-all;">' + escapeHtml(template.url) + '</small>' +
+                '<small class="text-muted" style="display:block;margin-top:3px;word-break:break-all;">' + escapeHtml(template.url) + '</small>' +
                 '</div>');
-            
-            templateItem.find('.delete-template-btn').click(function (e) {
+            item.find('.delete-template-btn').click(function(e) {
                 e.stopPropagation();
                 deleteURLTemplate(template.id);
             });
-            
-            templateItem.click(function () {
+            item.click(function() {
                 $("#url").val(template.url);
                 $("#urlTemplateModal").modal('hide');
                 updateURLLengthIndicator();
             });
-            
-            customCollapseDiv.append(templateItem);
-        });
-        
-        templateList.append(customHeader);
-        templateList.append(customCollapseDiv);
-        
-        // Toggle chevron icon on collapse
-        customHeader.find('a').on('click', function() {
-            var icon = $(this).find('.fa-chevron-down, .fa-chevron-right');
-            if (icon.hasClass('fa-chevron-down')) {
-                icon.removeClass('fa-chevron-down').addClass('fa-chevron-right');
-            } else {
-                icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
-            }
+            templateList.append(item);
         });
     }
-    
-    if (urlTemplates.length === 0) {
-        templateList.append('<div class="alert alert-info">No URL templates available. Click "Add Custom" to create one.</div>');
-    }
+
+    // Preset templates grouped by category
+    var grouped = {};
+    urlTemplates.filter(function(t) { return t.is_preset; }).forEach(function(t) {
+        if (!grouped[t.category]) grouped[t.category] = [];
+        grouped[t.category].push(t);
+    });
+    Object.keys(grouped).sort().forEach(function(category) {
+        templateList.append(
+            '<div class="url-template-divider" style="padding:4px 2px;margin-top:10px;margin-bottom:2px;font-size:11px;font-weight:bold;color:#888;text-transform:uppercase;letter-spacing:1px;">' +
+            '<i class="fa fa-folder"></i> ' + escapeHtml(category) + '</div>'
+        );
+        grouped[category].forEach(function(template) {
+            var item = $('<div class="list-group-item url-template-item" style="cursor:pointer;padding:8px 12px;">' +
+                '<div><i class="fa fa-link"></i> <strong>' + escapeHtml(template.name) + '</strong></div>' +
+                '<small class="text-muted" style="display:block;margin-top:3px;word-break:break-all;">' + escapeHtml(template.url) + '</small>' +
+                '</div>');
+            item.click(function() {
+                $("#url").val(template.url);
+                $("#urlTemplateModal").modal('hide');
+                updateURLLengthIndicator();
+            });
+            templateList.append(item);
+        });
+    });
 }
 
 function deleteURLTemplate(id) {
@@ -932,14 +906,14 @@ function saveCustomURLTemplate() {
     var url = $("#customTemplateUrl").val().trim();
     
     if (!name) {
-        $("#addUrlTemplateModal\\.flashes").empty().append(
+        $("#inlineAddTemplateFlashes").empty().append(
             '<div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> Template name is required</div>'
         );
         return;
     }
-    
+
     if (!url) {
-        $("#addUrlTemplateModal\\.flashes").empty().append(
+        $("#inlineAddTemplateFlashes").empty().append(
             '<div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> URL is required</div>'
         );
         return;
@@ -953,16 +927,17 @@ function saveCustomURLTemplate() {
     
     api.urlTemplates.post(template)
         .success(function () {
-            $("#addUrlTemplateModal").modal('hide');
             $("#customTemplateName").val('');
             $("#customTemplateUrl").val('');
-            $("#addUrlTemplateModal\\.flashes").empty();
+            $("#inlineAddTemplateFlashes").empty();
+            $("#inlineAddTemplateForm").slideUp(150);
+            $("#addCustomTemplateBtn").show();
             loadURLTemplates();
-            successFlash("Custom template saved successfully!");
+            successFlashFade("Custom template saved successfully!", 3);
         })
         .error(function (data) {
-            $("#addUrlTemplateModal\\.flashes").empty().append(
-                '<div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> ' + 
+            $("#inlineAddTemplateFlashes").empty().append(
+                '<div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> ' +
                 data.responseJSON.message + '</div>'
             );
         });
@@ -1026,27 +1001,61 @@ $(document).ready(function () {
         $("#urlTemplateModal").modal('show');
     });
     
-    // Add custom template button
+    // Add custom template button — show inline form
     $("#addCustomTemplateBtn").click(function () {
-        // Pre-fill with current URL if available
         var currentUrl = $("#url").val();
         if (currentUrl) {
             $("#customTemplateUrl").val(currentUrl);
         }
-        $("#urlTemplateModal").modal('hide');
-        $("#addUrlTemplateModal").modal('show');
+        $("#inlineAddTemplateForm").slideDown(150);
+        $("#addCustomTemplateBtn").hide();
     });
-    
+
+    // Cancel inline add form
+    $("#cancelAddTemplateBtn").click(function () {
+        $("#inlineAddTemplateForm").slideUp(150);
+        $("#addCustomTemplateBtn").show();
+        $("#customTemplateName").val('');
+        $("#customTemplateUrl").val('');
+        $("#inlineAddTemplateFlashes").empty();
+    });
+
     // Save custom template button
     $("#saveCustomTemplateBtn").click(function () {
         saveCustomURLTemplate();
     });
-    
-    // Clear custom template form when modal is closed
-    $("#addUrlTemplateModal").on('hidden.bs.modal', function () {
+
+    // Reset inline form when URL template modal closes
+    $("#urlTemplateModal").on('hidden.bs.modal', function () {
         $("#customTemplateName").val('');
         $("#customTemplateUrl").val('');
-        $("#addUrlTemplateModal\\.flashes").empty();
+        $("#inlineAddTemplateFlashes").empty();
+        $("#inlineAddTemplateForm").hide();
+        $("#addCustomTemplateBtn").show();
+        $("#urlTemplateSearch").val('');
+        $('.url-template-item, .url-template-divider').show();
+    });
+
+    // Live search for URL templates
+    $(document).on('input', '#urlTemplateSearch', function () {
+        var q = $(this).val().toLowerCase();
+        if (!q) {
+            $('.url-template-item, .url-template-divider').show();
+            return;
+        }
+        $('.url-template-item').each(function () {
+            $(this).toggle($(this).text().toLowerCase().indexOf(q) !== -1);
+        });
+        $('.url-template-divider').each(function () {
+            var divider = $(this);
+            var next = divider.next();
+            var hasVisible = false;
+            while (next.length && !next.hasClass('url-template-divider')) {
+                if (next.hasClass('url-template-item') && next.is(':visible')) { hasVisible = true; break; }
+                next = next.next();
+            }
+            divider.toggle(hasVisible);
+        });
     });
     
     $("#launch_date").datetimepicker({
@@ -1246,15 +1255,22 @@ $(document).ready(function () {
                     // Determine if this is active or archived for the checkbox
                     var tableType = campaign.status == 'Completed' ? 'archived' : 'active';
                     
+                    var resendBtn = '';
+                    if ((campaign.type === 'email' || campaign.type === 'sms') && campaign.status === 'In progress' && campaign.stats && campaign.stats.error > 0) {
+                        var resendTooltip = campaign.type === 'sms' ? 'Resend Failed Messages' : 'Resend Failed Emails';
+                        resendBtn = "<button class='btn btn-warning' onclick='resendFailed(" + campaign.id + ")' data-toggle='tooltip' data-placement='left' title='" + resendTooltip + "'><i class='fa fa-repeat'></i></button>";
+                    }
+
                     var row = [
                         "<input type='checkbox' class='campaign-checkbox' data-id='" + campaign.id + "' data-type='" + tableType + "'>",
                         typeIcon + escapeHtml(campaign.name),
                         moment(campaign.created_date).format('MMMM Do YYYY, h:mm:ss a'),
                         "<span class=\"label " + label + "\" data-toggle=\"tooltip\" data-placement=\"right\" data-html=\"true\" title=\"" + quickStats + "\">" + campaign.status + "</span>",
-                        "<div class='pull-right'><a class='btn btn-primary' href='/campaigns/" + campaign.id + "' data-toggle='tooltip' data-placement='left' title='View Results'>\
+                        "<div class='pull-right'>" + resendBtn + "\
+                    <a class='btn btn-primary' href='/campaigns/" + campaign.id + "' data-toggle='tooltip' data-placement='left' title='View Results'>\
                     <i class='fa fa-bar-chart'></i>\
                     </a>\
-            <span data-toggle='modal' data-backdrop='static' data-target='#modal'><button class='btn btn-primary' data-toggle='tooltip' data-placement='left' title='Copy Campaign' onclick='copy(" + i + ")'>\
+                    <span data-toggle='modal' data-backdrop='static' data-target='#modal'><button class='btn btn-primary' data-toggle='tooltip' data-placement='left' title='Copy Campaign' onclick='copy(" + i + ")'>\
                     <i class='fa fa-copy'></i>\
                     </button></span>\
                     <button class='btn btn-danger' onclick='deleteCampaign(" + i + ")' data-toggle='tooltip' data-placement='left' title='Delete Campaign'>\

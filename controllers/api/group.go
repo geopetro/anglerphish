@@ -107,6 +107,22 @@ func (as *Server) Group(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GroupLock toggles the locked state of the given group.
+func (as *Server) GroupLock(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "PUT" {
+		JSONResponse(w, models.Response{Success: false, Message: "Method not allowed"}, http.StatusMethodNotAllowed)
+		return
+	}
+	vars := mux.Vars(r)
+	id, _ := strconv.ParseInt(vars["id"], 0, 64)
+	g, err := models.ToggleGroupLock(id, ctx.Get(r, "user_id").(int64))
+	if err != nil {
+		JSONResponse(w, models.Response{Success: false, Message: "Group not found"}, http.StatusNotFound)
+		return
+	}
+	JSONResponse(w, g, http.StatusOK)
+}
+
 // GroupSummary returns a summary of the groups owned by the current user.
 func (as *Server) GroupSummary(w http.ResponseWriter, r *http.Request) {
 	switch {

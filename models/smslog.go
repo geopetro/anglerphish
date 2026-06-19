@@ -2,6 +2,7 @@ package models
 
 import (
 	"bytes"
+	"errors"
 	"math"
 	"text/template"
 	"time"
@@ -127,8 +128,12 @@ func (s *SMSLog) Generate() (string, error) {
 		return "", err
 	}
 
+	recipientForTemplate := result.BaseRecipient
+	if gv, gvErr := GetGlobalVariables(s.UserId); gvErr == nil {
+		gv.ApplyTo(&recipientForTemplate)
+	}
 	// Create the SMS template context with proper URL formatting
-	stc, err := NewSMSTemplateContext(&campaign, result.BaseRecipient, s.RId)
+	stc, err := NewSMSTemplateContext(&campaign, recipientForTemplate, s.RId)
 	if err != nil {
 		return "", err
 	}
@@ -252,4 +257,136 @@ func LockSMSLogs(ss []*SMSLog, lock bool) error {
 // so that any previously locked smslogs can resume processing.
 func UnlockAllSMSLogs() error {
 	return db.Model(&SMSLog{}).Update("processing", false).Error
+}
+
+// ResendFailedSMSInCampaign re-queues all results in Error or Retrying status
+// for the given SMS campaign by replacing existing SMSLog rows and resetting
+// their status to StatusSending. Returns the number of messages re-queued.
+func ResendFailedSMSInCampaign(cid, uid int64) (int, error) {
+	c, err := GetCampaign(cid, uid)
+	if err != nil {
+		return 0, err
+	}
+	if c.Status != CampaignInProgress {
+		return 0, errors.New("campaign must be In Progress to resend messages")
+	}
+	if c.Type != "sms" {
+		return 0, errors.New("resend is only available for SMS campaigns")
+	}
+
+	var results []Result
+	if err := db.Where("campaign_id = ? AND (status = ? OR status = ?)", cid, Error, StatusRetry).Find(&results).Error; err != nil {
+		return 0, err
+	}
+	if len(results) == 0 {
+		return 0, nil
+	}
+
+	tx := db.Begin()
+	count := 0
+	for _, r := range results {
+		// If an SMSLog already exists (Retrying case), delete it so we can re-queue immediately.
+		var existing SMSLog
+		if err := tx.Where("r_id = ?", r.RId).First(&existing).Error; err == nil {
+			if err := tx.Delete(&existing).Error; err != nil {
+				tx.Rollback()
+				return 0, err
+			}
+		}
+
+		s := SMSLog{
+			UserId:      uid,
+			CampaignId:  cid,
+			RId:         r.RId,
+			SendDate:    time.Now().UTC(),
+			SendAttempt: 0,
+			Processing:  false,
+		}
+		if err := tx.Save(&s).Error; err != nil {
+			tx.Rollback()
+			return 0, err
+		}
+
+		r.Status = StatusSending
+		r.ModifiedDate = time.Now().UTC()
+		if err := tx.Save(&r).Error; err != nil {
+			tx.Rollback()
+			return 0, err
+		}
+		count++
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return 0, err
+	}
+
+	if err := AddEvent(&Event{Message: "Failed SMS Re-queued"}, cid); err != nil {
+		log.Error(err)
+	}
+
+	return count, nil
+}
+
+// ResendFailedSMS re-queues a single failed SMS result (identified by rid)
+// within the given campaign for re-sending. Works for both Error and Retrying results.
+func ResendFailedSMS(cid int64, rid string, uid int64) error {
+	c, err := GetCampaign(cid, uid)
+	if err != nil {
+		return err
+	}
+	if c.Status != CampaignInProgress {
+		return errors.New("campaign must be In Progress to resend messages")
+	}
+	if c.Type != "sms" {
+		return errors.New("resend is only available for SMS campaigns")
+	}
+
+	var r Result
+	if err := db.Where("r_id = ? AND campaign_id = ?", rid, cid).First(&r).Error; err != nil {
+		return err
+	}
+	if r.Status != Error && r.Status != StatusRetry {
+		return errors.New("result is not in a failed state")
+	}
+
+	tx := db.Begin()
+
+	// If an SMSLog already exists (Retrying case), delete it so we can re-queue immediately.
+	var existing SMSLog
+	if err := tx.Where("r_id = ?", rid).First(&existing).Error; err == nil {
+		if err := tx.Delete(&existing).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	s := SMSLog{
+		UserId:      uid,
+		CampaignId:  cid,
+		RId:         r.RId,
+		SendDate:    time.Now().UTC(),
+		SendAttempt: 0,
+		Processing:  false,
+	}
+	if err := tx.Save(&s).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	r.Status = StatusSending
+	r.ModifiedDate = time.Now().UTC()
+	if err := tx.Save(&r).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	if err := AddEvent(&Event{Message: "SMS Re-queued", Email: r.Phone}, cid); err != nil {
+		log.Error(err)
+	}
+
+	return nil
 }

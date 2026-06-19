@@ -97,148 +97,75 @@ function loadURLTemplates() {
 function displayURLTemplates() {
     var templateList = $("#urlTemplateList");
     templateList.empty();
-    
-    // Group templates by category
-    var grouped = {};
-    urlTemplates.forEach(function (template) {
-        if (!grouped[template.category]) {
-            grouped[template.category] = [];
-        }
-        grouped[template.category].push(template);
-    });
-    
-    // Display preset templates first
-    var presetCategories = Object.keys(grouped).filter(function(cat) {
-        return grouped[cat].some(function(t) { return t.is_preset; });
-    }).sort();
-    
-    presetCategories.forEach(function (category, index) {
-        var categoryTemplates = grouped[category].filter(function(t) { return t.is_preset; });
-        if (categoryTemplates.length > 0) {
-            var categoryId = 'category-' + index;
-            var isFirstCategory = index === 0;
-            
-            var chevronClass = isFirstCategory ? 'fa-chevron-down' : 'fa-chevron-right';
-            var categoryHeader = $('<div style="margin-top: 10px;">' +
-                '<a data-toggle="collapse" href="#' + categoryId + '" style="display: block; padding: 8px; background: #f5f5f5; border-radius: 4px; text-decoration: none; color: #333;">' +
-                '<i class="fa ' + chevronClass + '"></i> ' +
-                '<i class="fa fa-folder-open" style="margin-left: 5px;"></i> ' +
-                '<strong>' + escapeHtml(category) + '</strong> ' +
-                '<span class="badge" style="background: #428bca;">' + categoryTemplates.length + '</span>' +
-                '</a>' +
-                '</div>');
-            
-            var collapseDiv = $('<div id="' + categoryId + '" class="collapse ' + (isFirstCategory ? 'in' : '') + '" style="margin-left: 10px;"></div>');
-            
-            categoryTemplates.forEach(function (template) {
-                var templateItem = $('<div class="list-group-item" style="cursor: pointer; padding: 8px 12px; margin-top: 5px;">' +
-                    '<div style="display: flex; justify-content: space-between; align-items: center;">' +
-                    '<div><i class="fa fa-link"></i> ' + escapeHtml(template.name) + '</div>' +
-                    '</div>' +
-                    '<small class="text-muted" style="display: block; margin-top: 4px; word-break: break-all;">' + escapeHtml(template.url) + '</small>' +
-                    '</div>');
-                templateItem.click(function () {
-                    if (currentUrlFieldTarget) {
-                        $(currentUrlFieldTarget).val(template.url);
-                        // Trigger appropriate URL length indicator update
-                        if (currentUrlFieldTarget === '#url') {
-                            updateURLLengthIndicator('#url', '#urlparam', '#urlLengthIndicator');
-                        } else {
-                            // For campaign-specific URL fields
-                            var index = $(currentUrlFieldTarget).attr('id').match(/\d+/);
-                            if (index) {
-                                // Use shared URL param if enabled, otherwise use campaign-specific
-                                var urlParamField = $('#useSharedURLParam').is(':checked') ? '#urlparam' : '#campaign_urlparam_' + index[0];
-                                updateURLLengthIndicator(currentUrlFieldTarget, urlParamField, currentUrlFieldTarget + '_length');
-                            }
-                        }
-                    }
-                    $("#urlTemplateModal").modal('hide');
-                });
-                collapseDiv.append(templateItem);
-            });
-            
-            templateList.append(categoryHeader);
-            templateList.append(collapseDiv);
-            
-            categoryHeader.find('a').on('click', function() {
-                var icon = $(this).find('.fa-chevron-down, .fa-chevron-right');
-                if (icon.hasClass('fa-chevron-down')) {
-                    icon.removeClass('fa-chevron-down').addClass('fa-chevron-right');
+    $("#urlTemplateSearch").val('');
+
+    if (urlTemplates.length === 0) {
+        templateList.append('<div class="alert alert-info">No URL templates available. Click "Add Custom" to create one.</div>');
+        return;
+    }
+
+    function makeClickHandler(template) {
+        return function () {
+            if (currentUrlFieldTarget) {
+                $(currentUrlFieldTarget).val(template.url);
+                if (currentUrlFieldTarget === '#url') {
+                    updateURLLengthIndicator('#url', '#urlparam', '#urlLengthIndicator');
                 } else {
-                    icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
+                    var idx = $(currentUrlFieldTarget).attr('id').match(/\d+/);
+                    if (idx) {
+                        var urlParamField = $('#useSharedURLParam').is(':checked') ? '#urlparam' : '#campaign_urlparam_' + idx[0];
+                        updateURLLengthIndicator(currentUrlFieldTarget, urlParamField, currentUrlFieldTarget + '_length');
+                    }
                 }
-            });
-        }
-    });
-    
-    // Display custom templates
+            }
+            $("#urlTemplateModal").modal('hide');
+        };
+    }
+
+    // Custom templates at the top
     var customTemplates = urlTemplates.filter(function(t) { return !t.is_preset; });
     if (customTemplates.length > 0) {
-        var customCategoryId = 'category-custom';
-        
-        var customHeader = $('<div style="margin-top: 15px;">' +
-            '<a data-toggle="collapse" href="#' + customCategoryId + '" style="display: block; padding: 8px; background: #f5f5f5; border-radius: 4px; text-decoration: none; color: #333;">' +
-            '<i class="fa fa-chevron-down"></i> ' +
-            '<i class="fa fa-star" style="margin-left: 5px; color: #f0ad4e;"></i> ' +
-            '<strong>Your Custom Templates</strong> ' +
-            '<span class="badge" style="background: #f0ad4e;">' + customTemplates.length + '</span>' +
-            '</a>' +
-            '</div>');
-        
-        var customCollapseDiv = $('<div id="' + customCategoryId + '" class="collapse in" style="margin-left: 10px;"></div>');
-        
-        customTemplates.forEach(function (template) {
-            var templateItem = $('<div class="list-group-item" style="cursor: pointer; padding: 8px 12px; margin-top: 5px;">' +
-                '<div style="display: flex; justify-content: space-between; align-items: center;">' +
-                '<div><i class="fa fa-bookmark"></i> ' + escapeHtml(template.name) + '</div>' +
-                '<button class="btn btn-xs btn-danger delete-template-btn" data-template-id="' + template.id + '" style="margin-left: 10px;">' +
-                '<i class="fa fa-trash"></i></button>' +
+        templateList.append(
+            '<div class="url-template-divider" style="padding:4px 2px;margin-bottom:2px;font-size:11px;font-weight:bold;color:#f0ad4e;text-transform:uppercase;letter-spacing:1px;">' +
+            '<i class="fa fa-star"></i> Your Custom Templates</div>'
+        );
+        customTemplates.forEach(function(template) {
+            var item = $('<div class="list-group-item url-template-item" style="cursor:pointer;padding:8px 12px;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                '<div><i class="fa fa-bookmark"></i> <strong>' + escapeHtml(template.name) + '</strong></div>' +
+                '<button class="btn btn-xs btn-danger delete-template-btn" style="flex-shrink:0;margin-left:10px;"><i class="fa fa-trash"></i></button>' +
                 '</div>' +
-                '<small class="text-muted" style="display: block; margin-top: 4px; word-break: break-all;">' + escapeHtml(template.url) + '</small>' +
+                '<small class="text-muted" style="display:block;margin-top:3px;word-break:break-all;">' + escapeHtml(template.url) + '</small>' +
                 '</div>');
-            
-            templateItem.find('.delete-template-btn').click(function (e) {
+            item.find('.delete-template-btn').click(function(e) {
                 e.stopPropagation();
                 deleteURLTemplate(template.id);
             });
-            
-            templateItem.click(function () {
-                if (currentUrlFieldTarget) {
-                    $(currentUrlFieldTarget).val(template.url);
-                    if (currentUrlFieldTarget === '#url') {
-                        updateURLLengthIndicator('#url', '#urlparam', '#urlLengthIndicator');
-                    } else {
-                        var index = $(currentUrlFieldTarget).attr('id').match(/\d+/);
-                        if (index) {
-                            // Use shared URL param if enabled, otherwise use campaign-specific
-                            var urlParamField = $('#useSharedURLParam').is(':checked') ? '#urlparam' : '#campaign_urlparam_' + index[0];
-                            updateURLLengthIndicator(currentUrlFieldTarget, urlParamField, currentUrlFieldTarget + '_length');
-                        }
-                    }
-                }
-                $("#urlTemplateModal").modal('hide');
-            });
-            
-            customCollapseDiv.append(templateItem);
-        });
-        
-        templateList.append(customHeader);
-        templateList.append(customCollapseDiv);
-        
-        customHeader.find('a').on('click', function() {
-            var icon = $(this).find('.fa-chevron-down, .fa-chevron-right');
-            if (icon.hasClass('fa-chevron-down')) {
-                icon.removeClass('fa-chevron-down').addClass('fa-chevron-right');
-            } else {
-                icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
-            }
+            item.click(makeClickHandler(template));
+            templateList.append(item);
         });
     }
-    
-    if (urlTemplates.length === 0) {
-        templateList.append('<div class="alert alert-info">No URL templates available. Click "Add Custom" to create one.</div>');
-    }
+
+    // Preset templates grouped by category
+    var grouped = {};
+    urlTemplates.filter(function(t) { return t.is_preset; }).forEach(function(t) {
+        if (!grouped[t.category]) grouped[t.category] = [];
+        grouped[t.category].push(t);
+    });
+    Object.keys(grouped).sort().forEach(function(category) {
+        templateList.append(
+            '<div class="url-template-divider" style="padding:4px 2px;margin-top:10px;margin-bottom:2px;font-size:11px;font-weight:bold;color:#888;text-transform:uppercase;letter-spacing:1px;">' +
+            '<i class="fa fa-folder"></i> ' + escapeHtml(category) + '</div>'
+        );
+        grouped[category].forEach(function(template) {
+            var item = $('<div class="list-group-item url-template-item" style="cursor:pointer;padding:8px 12px;">' +
+                '<div><i class="fa fa-link"></i> <strong>' + escapeHtml(template.name) + '</strong></div>' +
+                '<small class="text-muted" style="display:block;margin-top:3px;word-break:break-all;">' + escapeHtml(template.url) + '</small>' +
+                '</div>');
+            item.click(makeClickHandler(template));
+            templateList.append(item);
+        });
+    });
 }
 
 function deleteURLTemplate(id) {
@@ -270,14 +197,14 @@ function saveCustomURLTemplate() {
     var url = $("#customTemplateUrl").val().trim();
     
     if (!name) {
-        $("#addUrlTemplateModal\\.flashes").empty().append(
+        $("#inlineAddTemplateFlashes").empty().append(
             '<div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> Template name is required</div>'
         );
         return;
     }
-    
+
     if (!url) {
-        $("#addUrlTemplateModal\\.flashes").empty().append(
+        $("#inlineAddTemplateFlashes").empty().append(
             '<div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> URL is required</div>'
         );
         return;
@@ -291,16 +218,17 @@ function saveCustomURLTemplate() {
     
     api.urlTemplates.post(template)
         .success(function () {
-            $("#addUrlTemplateModal").modal('hide');
             $("#customTemplateName").val('');
             $("#customTemplateUrl").val('');
-            $("#addUrlTemplateModal\\.flashes").empty();
+            $("#inlineAddTemplateFlashes").empty();
+            $("#inlineAddTemplateForm").slideUp(150);
+            $("#addCustomTemplateBtn").show();
             loadURLTemplates();
-            successFlash("Custom template saved successfully!");
+            successFlashFade("Custom template saved successfully!", 3);
         })
         .error(function (data) {
-            $("#addUrlTemplateModal\\.flashes").empty().append(
-                '<div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> ' + 
+            $("#inlineAddTemplateFlashes").empty().append(
+                '<div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i> ' +
                 data.responseJSON.message + '</div>'
             );
         });
@@ -331,26 +259,61 @@ $(document).ready(function () {
         $("#urlTemplateModal").modal('show');
     });
     
-    // Add custom template button
+    // Add custom template button — show inline form
     $("#addCustomTemplateBtn").click(function () {
         var currentUrl = $(currentUrlFieldTarget).val();
         if (currentUrl) {
             $("#customTemplateUrl").val(currentUrl);
         }
-        $("#urlTemplateModal").modal('hide');
-        $("#addUrlTemplateModal").modal('show');
+        $("#inlineAddTemplateForm").slideDown(150);
+        $("#addCustomTemplateBtn").hide();
     });
-    
+
+    // Cancel inline add form
+    $("#cancelAddTemplateBtn").click(function () {
+        $("#inlineAddTemplateForm").slideUp(150);
+        $("#addCustomTemplateBtn").show();
+        $("#customTemplateName").val('');
+        $("#customTemplateUrl").val('');
+        $("#inlineAddTemplateFlashes").empty();
+    });
+
     // Save custom template button
     $("#saveCustomTemplateBtn").click(function () {
         saveCustomURLTemplate();
     });
-    
-    // Clear custom template form when modal is closed
-    $("#addUrlTemplateModal").on('hidden.bs.modal', function () {
+
+    // Reset inline form when URL template modal closes
+    $("#urlTemplateModal").on('hidden.bs.modal', function () {
         $("#customTemplateName").val('');
         $("#customTemplateUrl").val('');
-        $("#addUrlTemplateModal\\.flashes").empty();
+        $("#inlineAddTemplateFlashes").empty();
+        $("#inlineAddTemplateForm").hide();
+        $("#addCustomTemplateBtn").show();
+        $("#urlTemplateSearch").val('');
+        $('.url-template-item, .url-template-divider').show();
+    });
+
+    // Live search for URL templates
+    $(document).on('input', '#urlTemplateSearch', function () {
+        var q = $(this).val().toLowerCase();
+        if (!q) {
+            $('.url-template-item, .url-template-divider').show();
+            return;
+        }
+        $('.url-template-item').each(function () {
+            $(this).toggle($(this).text().toLowerCase().indexOf(q) !== -1);
+        });
+        $('.url-template-divider').each(function () {
+            var divider = $(this);
+            var next = divider.next();
+            var hasVisible = false;
+            while (next.length && !next.hasClass('url-template-divider')) {
+                if (next.hasClass('url-template-item') && next.is(':visible')) { hasVisible = true; break; }
+                next = next.next();
+            }
+            divider.toggle(hasVisible);
+        });
     });
     
     // Store original body padding when campaign set modal opens
@@ -1323,7 +1286,7 @@ function addCampaignEntry(index) {
     });
 
     // Load options for just this campaign entry
-    loadOptionsForCampaign(index);
+    return loadOptionsForCampaign(index);
 
     // Initialize tooltips for the new campaign entry
     $(`#campaign_form_${index} [data-toggle="tooltip"]`).tooltip();
@@ -1332,57 +1295,51 @@ function addCampaignEntry(index) {
     updateCampaignSettingsVisibility();
 }
 
-// Loads options for a specific campaign entry
+// Shared data-fetch Promise — all campaigns reuse the same 6 API calls
+var campaignOptionDataPromise = null;
+
+// Loads options for a specific campaign entry (API calls fire only once; data is shared)
 function loadOptionsForCampaign(index) {
-    return new Promise((resolve) => {
-        let completed = 0;
-        const total = 6;
-        const done = () => {
-            completed++;
-            if (completed === total) resolve();
-        };
+    if (!campaignOptionDataPromise) {
+        campaignOptionDataPromise = new Promise((resolve) => {
+            let completed = 0;
+            const data = {};
+            const total = 6;
+            const done = () => { if (++completed === total) resolve(data); };
 
-        api.pages.get().success(pages => {
-            const $page = $(`#campaign_page_${index}`);
-            $page.empty().append("<option></option>");
-            pages.forEach(p => $page.append(`<option value="${p.id}">${p.name}</option>`));
-            done();
+            api.pages.get().success(pages => { data.pages = pages; done(); });
+            api.templates.get().success(templates => { data.templates = templates; done(); });
+            api.smsTemplates.get().success(templates => { data.smsTemplates = templates; done(); });
+            api.SMTP.get().success(profiles => { data.smtp = profiles; done(); });
+            api.SMS.get().success(profiles => { data.sms = profiles; done(); });
+            api.groups.get().success(groups => { data.groups = groups.filter(g => !g.locked); done(); });
         });
+    }
 
-        api.templates.get().success(templates => {
-            const $tmpl = $(`#template_${index}`);
-            $tmpl.empty().append("<option></option>");
-            templates.forEach(t => $tmpl.append(`<option value="${t.id}">${t.name}</option>`));
-            done();
-        });
+    return campaignOptionDataPromise.then(data => {
+        const $page = $(`#campaign_page_${index}`);
+        $page.empty().append("<option></option>");
+        data.pages.forEach(p => $page.append(`<option value="${p.id}">${p.name}</option>`));
 
-        api.smsTemplates.get().success(templates => {
-            const $tmpl = $(`#sms_template_${index}`);
-            $tmpl.empty().append("<option></option>");
-            templates.forEach(t => $tmpl.append(`<option value="${t.id}">${t.name}</option>`));
-            done();
-        });
+        const $tmpl = $(`#template_${index}`);
+        $tmpl.empty().append("<option></option>");
+        data.templates.forEach(t => $tmpl.append(`<option value="${t.id}">${t.name}</option>`));
 
-        api.SMTP.get().success(profiles => {
-            const $profile = $(`#profile_${index}`);
-            $profile.empty().append("<option></option>");
-            profiles.forEach(p => $profile.append(`<option value="${p.id}">${p.name}</option>`));
-            done();
-        });
+        const $smsTmpl = $(`#sms_template_${index}`);
+        $smsTmpl.empty().append("<option></option>");
+        data.smsTemplates.forEach(t => $smsTmpl.append(`<option value="${t.id}">${t.name}</option>`));
 
-        api.SMS.get().success(profiles => {
-            const $smsProfile = $(`#sms_profile_${index}`);
-            $smsProfile.empty().append("<option></option>");
-            profiles.forEach(p => $smsProfile.append(`<option value="${p.id}">${p.name}</option>`));
-            done();
-        });
+        const $profile = $(`#profile_${index}`);
+        $profile.empty().append("<option></option>");
+        data.smtp.forEach(p => $profile.append(`<option value="${p.id}">${p.name}</option>`));
 
-        api.groups.get().success(groups => {
-            const $group = $(`#users_${index}`);
-            $group.empty();
-            groups.forEach(g => $group.append(`<option value="${g.id}">${g.name}</option>`));
-            done();
-        });
+        const $smsProfile = $(`#sms_profile_${index}`);
+        $smsProfile.empty().append("<option></option>");
+        data.sms.forEach(p => $smsProfile.append(`<option value="${p.id}">${p.name}</option>`));
+
+        const $group = $(`#users_${index}`);
+        $group.empty();
+        data.groups.forEach(g => $group.append(`<option value="${g.id}">${g.name}</option>`));
     });
 }
 
@@ -1445,9 +1402,13 @@ function setSelectByOptionText(selector, optionText) {
     }
 }
 
+// Cached promise so the 6 API calls only fire once per page load
+var availableOptionsCache = null;
+
 // Loads the available pages, templates, profiles, and groups
 function loadAvailableOptions() {
-    return new Promise((resolve) => {
+    if (availableOptionsCache) return availableOptionsCache;
+    availableOptionsCache = new Promise((resolve) => {
         let completed = 0;
         const total = 6;
         const done = () => {
@@ -1537,7 +1498,7 @@ function loadAvailableOptions() {
         api.groups.get()
             .success(function (groups) {
                 $(".groups").empty();
-                $.each(groups, function (i, group) {
+                $.each(groups.filter(g => !g.locked), function (i, group) {
                     $(".groups").append(`<option value="${group.id}">${group.name}</option>`);
                 });
                 done();
@@ -1547,6 +1508,7 @@ function loadAvailableOptions() {
                 done();
             });
     });
+    return availableOptionsCache;
 }
 
 // Launches a new campaign set
@@ -1849,7 +1811,7 @@ function launchCampaignSet() {
                 .success(function (data) {
                     $("#launchDraftModal").modal("hide");
                     $("#modal").modal("hide");
-                    successFlash(`Campaign set launched successfully!`);
+                    successFlashFade(`Campaign set launched successfully!`, 3);
                     loadCampaignSets();
                 })
                 .error(function (data) {
@@ -1864,7 +1826,7 @@ function launchCampaignSet() {
                 .success(function (data) {
                     $("#launchDraftModal").modal("hide");
                     $("#modal").modal("hide");
-                    successFlash(`Campaign set ${escapeHtml(name)} created successfully!`);
+                    successFlashFade(`Campaign set ${escapeHtml(name)} created successfully!`, 3);
                     loadCampaignSets();
                 })
                 .error(function (data) {
@@ -2074,7 +2036,7 @@ function saveDraftCampaignSet() {
     api.draftCampaignSets.post(draftCampaignSet)
         .success(function (data) {
             $("#modal").modal("hide");
-            successFlash(`Draft campaign set ${escapeHtml(name)} saved successfully!`);
+            successFlashFade(`Draft campaign set ${escapeHtml(name)} saved successfully!`, 3);
             loadCampaignSets();
         })
         .error(function (data) {
@@ -2263,8 +2225,7 @@ function editDraftCampaignSet(id) {
                 const campaignPromises = [];
                 if (dcs.campaigns && dcs.campaigns.length > 0) {
                     dcs.campaigns.forEach((campaign, i) => {
-                        addCampaignEntry(i);
-                        const promise = loadOptionsForCampaign(i).then(() => {
+                        const promise = addCampaignEntry(i).then(() => {
                             // console.log(`Setting values for campaign ${i}`);
 
                             // Set basic campaign fields
@@ -2619,7 +2580,7 @@ function updateDraftCampaignSet(id) {
     api.draftCampaignSetId.put(id, draftCampaignSet)
         .success(function (data) {
             $("#modal").modal("hide");
-            successFlash(`Draft campaign set ${escapeHtml(name)} updated successfully!`);
+            successFlashFade(`Draft campaign set ${escapeHtml(name)} updated successfully!`, 3);
             loadCampaignSets();
         })
         .error(function (data) {
@@ -2690,7 +2651,7 @@ function launchDraftCampaignSet() {
                 // Close both modals
                 $("#launchDraftModal").modal("hide");
                 $("#modal").modal("hide").css("display", "");
-                successFlash(`Campaign set launched successfully!`);
+                successFlashFade(`Campaign set launched successfully!`, 3);
                 loadCampaignSets();
             })
             .error(function (data) {
@@ -2714,7 +2675,7 @@ function launchDraftCampaignSet() {
             .success(function (data) {
                 $("#launchDraftModal").modal("hide");
                 $("#modal").modal("hide");
-                successFlash(`Campaign set ${escapeHtml(name)} created successfully!`);
+                successFlashFade(`Campaign set ${escapeHtml(name)} created successfully!`, 3);
                 loadCampaignSets();
             })
             .error(function (data) {
@@ -3406,8 +3367,7 @@ function copyCampaignSet(id) {
                 const campaignPromises = [];
                 if (cs.campaigns && cs.campaigns.length > 0) {
                     cs.campaigns.forEach((campaign, i) => {
-                        addCampaignEntry(i);
-                        const promise = loadOptionsForCampaign(i).then(() => {
+                        const promise = addCampaignEntry(i).then(() => {
                             // Set campaign name
                             $(`#campaign_name_${i}`).val(campaign.name);
                             $(`.campaign-list-item[data-index="${i}"] .campaign-list-item-text`).text(campaign.name);
@@ -3575,8 +3535,7 @@ function copyDraftCampaignSet(id) {
                 const campaignPromises = [];
                 if (dcs.campaigns && dcs.campaigns.length > 0) {
                     dcs.campaigns.forEach((campaign, i) => {
-                        addCampaignEntry(i);
-                        const promise = loadOptionsForCampaign(i).then(() => {
+                        const promise = addCampaignEntry(i).then(() => {
                             // Set campaign name
                             $(`#campaign_name_${i}`).val(campaign.name);
                             $(`.campaign-list-item[data-index="${i}"] .campaign-list-item-text`).text(campaign.name);

@@ -320,48 +320,38 @@
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
-                <h4 class="modal-title" id="urlTemplateModalLabel">
-                    Select URL Template
-                    <button type="button" class="btn btn-xs btn-success pull-right" id="addCustomTemplateBtn" style="margin-top: -3px;">
-                        <i class="fa fa-plus"></i> Add Custom
-                    </button>
-                </h4>
+                <h4 class="modal-title" id="urlTemplateModalLabel">Select URL Template</h4>
             </div>
             <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
+                <div style="margin-bottom:10px;">
+                    <input type="text" class="form-control" id="urlTemplateSearch" placeholder="Search by name or URL..." autocomplete="off">
+                </div>
                 <div id="urlTemplateList"></div>
+                <!-- Inline Add Custom Form -->
+                <div id="inlineAddTemplateForm" style="display:none; margin-top:15px; border-top:1px solid #e0e0e0; padding-top:15px;">
+                    <h5 style="margin-top:0;"><i class="fa fa-plus-circle"></i> Save as Custom Template</h5>
+                    <div id="inlineAddTemplateFlashes"></div>
+                    <div class="form-group">
+                        <label for="customTemplateName">Template Name:</label>
+                        <input type="text" class="form-control" id="customTemplateName" placeholder="My Custom Template">
+                    </div>
+                    <div class="form-group">
+                        <label for="customTemplateUrl">URL:</label>
+                        <input type="text" class="form-control" id="customTemplateUrl" placeholder="https://example.com/path">
+                    </div>
+                    <div style="text-align:right;">
+                        <button type="button" class="btn btn-default" id="cancelAddTemplateBtn">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="saveCustomTemplateBtn">
+                            <i class="fa fa-save"></i> Save Template
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Add Custom URL Template Modal -->
-<div class="modal fade" id="addUrlTemplateModal" tabindex="-1" role="dialog" aria-labelledby="addUrlTemplateModalLabel">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
+                <button type="button" class="btn btn-success" id="addCustomTemplateBtn">
+                    <i class="fa fa-plus"></i> Add Custom
                 </button>
-                <h4 class="modal-title" id="addUrlTemplateModalLabel">Save Custom URL Template</h4>
-            </div>
-            <div class="modal-body">
-                <div class="row" id="addUrlTemplateModal.flashes"></div>
-                <div class="form-group">
-                    <label for="customTemplateName">Template Name:</label>
-                    <input type="text" class="form-control" id="customTemplateName" placeholder="My Custom Template">
-                </div>
-                <div class="form-group">
-                    <label for="customTemplateUrl">URL:</label>
-                    <input type="text" class="form-control" id="customTemplateUrl" placeholder="https://example.com/path">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="saveCustomTemplateBtn">
-                    <i class="fa fa-save"></i> Save Template</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
             </div>
         </div>
     </div>

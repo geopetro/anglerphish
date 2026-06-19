@@ -225,3 +225,71 @@ func (as *Server) CampaignLinks(w http.ResponseWriter, r *http.Request) {
 		JSONResponse(w, response, http.StatusCreated)
 	}
 }
+
+// CampaignResendFailed re-queues all errored sends for a campaign.
+func (as *Server) CampaignResendFailed(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, _ := strconv.ParseInt(vars["id"], 0, 64)
+	uid := ctx.Get(r, "user_id").(int64)
+	switch {
+	case r.Method == "POST":
+		c, err := models.GetCampaign(id, uid)
+		if err != nil {
+			JSONResponse(w, models.Response{Success: false, Message: "Campaign not found"}, http.StatusNotFound)
+			return
+		}
+		var count int
+		if c.Type == "sms" {
+			count, err = models.ResendFailedSMSInCampaign(id, uid)
+		} else {
+			count, err = models.ResendFailedEmailsInCampaign(id, uid)
+		}
+		if err != nil {
+			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusBadRequest)
+			return
+		}
+		noun := "email(s)"
+		if c.Type == "sms" {
+			noun = "message(s)"
+		}
+		msg := strconv.Itoa(count) + " " + noun + " queued for resend"
+		if count == 0 {
+			msg = "No failed sends found"
+		}
+		JSONResponse(w, models.Response{Success: true, Message: msg}, http.StatusOK)
+	}
+}
+
+// CampaignResultResend re-queues a single failed send by result ID.
+func (as *Server) CampaignResultResend(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, _ := strconv.ParseInt(vars["id"], 0, 64)
+	rid := vars["rid"]
+	uid := ctx.Get(r, "user_id").(int64)
+	switch {
+	case r.Method == "POST":
+		c, err := models.GetCampaign(id, uid)
+		if err != nil {
+			JSONResponse(w, models.Response{Success: false, Message: "Campaign not found"}, http.StatusNotFound)
+			return
+		}
+		if c.Type == "sms" {
+			err = models.ResendFailedSMS(id, rid, uid)
+		} else {
+			err = models.ResendFailedEmail(id, rid, uid)
+		}
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				JSONResponse(w, models.Response{Success: false, Message: "Result not found"}, http.StatusNotFound)
+				return
+			}
+			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusBadRequest)
+			return
+		}
+		msg := "Email queued for resend"
+		if c.Type == "sms" {
+			msg = "Message queued for resend"
+		}
+		JSONResponse(w, models.Response{Success: true, Message: msg}, http.StatusOK)
+	}
+}

@@ -20,6 +20,7 @@ type Group struct {
 	UserId       int64     `json:"-"`
 	Name         string    `json:"name"`
 	ModifiedDate time.Time `json:"modified_date"`
+	Locked       bool      `json:"locked"`
 	Targets      []Target  `json:"targets" sql:"-"`
 }
 
@@ -36,6 +37,7 @@ type GroupSummary struct {
 	Id           int64     `json:"id"`
 	Name         string    `json:"name"`
 	ModifiedDate time.Time `json:"modified_date"`
+	Locked       bool      `json:"locked"`
 	NumTargets   int64     `json:"num_targets"`
 }
 
@@ -131,7 +133,7 @@ func GetGroups(uid int64) ([]Group, error) {
 func GetGroupSummaries(uid int64) (GroupSummaries, error) {
 	gs := GroupSummaries{}
 	query := db.Table("groups").Where("user_id=?", uid)
-	err := query.Select("id, name, modified_date").Scan(&gs.Groups).Error
+	err := query.Select("id, name, modified_date, locked").Scan(&gs.Groups).Error
 	if err != nil {
 		log.Error(err)
 		return gs, err
@@ -223,7 +225,7 @@ func GetGroup(id int64, uid int64) (Group, error) {
 func GetGroupSummary(id int64, uid int64) (GroupSummary, error) {
 	g := GroupSummary{}
 	query := db.Table("groups").Where("user_id=? and id=?", uid, id)
-	err := query.Select("id, name, modified_date").Scan(&g).Error
+	err := query.Select("id, name, modified_date, locked").Scan(&g).Error
 	if err != nil {
 		log.Error(err)
 		return g, err
@@ -425,6 +427,18 @@ func PutGroup(g *Group) error {
 		return err
 	}
 	return nil
+}
+
+// ToggleGroupLock flips the locked flag for the given group.
+func ToggleGroupLock(id int64, uid int64) (Group, error) {
+	g := Group{}
+	err := db.Where("user_id=? and id=?", uid, id).Find(&g).Error
+	if err != nil {
+		return g, err
+	}
+	g.Locked = !g.Locked
+	err = db.Model(&g).Update("locked", g.Locked).Error
+	return g, err
 }
 
 // DeleteGroup deletes a given group by group ID and user ID

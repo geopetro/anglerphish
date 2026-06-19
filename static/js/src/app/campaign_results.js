@@ -142,6 +142,30 @@ var statuses = {
         label: "label-danger",
         icon: "fa-times-circle",
         point: "ct-point-mfa"
+    },
+    "Email Re-queued": {
+        color: "#428bca",
+        label: "label-primary",
+        icon: "fa-undo",
+        point: "ct-point-sending"
+    },
+    "Failed Emails Re-queued": {
+        color: "#428bca",
+        label: "label-primary",
+        icon: "fa-undo",
+        point: "ct-point-sending"
+    },
+    "SMS Re-queued": {
+        color: "#428bca",
+        label: "label-primary",
+        icon: "fa-undo",
+        point: "ct-point-sending"
+    },
+    "Failed SMS Re-queued": {
+        color: "#428bca",
+        label: "label-primary",
+        icon: "fa-undo",
+        point: "ct-point-sending"
     }
 }
 
@@ -667,8 +691,8 @@ function renderTimeline(data) {
             results += '<div class="timeline-entry">' +
                 '    <div class="timeline-bar"></div>'
             results +=
-                '    <div class="timeline-icon ' + statuses[event.message].label + '">' +
-                '    <i class="fa ' + statuses[event.message].icon + '"></i></div>' +
+                '    <div class="timeline-icon ' + (statuses[event.message]?.label || 'label-default') + '">' +
+                '    <i class="fa ' + (statuses[event.message]?.icon || 'fa-question') + '"></i></div>' +
                 '    <div class="timeline-message">' + escapeHtml(event.message) +
                 '    <span class="timeline-date">' + moment.utc(event.time).local().format('MMMM Do YYYY h:mm:ss a') + '</span>'
             if (event.details) {
@@ -715,8 +739,8 @@ function renderTimeline(data) {
         results += '<div class="timeline-entry">' +
             '    <div class="timeline-bar"></div>'
         results +=
-            '    <div class="timeline-icon ' + statuses[record.status].label + '">' +
-            '    <i class="fa ' + statuses[record.status].icon + '"></i></div>' +
+            '    <div class="timeline-icon ' + (statuses[record.status]?.label || 'label-default') + '">' +
+            '    <i class="fa ' + (statuses[record.status]?.icon || 'fa-question') + '"></i></div>' +
             '    <div class="timeline-message">' + "Scheduled to send at " + record.send_date + '</div>'
     }
     results += '</div></div>'
@@ -1340,7 +1364,13 @@ function load() {
                     },
                     {
                         "render": function (data, type, row) {
-                            return createStatusLabel(data, row[8])
+                            var label = createStatusLabel(data, row[8]);
+                            if (row[11] === "Error" || row[11] === "Retrying") {
+                                label += " <button class='btn btn-xs btn-warning' style='margin-left:4px' " +
+                                    "onclick='resendResult(\"" + row[0] + "\")' title='Resend'>" +
+                                    "<i class='fa fa-repeat'></i></button>";
+                            }
+                            return label;
                         },
                         "targets": [6]
                     },
@@ -1389,7 +1419,8 @@ function load() {
                         result.reported,
                         moment(result.send_date).format('MMMM Do YYYY, h:mm:ss a'),
                         result.sms_target,
-                        escapeHtml(result.phone) || ""
+                        escapeHtml(result.phone) || "",
+                        result.status  // [11] raw DB status — used by resend button condition
                     ]);
                 });
                 
@@ -1656,6 +1687,42 @@ function report_mail(rid, cid) {
                         });
                     });
             }));
+        }
+    })
+}
+
+function resendResult(rid) {
+    Swal.fire({
+        title: "Resend this message?",
+        text: "This recipient will be re-queued and sent within the next minute.",
+        type: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Resend",
+        confirmButtonColor: "#f0ad4e",
+        reverseButtons: true,
+        showLoaderOnConfirm: true,
+        preConfirm: function() {
+            return new Promise(function(resolve) {
+                api.campaignId.resendResult(campaign.id, rid)
+                    .success(function(msg) { resolve(msg) })
+                    .error(function(data) {
+                        var msg = (data.responseJSON && data.responseJSON.message) || 'An error occurred';
+                        Swal.showValidationMessage(msg);
+                        resolve(false);
+                    })
+            })
+        }
+    }).then(function(result) {
+        if (result.value) {
+            Swal.fire({
+                title: 'Queued!',
+                text: result.value.message,
+                type: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(function() {
+                poll();
+            });
         }
     })
 }

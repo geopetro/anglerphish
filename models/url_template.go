@@ -71,15 +71,15 @@ func EnsurePresetURLTemplates(db *gorm.DB) error {
 	presets := []URLTemplate{
 		// Authentication & Login
 		{UserId: 0, Name: "Microsoft 365 Login", URL: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=4345a7b9-9a63-4910-a426-35363201d503", Category: "Authentication & Login", IsPreset: true},
-		{UserId: 0, Name: "Outlook Web Access", URL: "https://outlook.office365.com/mail/inbox/id/AAMkAGI1AA=", Category: "Authentication & Login", IsPreset: true},
+		{UserId: 0, Name: "Outlook Web Access", URL: "https://outlook.office365.com/mail/inbox", Category: "Authentication & Login", IsPreset: true},
 		{UserId: 0, Name: "Microsoft Account Security", URL: "https://account.microsoft.com/password/reset?mkt=en-US", Category: "Authentication & Login", IsPreset: true},
 		{UserId: 0, Name: "Google Sign-In", URL: "https://accounts.google.com/signin/v2/identifier?flowName=GlifWebSignIn", Category: "Authentication & Login", IsPreset: true},
 		{UserId: 0, Name: "Gmail Login", URL: "https://accounts.google.com/ServiceLogin?continue=https://mail.google.com", Category: "Authentication & Login", IsPreset: true},
-		{UserId: 0, Name: "Google Account Security", URL: "https://myaccount.google.com/security/signinchecker/9f3a827b", Category: "Authentication & Login", IsPreset: true},
+		{UserId: 0, Name: "Google Account Security", URL: "https://myaccount.google.com/security-checkup/1", Category: "Authentication & Login", IsPreset: true},
 		{UserId: 0, Name: "Apple ID Login", URL: "https://appleid.apple.com/account/manage", Category: "Authentication & Login", IsPreset: true},
 		{UserId: 0, Name: "Facebook Login", URL: "https://www.facebook.com/login/?next=https%3A%2F%2Fwww.facebook.com%2F", Category: "Authentication & Login", IsPreset: true},
-		{UserId: 0, Name: "LinkedIn Login", URL: "https://www.linkedin.com/uas/login?session_redirect=%2Ffeed%2F", Category: "Authentication & Login", IsPreset: true},
-		{UserId: 0, Name: "Twitter Login", URL: "https://twitter.com/i/flow/login?redirect_after_login=%2Fhome", Category: "Authentication & Login", IsPreset: true},
+		{UserId: 0, Name: "LinkedIn Login", URL: "https://www.linkedin.com/login?trk=guest_homepage-basic_nav-header-signin", Category: "Authentication & Login", IsPreset: true},
+		{UserId: 0, Name: "X (Twitter) Login", URL: "https://x.com/i/flow/login?redirect_after_login=%2Fhome", Category: "Authentication & Login", IsPreset: true},
 		{UserId: 0, Name: "Instagram Login", URL: "https://www.instagram.com/accounts/login/?next=%2Fdirect%2Finbox%2F", Category: "Authentication & Login", IsPreset: true},
 		{UserId: 0, Name: "Okta SSO", URL: "https://[COMPANY].okta.com/login/login.htm", Category: "Authentication & Login", IsPreset: true},
 		{UserId: 0, Name: "OneLogin SSO", URL: "https://[COMPANY].onelogin.com/login", Category: "Authentication & Login", IsPreset: true},
@@ -100,15 +100,15 @@ func EnsurePresetURLTemplates(db *gorm.DB) error {
 		{UserId: 0, Name: "iCloud Drive", URL: "https://www.icloud.com/iclouddrive/7k3m9n2p5q8r4t6v", Category: "Document & File Access", IsPreset: true},
 
 		// Security & Verification
-		{UserId: 0, Name: "Microsoft Security Alert", URL: "https://account.microsoft.com/security/suspicious-activity?ref=alert_5d3f2a1b", Category: "Security & Verification", IsPreset: true},
-		{UserId: 0, Name: "Google Security Alert", URL: "https://myaccount.google.com/notifications/suspiciousactivity?token=8h7g6f5d4s3a2", Category: "Security & Verification", IsPreset: true},
+		{UserId: 0, Name: "Microsoft Security Alert", URL: "https://account.live.com/Activity", Category: "Security & Verification", IsPreset: true},
+		{UserId: 0, Name: "Google Security Alert", URL: "https://myaccount.google.com/notifications?hl=en", Category: "Security & Verification", IsPreset: true},
 		{UserId: 0, Name: "Microsoft Password Reset", URL: "https://passwordreset.microsoftonline.com/?ru=https%3A%2F%2Fportal.office.com", Category: "Security & Verification", IsPreset: true},
 		{UserId: 0, Name: "Google Password Reset", URL: "https://accounts.google.com/signin/v2/challenge/pwd?TL=AH-1Ng2X7k5Y4z3W2v1U0t9S", Category: "Security & Verification", IsPreset: true},
 		{UserId: 0, Name: "Apple Password Reset", URL: "https://iforgot.apple.com/password/verify/appleid", Category: "Security & Verification", IsPreset: true},
-		{UserId: 0, Name: "Microsoft MFA Verification", URL: "https://mysignins.microsoft.com/security-info/mfa/verify?code=892341", Category: "Security & Verification", IsPreset: true},
-		{UserId: 0, Name: "Google 2FA Challenge", URL: "https://account.google.com/signin/v2/challenge/selection?TL=AO-Mg3x8Y7w6V", Category: "Security & Verification", IsPreset: true},
-		{UserId: 0, Name: "PayPal Security Alert", URL: "https://secure.paypal.com/us/webapps/mpp/security/unusual-activity?id=9k8j7h6g5f4d3s2a1", Category: "Security & Verification", IsPreset: true},
-		{UserId: 0, Name: "Amazon Security Alert", URL: "https://www.amazon.com/ap/signin?openid.return_to=%2Fyour-account%2Fsecurity-alert", Category: "Security & Verification", IsPreset: true},
+		{UserId: 0, Name: "Microsoft MFA Verification", URL: "https://mysignins.microsoft.com/security-info", Category: "Security & Verification", IsPreset: true},
+		{UserId: 0, Name: "Google 2FA Challenge", URL: "https://accounts.google.com/signin/v2/challenge/selection?TL=AO-Mg3x8Y7w6V", Category: "Security & Verification", IsPreset: true},
+		{UserId: 0, Name: "PayPal Security Alert", URL: "https://www.paypal.com/myaccount/security/activity", Category: "Security & Verification", IsPreset: true},
+		{UserId: 0, Name: "Amazon Security Alert", URL: "https://www.amazon.com/ap/signin?openid.return_to=%2Fyouraccount%2Fsecurity", Category: "Security & Verification", IsPreset: true},
 
 		// Internal Systems
 		{UserId: 0, Name: "ADP Payroll Portal", URL: "https://[COMPANY].adp.com/portal/login.html", Category: "Internal Systems", IsPreset: true},
@@ -128,11 +128,11 @@ func EnsurePresetURLTemplates(db *gorm.DB) error {
 
 		// Financial Services
 		{UserId: 0, Name: "Chase Online Banking", URL: "https://secure.chase.com/web/auth/#/logon/logon/chaseOnline", Category: "Financial Services", IsPreset: true},
-		{UserId: 0, Name: "Wells Fargo Login", URL: "https://www.wellsfargo.com/verify-identity?token=8h7g6f5d4s", Category: "Financial Services", IsPreset: true},
+		{UserId: 0, Name: "Wells Fargo Login", URL: "https://connect.secure.wellsfargo.com/auth/login/present", Category: "Financial Services", IsPreset: true},
 		{UserId: 0, Name: "Bank of America", URL: "https://onlinebanking.bankofamerica.com/login?ref=security_alert", Category: "Financial Services", IsPreset: true},
 		{UserId: 0, Name: "PayPal Login", URL: "https://www.paypal.com/signin?returnUri=%2Fmyaccount%2Ftransactions%2F", Category: "Financial Services", IsPreset: true},
 		{UserId: 0, Name: "Stripe Dashboard", URL: "https://dashboard.stripe.com/login?redirect=%2Fpayments", Category: "Financial Services", IsPreset: true},
-		{UserId: 0, Name: "Venmo Verification", URL: "https://secure.venmo.com/account/verify-transaction?id=v1_8h7g6f5d", Category: "Financial Services", IsPreset: true},
+		{UserId: 0, Name: "Venmo Sign-In", URL: "https://venmo.com/account/sign-in/", Category: "Financial Services", IsPreset: true},
 		{UserId: 0, Name: "Amazon Account", URL: "https://www.amazon.com/ap/signin?_encoding=UTF8&openid.return_to=%2Forders", Category: "Financial Services", IsPreset: true},
 
 		// Password Managers
@@ -145,7 +145,7 @@ func EnsurePresetURLTemplates(db *gorm.DB) error {
 
 		// Cloud Services
 		{UserId: 0, Name: "AWS Console", URL: "https://console.aws.amazon.com/console/home?region=us-east-1", Category: "Cloud Services", IsPreset: true},
-		{UserId: 0, Name: "AWS Sign-In", URL: "https://signin.aws.amazon.com/console?account_id=123456789012", Category: "Cloud Services", IsPreset: true},
+		{UserId: 0, Name: "AWS Sign-In", URL: "https://signin.aws.amazon.com/signin?Action=login&Destination=https%3A%2F%2Fconsole.aws.amazon.com%2F", Category: "Cloud Services", IsPreset: true},
 		{UserId: 0, Name: "Azure Portal", URL: "https://portal.azure.com/#@[TENANT]/resource/subscriptions/1a2b3c4d", Category: "Cloud Services", IsPreset: true},
 		{UserId: 0, Name: "Azure AD Portal", URL: "https://aad.portal.azure.com/#blade/Microsoft_AAD_IAM", Category: "Cloud Services", IsPreset: true},
 		{UserId: 0, Name: "Google Cloud Console", URL: "https://console.cloud.google.com/home/dashboard?project=[PROJECT_ID]", Category: "Cloud Services", IsPreset: true},
@@ -153,26 +153,49 @@ func EnsurePresetURLTemplates(db *gorm.DB) error {
 		{UserId: 0, Name: "GCP Compute Engine", URL: "https://console.cloud.google.com/compute/instances?project=[PROJECT_ID]", Category: "Cloud Services", IsPreset: true},
 
 		// Cryptocurrency Services
-		{UserId: 0, Name: "Coinbase Login", URL: "https://login.coinbase.com/?return_to=%2Fdashboard", Category: "Cryptocurrency Services", IsPreset: true},
+		{UserId: 0, Name: "Coinbase Login", URL: "https://login.coinbase.com/?return_to=%2Fhome", Category: "Cryptocurrency Services", IsPreset: true},
 		{UserId: 0, Name: "Coinbase Security Alert", URL: "https://www.coinbase.com/settings/security-activity?alert_id=8h7g6f5d", Category: "Cryptocurrency Services", IsPreset: true},
 		{UserId: 0, Name: "Binance Login", URL: "https://accounts.binance.com/en/login?return_to=aHR0cHM6Ly93d3cuYmluYW5jZS5jb20v", Category: "Cryptocurrency Services", IsPreset: true},
-		{UserId: 0, Name: "Binance Verification", URL: "https://www.binance.com/en/my/security/verify-identity?ref=9k8j7h6g", Category: "Cryptocurrency Services", IsPreset: true},
+		{UserId: 0, Name: "Binance Verification", URL: "https://www.binance.com/en/my/security/account-security", Category: "Cryptocurrency Services", IsPreset: true},
 		{UserId: 0, Name: "Kraken Sign-In", URL: "https://www.kraken.com/sign-in?redirect_url=%2Faccount", Category: "Cryptocurrency Services", IsPreset: true},
-		{UserId: 0, Name: "Kraken Security Notice", URL: "https://www.kraken.com/u/security/activity?notice_id=5d4c3b2a", Category: "Cryptocurrency Services", IsPreset: true},
-		{UserId: 0, Name: "Crypto.com Login", URL: "https://crypto.com/exchange/signin?redirect=%2Fexchange", Category: "Cryptocurrency Services", IsPreset: true},
+		{UserId: 0, Name: "Kraken Security Notice", URL: "https://www.kraken.com/u/security/activity", Category: "Cryptocurrency Services", IsPreset: true},
+		{UserId: 0, Name: "Crypto.com Login", URL: "https://crypto.com/exchange/login", Category: "Cryptocurrency Services", IsPreset: true},
 		{UserId: 0, Name: "Gemini Login", URL: "https://exchange.gemini.com/signin", Category: "Cryptocurrency Services", IsPreset: true},
-		{UserId: 0, Name: "Gemini 2FA Verification", URL: "https://exchange.gemini.com/verify-device?token=a1b2c3d4", Category: "Cryptocurrency Services", IsPreset: true},
+		{UserId: 0, Name: "Gemini 2FA Verification", URL: "https://exchange.gemini.com/signin/two-factor-auth", Category: "Cryptocurrency Services", IsPreset: true},
 		{UserId: 0, Name: "Blockchain Wallet", URL: "https://login.blockchain.com/en/#/login", Category: "Cryptocurrency Services", IsPreset: true},
-		{UserId: 0, Name: "Blockchain Security Alert", URL: "https://www.blockchain.com/wallet/security-center?alert=unusual_activity", Category: "Cryptocurrency Services", IsPreset: true},
-		{UserId: 0, Name: "MetaMask Verification", URL: "https://metamask.io/verify-transaction?tx=0x8h7g6f5d4s3a2z1y", Category: "Cryptocurrency Services", IsPreset: true},
-		{UserId: 0, Name: "KuCoin Login", URL: "https://www.kucoin.com/login?redirect_url=%2Faccount", Category: "Cryptocurrency Services", IsPreset: true},
-		{UserId: 0, Name: "Bitfinex Sign-In", URL: "https://www.bitfinex.com/login?return_to=%2Ft%2FBTC%3AUSD", Category: "Cryptocurrency Services", IsPreset: true},
-		{UserId: 0, Name: "Bittrex Login", URL: "https://bittrex.com/Account/Login?ReturnUrl=%2FMarket%2FIndex", Category: "Cryptocurrency Services", IsPreset: true},
-		{UserId: 0, Name: "Bitstamp Account", URL: "https://www.bitstamp.net/account/login/?next=%2Faccount%2Fbalance%2F", Category: "Cryptocurrency Services", IsPreset: true},
+		{UserId: 0, Name: "Blockchain Security Alert", URL: "https://login.blockchain.com/en/#/security", Category: "Cryptocurrency Services", IsPreset: true},
+		{UserId: 0, Name: "MetaMask Portfolio", URL: "https://portfolio.metamask.io/", Category: "Cryptocurrency Services", IsPreset: true},
+		{UserId: 0, Name: "KuCoin Login", URL: "https://www.kucoin.com/login?redirect_url=%2Fhome", Category: "Cryptocurrency Services", IsPreset: true},
+		{UserId: 0, Name: "Bitfinex Sign-In", URL: "https://www.bitfinex.com/login?return_to=%2Ft%2FBTCUSD", Category: "Cryptocurrency Services", IsPreset: true},
+		{UserId: 0, Name: "Bitstamp Login", URL: "https://www.bitstamp.net/login/?next=%2Faccount%2Fbalance%2F", Category: "Cryptocurrency Services", IsPreset: true},
 		{UserId: 0, Name: "Ledger Live App", URL: "https://www.ledger.com/ledger-live/download?utm_source=email&utm_medium=security", Category: "Cryptocurrency Services", IsPreset: true},
 		{UserId: 0, Name: "Trezor Wallet", URL: "https://suite.trezor.io/web/", Category: "Cryptocurrency Services", IsPreset: true},
-		{UserId: 0, Name: "Trust Wallet Security", URL: "https://trustwallet.com/security-alert?ref=8k7j6h5g", Category: "Cryptocurrency Services", IsPreset: true},
+		{UserId: 0, Name: "Trust Wallet", URL: "https://trustwallet.com/", Category: "Cryptocurrency Services", IsPreset: true},
 		{UserId: 0, Name: "Exodus Wallet", URL: "https://www.exodus.com/download/?utm_source=notification", Category: "Cryptocurrency Services", IsPreset: true},
+
+		// CRM & Sales Tools
+		{UserId: 0, Name: "Salesforce Login", URL: "https://login.salesforce.com/", Category: "CRM & Sales Tools", IsPreset: true},
+		{UserId: 0, Name: "Salesforce Instance", URL: "https://[COMPANY].my.salesforce.com/", Category: "CRM & Sales Tools", IsPreset: true},
+		{UserId: 0, Name: "HubSpot Login", URL: "https://app.hubspot.com/login", Category: "CRM & Sales Tools", IsPreset: true},
+		{UserId: 0, Name: "Microsoft Dynamics 365", URL: "https://[TENANT].crm.dynamics.com/main.aspx", Category: "CRM & Sales Tools", IsPreset: true},
+		{UserId: 0, Name: "Zoho CRM", URL: "https://accounts.zoho.com/signin?servicename=ZohoCRM", Category: "CRM & Sales Tools", IsPreset: true},
+		{UserId: 0, Name: "Pipedrive Login", URL: "https://app.pipedrive.com/auth/login", Category: "CRM & Sales Tools", IsPreset: true},
+		{UserId: 0, Name: "Freshsales Login", URL: "https://[COMPANY].freshsales.io/login", Category: "CRM & Sales Tools", IsPreset: true},
+		{UserId: 0, Name: "Monday.com Login", URL: "https://auth.monday.com/auth/login_monday", Category: "CRM & Sales Tools", IsPreset: true},
+		{UserId: 0, Name: "Zendesk Login", URL: "https://[COMPANY].zendesk.com/auth/v2/login/signin", Category: "CRM & Sales Tools", IsPreset: true},
+		{UserId: 0, Name: "Intercom Login", URL: "https://app.intercom.com/admins/sign_in", Category: "CRM & Sales Tools", IsPreset: true},
+
+		// AI Services
+		{UserId: 0, Name: "ChatGPT Login", URL: "https://chatgpt.com/auth/login", Category: "AI Services", IsPreset: true},
+		{UserId: 0, Name: "OpenAI Platform", URL: "https://platform.openai.com/login", Category: "AI Services", IsPreset: true},
+		{UserId: 0, Name: "Claude (Anthropic)", URL: "https://claude.ai/login", Category: "AI Services", IsPreset: true},
+		{UserId: 0, Name: "Google Gemini", URL: "https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fgemini.google.com%2Fapp", Category: "AI Services", IsPreset: true},
+		{UserId: 0, Name: "Microsoft Copilot", URL: "https://copilot.microsoft.com/", Category: "AI Services", IsPreset: true},
+		{UserId: 0, Name: "Grok (xAI)", URL: "https://grok.com/", Category: "AI Services", IsPreset: true},
+		{UserId: 0, Name: "Perplexity AI", URL: "https://www.perplexity.ai/", Category: "AI Services", IsPreset: true},
+		{UserId: 0, Name: "Midjourney Login", URL: "https://www.midjourney.com/login/", Category: "AI Services", IsPreset: true},
+		{UserId: 0, Name: "Hugging Face", URL: "https://huggingface.co/login", Category: "AI Services", IsPreset: true},
+		{UserId: 0, Name: "Stability AI Platform", URL: "https://platform.stability.ai/", Category: "AI Services", IsPreset: true},
 
 		// Generic Patterns
 		{UserId: 0, Name: "Generic Secure Login", URL: "https://secure-login-verify.com/auth?session=8f7e6d5c4b3a2190", Category: "Generic Patterns", IsPreset: true},

@@ -401,6 +401,37 @@ func (c *Campaign) getDetails() error {
 	return nil
 }
 
+// getCampaignSummary loads only id+name for template/page/smtp without fetching
+// Results or Events. Used when displaying campaigns inside a campaign set view.
+func (c *Campaign) getCampaignSummary() error {
+	if c.Type != "generic" && c.TemplateId != 0 {
+		if err := db.Table("templates").Select("id, name").Where("id = ?", c.TemplateId).First(&c.Template).Error; err != nil && err != gorm.ErrRecordNotFound {
+			return err
+		}
+	}
+	if c.SMSTemplateId != 0 {
+		db.Table("sms_templates").Select("id, name").Where("id = ?", c.SMSTemplateId).First(&c.SMSTemplate)
+	}
+	if c.PageId != 0 {
+		if err := db.Table("pages").Select("id, name").Where("id = ?", c.PageId).First(&c.Page).Error; err != nil && err != gorm.ErrRecordNotFound {
+			return err
+		}
+	}
+	switch c.Type {
+	case "sms":
+		if c.SMSId != 0 {
+			db.Table("sms_profiles").Select("id, name").Where("id = ?", c.SMSId).First(&c.SMS)
+		}
+	case "generic":
+		// no sending profile
+	default:
+		if c.SMTPId != 0 {
+			db.Table("smtp").Select("id, name").Where("id = ?", c.SMTPId).First(&c.SMTP)
+		}
+	}
+	return nil
+}
+
 // getBaseURL returns the Campaign's configured URL.
 // This is used to implement the TemplateContext interface.
 func (c *Campaign) getBaseURL() string {

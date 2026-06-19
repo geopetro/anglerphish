@@ -113,6 +113,32 @@ func (dc *DraftCampaign) getDetails() error {
 	return nil
 }
 
+// getSummary loads only id+name for each related entity without fetching full
+// objects or group targets. Used when displaying draft campaigns in the edit UI.
+func (dc *DraftCampaign) getSummary() error {
+	if dc.Type == "email" && dc.TemplateId != 0 {
+		db.Select("id, name").Where("id = ? AND user_id = ?", dc.TemplateId, dc.UserId).First(&dc.Template)
+	}
+	if dc.Type == "sms" && dc.SMSTemplateId != 0 {
+		db.Select("id, name").Where("id = ? AND user_id = ?", dc.SMSTemplateId, dc.UserId).First(&dc.SMSTemplate)
+	}
+	if dc.PageId != 0 {
+		db.Select("id, name").Where("id = ? AND user_id = ?", dc.PageId, dc.UserId).First(&dc.Page)
+	}
+	if dc.Type == "email" && dc.SMTPId != 0 {
+		db.Select("id, name").Where("id = ? AND user_id = ?", dc.SMTPId, dc.UserId).First(&dc.SMTP)
+	}
+	if dc.Type == "sms" && dc.SMSId != 0 {
+		db.Select("id, name").Where("id = ? AND user_id = ?", dc.SMSId, dc.UserId).First(&dc.SMS)
+	}
+	gs, err := GetGroupsByDraftCampaignId(dc.Id)
+	if err != nil {
+		return err
+	}
+	dc.Groups = gs
+	return nil
+}
+
 // GetGroupsByDraftCampaignId returns the groups associated with the draft campaign
 func GetGroupsByDraftCampaignId(id int64) ([]Group, error) {
 	gs := []Group{}
@@ -124,16 +150,6 @@ func GetGroupsByDraftCampaignId(id int64) ([]Group, error) {
 	if err != nil {
 		log.Error(err)
 		return gs, err
-	}
-
-	for i := range gs {
-		// Get the targets for each group
-		ts, err := GetTargets(gs[i].Id)
-		if err != nil {
-			log.Error(err)
-			return gs, err
-		}
-		gs[i].Targets = ts
 	}
 
 	return gs, nil

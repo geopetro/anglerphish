@@ -116,6 +116,14 @@ var api = {
         generateLink: function (id, linkName) {
             var data = linkName ? { name: linkName } : {};
             return query("/campaigns/" + id + "/links", "POST", data, true)
+        },
+        // resendFailed() - POST /campaigns/:id/resend — resend all failed emails in a campaign
+        resendFailed: function (id) {
+            return query("/campaigns/" + id + "/resend", "POST", {}, true)
+        },
+        // resendResult() - POST /campaigns/:id/results/:rid/resend — resend one failed email by result ID
+        resendResult: function (id, rid) {
+            return query("/campaigns/" + id + "/results/" + rid + "/resend", "POST", {}, true)
         }
     },
     // groups contains the endpoints for /groups
@@ -146,6 +154,10 @@ var api = {
         // delete() - Deletes a group at DELETE /groups/:id
         delete: function (id) {
             return query("/groups/" + id, "DELETE", {}, false)
+        },
+        // lock() - Toggles the locked state of a group at PUT /groups/:id/lock
+        lock: function (id) {
+            return query("/groups/" + id + "/lock", "PUT", {}, false)
         }
     },
     // templates contains the endpoints for /templates
@@ -507,6 +519,17 @@ var api = {
         // reset404() - Resets the 404 page to default
         reset404: function () {
             return query("/error_pages/404/reset", "POST", {}, false)
+        }
+    },
+    // globalVariables contains the endpoints for /global_variables
+    globalVariables: {
+        // get() - Fetches the current global variable overrides
+        get: function () {
+            return query("/global_variables", "GET", {}, false)
+        },
+        // put() - Updates the global variable overrides
+        put: function (vars) {
+            return query("/global_variables", "PUT", vars, false)
         }
     },
     // urlTemplateId contains the endpoints for /url_templates/:id

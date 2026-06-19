@@ -310,6 +310,34 @@ function escapeCsvField(field) {
     return field;
 }
 
+var toggleLock = function (id) {
+    api.groupId.lock(id)
+        .success(function (group) {
+            var locked = group.locked
+            var btn = $("button[onclick='toggleLock(" + id + ")']")
+            btn.removeClass('btn-default btn-warning')
+               .addClass(locked ? 'btn-warning' : 'btn-default')
+               .attr('title', locked ? 'Unlock group' : 'Lock group')
+               .find('i')
+               .removeClass('fa-lock fa-unlock-alt')
+               .addClass(locked ? 'fa-lock' : 'fa-unlock-alt')
+            var row = btn.closest('tr')
+            var nameCell = row.find('td:first')
+            var plainName = nameCell.text().trim()
+            if (locked) {
+                nameCell.html("<i class='fa fa-lock' style='margin-right:5px;color:#e6a817;' title='Locked — not available in campaign pickers'></i>" + escapeHtml(plainName))
+            } else {
+                nameCell.text(plainName)
+            }
+            // keep local groups array in sync
+            var g = groups.find(function(x) { return x.id === id })
+            if (g) g.locked = locked
+        })
+        .error(function () {
+            errorFlash("Error updating group lock status")
+        })
+}
+
 var deleteGroup = function (id) {
     var group = groups.find(function (x) {
         return x.id === id
@@ -447,15 +475,25 @@ function load() {
                 groupTable.clear();
                 groupRows = []
                 $.each(groups, function (i, group) {
+                    var lockIcon = group.locked ? 'fa-lock' : 'fa-unlock-alt'
+                    var lockTitle = group.locked ? 'Unlock group' : 'Lock group'
+                    var lockBtnClass = group.locked ? 'btn-warning' : 'btn-default'
+                    var nameCell = group.locked
+                        ? "<i class='fa fa-lock' style='margin-right:5px;color:#e6a817;' title='Locked — not available in campaign pickers'></i>" + escapeHtml(group.name)
+                        : escapeHtml(group.name)
                     groupRows.push([
-                        escapeHtml(group.name),
+                        nameCell,
                         escapeHtml(group.num_targets),
                         moment(group.modified_date).format('MMMM Do YYYY, h:mm:ss a'),
-                        "<div class='pull-right'><button class='btn btn-primary' data-toggle='modal' data-backdrop='static' data-target='#modal' onclick='edit(" + group.id + ")'>\
+                        "<div class='pull-right'>\
+                    <button class='btn btn-primary' data-toggle='modal' data-backdrop='static' data-target='#modal' onclick='edit(" + group.id + ")'>\
                     <i class='fa fa-pencil'></i>\
-                                        </button>\
+                    </button>\
                     <button class='btn btn-primary' onclick='downloadGroup(" + group.id + ")'>\
                     <i class='fa fa-download'></i>\
+                    </button>\
+                    <button class='btn " + lockBtnClass + "' onclick='toggleLock(" + group.id + ")' title='" + lockTitle + "'>\
+                    <i class='fa " + lockIcon + "'></i>\
                     </button>\
                     <button class='btn btn-danger' onclick='deleteGroup(" + group.id + ")'>\
                     <i class='fa fa-trash-o'></i>\

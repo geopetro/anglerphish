@@ -363,6 +363,113 @@ func (s *ModelsSuite) TestEmbedAttachment(ch *check.C) {
 	ch.Assert(got.Attachments[0].Filename, check.Equals, "test.txt")
 }
 
+func (s *ModelsSuite) TestResendFailedEmailsInCampaign(c *check.C) {
+	campaign := s.createCampaign(c)
+	result := campaign.Results[0]
+
+	m := &MailLog{}
+	err := db.Where("r_id=? AND campaign_id=?", result.RId, campaign.Id).Find(m).Error
+	c.Assert(err, check.Equals, nil)
+	err = m.Error(fmt.Errorf("test smtp error"))
+	c.Assert(err, check.Equals, nil)
+
+	count, err := ResendFailedEmailsInCampaign(campaign.Id, campaign.UserId)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(count, check.Equals, 1)
+
+	result, err = GetResult(result.RId)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(result.Status, check.Equals, StatusSending)
+
+	newLog := &MailLog{}
+	err = db.Where("r_id=? AND campaign_id=?", result.RId, campaign.Id).Find(newLog).Error
+	c.Assert(err, check.Equals, nil)
+	c.Assert(newLog.SendAttempt, check.Equals, 0)
+	c.Assert(newLog.Processing, check.Equals, false)
+}
+
+func (s *ModelsSuite) TestResendFailedEmailsInCampaign_Retrying(c *check.C) {
+	campaign := s.createCampaign(c)
+	result := campaign.Results[0]
+
+	m := &MailLog{}
+	err := db.Where("r_id=? AND campaign_id=?", result.RId, campaign.Id).Find(m).Error
+	c.Assert(err, check.Equals, nil)
+	err = m.Backoff(fmt.Errorf("temporary smtp error"))
+	c.Assert(err, check.Equals, nil)
+
+	result, err = GetResult(result.RId)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(result.Status, check.Equals, StatusRetry)
+
+	count, err := ResendFailedEmailsInCampaign(campaign.Id, campaign.UserId)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(count, check.Equals, 1)
+
+	// Exactly one MailLog should exist — old one replaced by new one
+	logs := []*MailLog{}
+	err = db.Where("r_id=? AND campaign_id=?", result.RId, campaign.Id).Find(&logs).Error
+	c.Assert(err, check.Equals, nil)
+	c.Assert(len(logs), check.Equals, 1)
+	c.Assert(logs[0].SendAttempt, check.Equals, 0)
+
+	result, err = GetResult(result.RId)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(result.Status, check.Equals, StatusSending)
+}
+
+func (s *ModelsSuite) TestResendFailedEmailsInCampaign_NotInProgress(c *check.C) {
+	campaign := s.createCampaign(c)
+	err := CompleteCampaign(campaign.Id, campaign.UserId)
+	c.Assert(err, check.Equals, nil)
+
+	_, err = ResendFailedEmailsInCampaign(campaign.Id, campaign.UserId)
+	c.Assert(err, check.Not(check.IsNil))
+	c.Assert(err.Error(), check.Equals, "campaign must be In Progress to resend emails")
+}
+
+func (s *ModelsSuite) TestResendFailedEmailsInCampaign_NoFailed(c *check.C) {
+	campaign := s.createCampaign(c)
+
+	count, err := ResendFailedEmailsInCampaign(campaign.Id, campaign.UserId)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(count, check.Equals, 0)
+}
+
+func (s *ModelsSuite) TestResendFailedEmail(c *check.C) {
+	campaign := s.createCampaign(c)
+	result := campaign.Results[0]
+
+	m := &MailLog{}
+	err := db.Where("r_id=? AND campaign_id=?", result.RId, campaign.Id).Find(m).Error
+	c.Assert(err, check.Equals, nil)
+	err = m.Error(fmt.Errorf("test smtp error"))
+	c.Assert(err, check.Equals, nil)
+
+	err = ResendFailedEmail(campaign.Id, result.RId, campaign.UserId)
+	c.Assert(err, check.Equals, nil)
+
+	result, err = GetResult(result.RId)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(result.Status, check.Equals, StatusSending)
+
+	newLog := &MailLog{}
+	err = db.Where("r_id=? AND campaign_id=?", result.RId, campaign.Id).Find(newLog).Error
+	c.Assert(err, check.Equals, nil)
+	c.Assert(newLog.SendAttempt, check.Equals, 0)
+	c.Assert(newLog.Processing, check.Equals, false)
+}
+
+func (s *ModelsSuite) TestResendFailedEmail_NotFailed(c *check.C) {
+	campaign := s.createCampaign(c)
+	result := campaign.Results[0]
+
+	// Result is in "Sending" state — not a failed state
+	err := ResendFailedEmail(campaign.Id, result.RId, campaign.UserId)
+	c.Assert(err, check.Not(check.IsNil))
+	c.Assert(err.Error(), check.Equals, "result is not in a failed state")
+}
+
 func BenchmarkMailLogGenerate100(b *testing.B) {
 	setupBenchmark(b)
 	campaign := setupCampaign(b, 100)

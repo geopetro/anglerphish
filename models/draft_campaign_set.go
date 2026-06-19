@@ -69,13 +69,6 @@ func GetDraftCampaignSets(uid int64) ([]DraftCampaignSet, error) {
 			return dcs, err
 		}
 
-		// Get details for each draft campaign
-		for j := range dcs[i].DraftCampaigns {
-			err = dcs[i].DraftCampaigns[j].getDetails()
-			if err != nil {
-				log.Error(err)
-			}
-		}
 	}
 
 	return dcs, nil
@@ -97,10 +90,9 @@ func GetDraftCampaignSet(id int64, uid int64) (DraftCampaignSet, error) {
 		return dcs, err
 	}
 
-	// Get details for each draft campaign
+	// Load summary (id+name only) for each draft campaign's related entities
 	for i := range dcs.DraftCampaigns {
-		err = dcs.DraftCampaigns[i].getDetails()
-		if err != nil {
+		if err = dcs.DraftCampaigns[i].getSummary(); err != nil {
 			log.Error(err)
 		}
 	}

@@ -1251,7 +1251,7 @@ body.crimson-theme .cke_dialog_ui_input_textarea {
    CodeMirror Dark Theme (for HTML source view)
    ============================================ */
 body.crimson-theme .CodeMirror {
-    background-color: #1e1e2e !important;
+    background-color: var(--dark-bg-card) !important;
     color: #e0e0e0 !important;
     border-color: var(--dark-border) !important;
 }
@@ -1326,7 +1326,7 @@ body.crimson-theme .cm-def {
 
 /* Ace Editor (alternative HTML editor) */
 body.crimson-theme .ace_editor {
-    background-color: #1e1e2e !important;
+    background-color: var(--dark-bg-card) !important;
     color: #e0e0e0 !important;
 }
 
@@ -1380,7 +1380,7 @@ body.crimson-theme #mfaPageEditorModal .modal-body {
 }
 
 body.crimson-theme #mfa_page_html_editor {
-    background-color: #1e1e2e !important;
+    background-color: var(--dark-bg-card) !important;
     color: #e0e0e0 !important;
     border-color: var(--dark-border) !important;
 }
@@ -1394,7 +1394,7 @@ body.crimson-theme #mfa_preview_iframe {
    ============================================ */
 /* Main HTML editor textarea (before CKEditor initializes) */
 body.crimson-theme #html_editor {
-    background-color: #1e1e2e !important;
+    background-color: var(--dark-bg-card) !important;
     color: #e0e0e0 !important;
     border-color: var(--dark-border) !important;
 }
@@ -1410,7 +1410,7 @@ body.crimson-theme .modal-body textarea {
 /* Monospace textareas (code editors) */
 body.crimson-theme textarea[style*="monospace"],
 body.crimson-theme textarea[style*="font-family: monospace"] {
-    background-color: #1e1e2e !important;
+    background-color: var(--dark-bg-card) !important;
     color: #e0e0e0 !important;
 }
 

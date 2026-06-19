@@ -514,7 +514,7 @@ $(document).ready(function () {
         api.errorPages.put404(html)
         .done(function (data) {
             if (data.success) {
-                successFlash(data.message);
+                successFlashFade(data.message, 5);
             } else {
                 errorFlash(data.message);
             }
@@ -540,7 +540,7 @@ $(document).ready(function () {
             if (result.value) {
                 api.errorPages.reset404()
                 .done(function (data) {
-                    successFlash(data.message || "404 page reset to default");
+                    successFlashFade(data.message || "404 page reset to default", 5);
                     $("#error_page_html").val(data.html);
                 })
                 .fail(function (xhr) {
@@ -565,5 +565,52 @@ $(document).ready(function () {
     // Load on initial tab activation if the hash is already #errorPageSettings
     if (window.location.hash === "#errorPageSettings") {
         load404PageContent();
+    }
+
+    // Global Variables tab
+    function loadGlobalVariables() {
+        api.globalVariables.get()
+        .done(function (data) {
+            $("#gv_first_name").val(data.first_name || "");
+            $("#gv_last_name").val(data.last_name || "");
+            $("#gv_email").val(data.email || "");
+            $("#gv_phone").val(data.phone || "");
+            $("#gv_position").val(data.position || "");
+            $("#gv_custom").val(data.custom || "");
+        })
+        .fail(function () {
+            errorFlash("Failed to load global variables");
+        });
+    }
+
+    $("a[href='#globalVariablesSettings']").on("shown.bs.tab", function () {
+        loadGlobalVariables();
+    });
+
+    $("#saveGlobalVariablesBtn").click(function () {
+        var vars = {
+            first_name: $("#gv_first_name").val(),
+            last_name:  $("#gv_last_name").val(),
+            email:      $("#gv_email").val(),
+            phone:      $("#gv_phone").val(),
+            position:   $("#gv_position").val(),
+            custom:     $("#gv_custom").val()
+        };
+        api.globalVariables.put(vars)
+        .done(function (data) {
+            if (data.success) {
+                successFlashFade(data.message, 5);
+            } else {
+                errorFlash(data.message);
+            }
+        })
+        .fail(function (xhr) {
+            var msg = xhr.responseJSON ? xhr.responseJSON.message : "Failed to save global variables";
+            errorFlash(msg);
+        });
+    });
+
+    if (window.location.hash === "#globalVariablesSettings") {
+        loadGlobalVariables();
     }
 });
