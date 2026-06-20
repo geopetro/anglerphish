@@ -165,16 +165,13 @@ func sendSMS(ctx context.Context, dialer SMSDialer, ms []SMSMail) {
 				"to":    to,
 			}).Warn("Error sending SMS")
 
-			// For now, we'll just backoff on any error
-			// In the future, we could implement more sophisticated error handling
-			// based on the provider's error types
 			origErr := err
 			provider, err = dialSMSProvider(ctx, dialer)
 			if err != nil {
 				errorSMSMail(err, ms[i:])
 				break
 			}
-			m.Backoff(origErr)
+			m.Error(origErr)
 			continue
 		}
 
