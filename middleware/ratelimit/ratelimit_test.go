@@ -3,6 +3,7 @@ package ratelimit
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -10,10 +11,9 @@ var successHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Reques
 	w.Write([]byte("ok"))
 })
 
-func reachLimit(t *testing.T, handler http.Handler, limit int) {
-	// Make `expected` requests and ensure that each return a successful
-	// response.
-	r := httptest.NewRequest(http.MethodPost, "/", nil)
+func reachLimit(t *testing.T, handler http.Handler, method string, limit int) {
+	t.Helper()
+	r := httptest.NewRequest(method, "/", nil)
 	r.RemoteAddr = "127.0.0.1:"
 	for i := 0; i < limit; i++ {
 		w := httptest.NewRecorder()
@@ -22,12 +22,13 @@ func reachLimit(t *testing.T, handler http.Handler, limit int) {
 			t.Fatalf("no 200 on req %d got %d", i, w.Code)
 		}
 	}
-	// Then, makes another request to ensure it returns the 429
-	// status.
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, r)
 	if w.Code != http.StatusTooManyRequests {
 		t.Fatalf("no 429")
+	}
+	if got := strings.TrimSpace(w.Body.String()); got != http.StatusText(http.StatusTooManyRequests) {
+		t.Fatalf("unexpected body %q", got)
 	}
 }
 
@@ -35,16 +36,21 @@ func TestRateLimitEnforcement(t *testing.T) {
 	expectedLimit := 3
 	limiter := NewPostLimiter(WithRequestsPerMinute(expectedLimit))
 	handler := limiter.Limit(successHandler)
-	reachLimit(t, handler, expectedLimit)
+	reachLimit(t, handler, http.MethodPost, expectedLimit)
+}
+
+func TestRateLimitGETEnforcement(t *testing.T) {
+	expectedLimit := 3
+	limiter := NewPostLimiter(WithRequestsPerMinute(expectedLimit))
+	handler := limiter.LimitGET(successHandler)
+	reachLimit(t, handler, http.MethodGet, expectedLimit)
 }
 
 func TestRateLimitCleanup(t *testing.T) {
 	expectedLimit := 3
 	limiter := NewPostLimiter(WithRequestsPerMinute(expectedLimit))
 	handler := limiter.Limit(successHandler)
-	reachLimit(t, handler, expectedLimit)
-
-	// Set the timeout to be
+	reachLimit(t, handler, http.MethodPost, expectedLimit)
 	bucket, exists := limiter.visitors["127.0.0.1"]
 	if !exists {
 		t.Fatalf("doesn't exist for some reason")
@@ -55,5 +61,5 @@ func TestRateLimitCleanup(t *testing.T) {
 	if exists {
 		t.Fatalf("exists for some reason")
 	}
-	reachLimit(t, handler, expectedLimit)
+	reachLimit(t, handler, http.MethodPost, expectedLimit)
 }

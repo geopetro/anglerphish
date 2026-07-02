@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	log "github.com/gophish/gophish/logger"
 	"golang.org/x/oauth2"
 )
 
@@ -25,6 +27,9 @@ const (
 // ErrOIDCAccessDenied is returned when OIDC authentication fails authorization checks.
 var ErrOIDCAccessDenied = errors.New("access denied")
 
+// ErrOIDCDiscoveryFailed is returned when OIDC provider discovery fails.
+var ErrOIDCDiscoveryFailed = errors.New("oidc provider discovery failed")
+
 // OIDCConfig is the runtime configuration for OIDC admin login.
 type OIDCConfig struct {
 	Enabled           bool
@@ -38,15 +43,15 @@ type OIDCConfig struct {
 
 // OIDCClaims holds identity information extracted from an OIDC token.
 type OIDCClaims struct {
-	Email  string
-	Groups []string
+	Email         string
+	EmailVerified bool
+	Groups        []string
 }
 
 // OIDCClient performs OIDC authorization-code login against an identity provider.
 type OIDCClient struct {
 	config   OIDCConfig
-	initOnce sync.Once
-	initErr  error
+	mu       sync.Mutex
 	provider *oidc.Provider
 	oauth2   *oauth2.Config
 	verifier *oidc.IDTokenVerifier
@@ -87,28 +92,36 @@ func NewOIDCClient(cfg OIDCConfig) (*OIDCClient, error) {
 }
 
 func (c *OIDCClient) init(ctx context.Context) error {
-	c.initOnce.Do(func() {
-		provider, err := oidc.NewProvider(ctx, c.config.Issuer)
-		if err != nil {
-			c.initErr = err
-			return
-		}
-		c.provider = provider
-		c.oauth2 = &oauth2.Config{
-			ClientID:     c.config.ClientID,
-			ClientSecret: os.Getenv(OIDCClientSecretEnv),
-			RedirectURL:  c.config.RedirectURL,
-			Endpoint:     provider.Endpoint(),
-			Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
-		}
-		c.verifier = provider.Verifier(&oidc.Config{ClientID: c.config.ClientID})
-	})
-	return c.initErr
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Successful discovery is cached so later login attempts reuse one provider.
+	if c.provider != nil {
+		return nil
+	}
+
+	provider, err := oidc.NewProvider(ctx, c.config.Issuer)
+	if err != nil {
+		// Do not cache discovery failures; a later attempt can retry after transient outages.
+		logDiscoveryFailure(c.config.Issuer, err)
+		return ErrOIDCDiscoveryFailed
+	}
+
+	c.provider = provider
+	c.oauth2 = &oauth2.Config{
+		ClientID:     c.config.ClientID,
+		ClientSecret: os.Getenv(OIDCClientSecretEnv),
+		RedirectURL:  c.config.RedirectURL,
+		Endpoint:     provider.Endpoint(),
+		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
+	}
+	c.verifier = provider.Verifier(&oidc.Config{ClientID: c.config.ClientID})
+	return nil
 }
 
 // AuthCodeURL returns the provider authorization URL for the given OAuth state.
-func (c *OIDCClient) AuthCodeURL(state string) (string, error) {
-	if err := c.init(context.Background()); err != nil {
+func (c *OIDCClient) AuthCodeURL(ctx context.Context, state string) (string, error) {
+	if err := c.init(ctx); err != nil {
 		return "", err
 	}
 	return c.oauth2.AuthCodeURL(state), nil
@@ -147,6 +160,7 @@ func (c *OIDCClient) Exchange(ctx context.Context, code string) (*OIDCClaims, er
 			if err == nil {
 				if userInfoClaims.Email != "" {
 					claims.Email = userInfoClaims.Email
+					claims.EmailVerified = userInfoClaims.EmailVerified
 				}
 				claims.Groups = userInfoClaims.Groups
 			}
@@ -157,18 +171,41 @@ func (c *OIDCClient) Exchange(ctx context.Context, code string) (*OIDCClaims, er
 		return nil, ErrOIDCAccessDenied
 	}
 
-	email := strings.TrimSpace(claims.Email)
-	if email == "" {
-		return nil, ErrOIDCAccessDenied
+	if err := validateEmailClaims(claims); err != nil {
+		return nil, err
 	}
 
-	claims.Email = email
+	claims.Email = strings.TrimSpace(claims.Email)
 	return claims, nil
 }
 
 // UsernameMapping returns the configured email-to-username mapping mode.
 func (c *OIDCClient) UsernameMapping() string {
 	return c.config.UsernameFromEmail
+}
+
+func logDiscoveryFailure(issuer string, err error) {
+	log.Warnf("OIDC provider discovery failed for issuer %s (%T)", issuerLogLabel(issuer), err)
+}
+
+func issuerLogLabel(issuer string) string {
+	parsed, parseErr := url.Parse(issuer)
+	if parseErr != nil {
+		return "unknown"
+	}
+	return parsed.Host + parsed.Path
+}
+
+// validateEmailClaims rejects email used for username mapping unless the IdP marked it verified.
+func validateEmailClaims(claims *OIDCClaims) error {
+	email := strings.TrimSpace(claims.Email)
+	if email == "" {
+		return ErrOIDCAccessDenied
+	}
+	if !claims.EmailVerified {
+		return ErrOIDCAccessDenied
+	}
+	return nil
 }
 
 func parseIDTokenClaims(idToken *oidc.IDToken, groupsClaim string) (*OIDCClaims, error) {
@@ -192,8 +229,28 @@ func claimsFromMap(raw map[string]interface{}, groupsClaim string) (*OIDCClaims,
 	if email, ok := raw["email"].(string); ok {
 		claims.Email = email
 	}
+	if verified, ok := parseBoolClaim(raw["email_verified"]); ok {
+		claims.EmailVerified = verified
+	}
 	claims.Groups = extractGroups(raw[groupsClaim])
 	return claims, nil
+}
+
+func parseBoolClaim(value interface{}) (bool, bool) {
+	switch v := value.(type) {
+	case bool:
+		return v, true
+	case float64:
+		return v != 0, true
+	case string:
+		switch strings.ToLower(strings.TrimSpace(v)) {
+		case "true", "1":
+			return true, true
+		case "false", "0":
+			return false, true
+		}
+	}
+	return false, false
 }
 
 func extractGroups(value interface{}) []string {

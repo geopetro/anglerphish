@@ -146,8 +146,8 @@ func (as *AdminServer) registerRoutes() {
 	router.HandleFunc("/", mid.Use(as.Base, mid.RequireLogin))
 	router.HandleFunc("/login", mid.Use(as.Login, as.limiter.Limit))
 	if as.oidc != nil {
-		router.HandleFunc("/auth/oidc/login", mid.Use(as.OIDCLogin))
-		router.HandleFunc("/auth/oidc/callback", mid.Use(as.OIDCCallback))
+		router.HandleFunc("/auth/oidc/login", mid.Use(as.OIDCLogin, as.limiter.LimitGET))
+		router.HandleFunc("/auth/oidc/callback", mid.Use(as.OIDCCallback, as.limiter.LimitGET))
 	}
 	router.HandleFunc("/logout", mid.Use(as.Logout, mid.RequireLogin))
 	router.HandleFunc("/reset_password", mid.Use(as.ResetPassword, mid.RequireLogin))
@@ -463,9 +463,14 @@ func (as *AdminServer) OIDCLogin(w http.ResponseWriter, r *http.Request) {
 		as.handleOIDCLoginFailure(w, r, "Access denied")
 		return
 	}
-	authURL, err := as.oidc.AuthCodeURL(state)
+	authURL, err := as.oidc.AuthCodeURL(r.Context(), state)
 	if err != nil {
-		log.Error(err)
+		switch err {
+		case auth.ErrOIDCDiscoveryFailed:
+			log.Warn("OIDC provider discovery failed")
+		default:
+			log.Error(err)
+		}
 		as.handleOIDCLoginFailure(w, r, "Access denied")
 		return
 	}
@@ -499,9 +504,12 @@ func (as *AdminServer) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	claims, err := as.oidc.Exchange(r.Context(), code)
 	if err != nil {
-		if err == auth.ErrOIDCAccessDenied {
+		switch err {
+		case auth.ErrOIDCAccessDenied:
 			log.Warn("OIDC login denied")
-		} else {
+		case auth.ErrOIDCDiscoveryFailed:
+			log.Warn("OIDC provider discovery failed")
+		default:
 			log.Error(err)
 		}
 		as.handleOIDCLoginFailure(w, r, "Access denied")

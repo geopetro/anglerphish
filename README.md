@@ -130,12 +130,12 @@ export GOPHISH_OIDC_CLIENT_SECRET="your-client-secret"
 3. Add a group mapper so the ID token or UserInfo includes a `groups` claim (array of group names).
 4. Create a realm group (e.g. `anglerphish-admins`) and assign authorized users.
 5. Set `required_group` to match the group name Keycloak sends (leading `/` is normalized automatically).
-6. Pre-create matching local users in the Anglerphish Users page before first SSO login. With `username_from_email: "local_part"`, email `firstlast@example.com` maps to local username `firstlast`.
+6. Pre-create matching local users in the Anglerphish Users page before first SSO login. With `username_from_email: "local_part"`, email `firstlast@example.com` maps to local username `firstlast`. The identity provider must include a verified email claim (`email_verified: true`) for SSO login to succeed.
 7. Provision SSO users with `password_change_required` disabled when possible; SSO sessions skip the forced password-reset redirect if misconfigured.
 
 When OIDC is enabled, non-`admin` users must use **Sign in with SSO** on the login page. The `admin` account remains available for break-glass password login. API key authentication is unchanged.
 
-SSO login endpoints (`/auth/oidc/login`, `/auth/oidc/callback`) are GET requests and are not POST rate-limited like `/login`.
+SSO login endpoints (`/auth/oidc/login`, `/auth/oidc/callback`) share the same per-IP rate limit as POST `/login` (default 5 requests per minute). If OIDC provider discovery fails during a login attempt (for example, while Keycloak is temporarily unavailable), Anglerphish retries discovery on the next attempt without requiring a process restart.
 
 ---
 

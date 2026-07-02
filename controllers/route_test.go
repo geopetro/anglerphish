@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/gophish/gophish/middleware/ratelimit"
 )
 
 func attemptLogin(t *testing.T, ctx *testContext, client *http.Client, username, password, optionalPath string) *http.Response {
@@ -192,5 +193,71 @@ func TestOIDCCallbackInvalidState(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected status 403, got %d", resp.StatusCode)
+	}
+}
+
+func TestOIDCLoginRateLimited(t *testing.T) {
+	ctx := setupOIDCTest(t)
+	defer tearDown(t, ctx)
+
+	url := fmt.Sprintf("%s/auth/oidc/login", ctx.adminServer.URL)
+	for i := 0; i < ratelimit.DefaultRequestsPerMinute; i++ {
+		resp, err := http.Get(url)
+		if err != nil {
+			t.Fatalf("request %d: %v", i, err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusTooManyRequests {
+			t.Fatalf("unexpected 429 on request %d", i+1)
+		}
+	}
+
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatalf("final request: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("expected status 429, got %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("reading response: %v", err)
+	}
+	if strings.TrimSpace(string(body)) != http.StatusText(http.StatusTooManyRequests) {
+		t.Fatalf("unexpected body: %q", body)
+	}
+}
+
+func TestOIDCCallbackRateLimited(t *testing.T) {
+	ctx := setupOIDCTest(t)
+	defer tearDown(t, ctx)
+
+	url := fmt.Sprintf("%s/auth/oidc/callback?code=test&state=test", ctx.adminServer.URL)
+	for i := 0; i < ratelimit.DefaultRequestsPerMinute; i++ {
+		resp, err := http.Get(url)
+		if err != nil {
+			t.Fatalf("request %d: %v", i, err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusTooManyRequests {
+			t.Fatalf("unexpected 429 on request %d", i+1)
+		}
+	}
+
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatalf("final request: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("expected status 429, got %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("reading response: %v", err)
+	}
+	if strings.TrimSpace(string(body)) != http.StatusText(http.StatusTooManyRequests) {
+		t.Fatalf("unexpected body: %q", body)
 	}
 }

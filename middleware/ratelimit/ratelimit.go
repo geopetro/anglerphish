@@ -123,21 +123,32 @@ func (limiter *PostLimiter) allow(ip string) bool {
 	return bucket.limiter.Allow()
 }
 
+func (limiter *PostLimiter) enforce(w http.ResponseWriter, r *http.Request, next http.Handler, method string) {
+	clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		clientIP = r.RemoteAddr
+	}
+	if r.Method == method && !limiter.allow(clientIP) {
+		log.Error("")
+		http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
+		return
+	}
+	next.ServeHTTP(w, r)
+}
+
 // Limit enforces the configured rate limit for POST requests.
 //
 // TODO: Change the return value to an http.Handler when we clean up the
 // way Gophish routing is done.
 func (limiter *PostLimiter) Limit(next http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			clientIP = r.RemoteAddr
-		}
-		if r.Method == http.MethodPost && !limiter.allow(clientIP) {
-			log.Error("")
-			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
-			return
-		}
-		next.ServeHTTP(w, r)
+		limiter.enforce(w, r, next, http.MethodPost)
+	})
+}
+
+// LimitGET enforces the configured rate limit for GET requests.
+func (limiter *PostLimiter) LimitGET(next http.Handler) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		limiter.enforce(w, r, next, http.MethodGet)
 	})
 }
