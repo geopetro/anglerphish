@@ -152,10 +152,10 @@ func TestExtractGroups(t *testing.T) {
 
 func TestParseBoolClaim(t *testing.T) {
 	tests := []struct {
-		name    string
-		value   interface{}
-		want    bool
-		wantOK  bool
+		name   string
+		value  interface{}
+		want   bool
+		wantOK bool
 	}{
 		{name: "bool true", value: true, want: true, wantOK: true},
 		{name: "bool false", value: false, want: false, wantOK: true},
