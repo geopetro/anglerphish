@@ -28,6 +28,11 @@
                 <i class="fa fa-lock"></i> Database Encryption
             </a>
         </li>
+        <li role="presentation">
+            <a href="#admin-sso" aria-controls="admin-sso" role="tab" data-toggle="tab">
+                <i class="fa fa-sign-in"></i> Admin SSO (OIDC)
+            </a>
+        </li>
     </ul>
 
     <!-- Tab Content -->
@@ -1164,6 +1169,61 @@ ExecStart=/opt/anglerphish/anglerphish</code></pre>
 
         </div>
         <!-- End Tab 3: Database Encryption -->
+
+        <!-- Tab 4: Admin SSO (OIDC) -->
+        <div role="tabpanel" class="tab-pane" id="admin-sso">
+            <h3><i class="fa fa-sign-in"></i> Admin SSO (OIDC)</h3>
+            <p>Anglerphish supports optional OIDC login for the admin UI. Users in a configured IdP group are mapped to pre-provisioned local accounts. Password login is restricted to the <code>admin</code> break-glass account when SSO is enabled.</p>
+
+            <div class="panel panel-default">
+                <div class="panel-heading"><h4 class="panel-title">Configuration</h4></div>
+                <div class="panel-body">
+                    <p>OIDC is configured in <code>config.json</code>. There is no admin UI for these settings. Restart Anglerphish after changes.</p>
+                    <pre><code>{
+  "oidc": {
+    "enabled": true,
+    "issuer": "https://keycloak.example.com/realms/your-realm",
+    "client_id": "anglerphish-admin",
+    "redirect_url": "https://admin.example.com:3333/auth/oidc/callback",
+    "required_group": "anglerphish-admins",
+    "groups_claim": "groups",
+    "username_from_email": "local_part"
+  }
+}</code></pre>
+                    <p>Set the client secret via environment variable — do not commit it to config:</p>
+                    <pre><code>export GOPHISH_OIDC_CLIENT_SECRET="your-client-secret"</code></pre>
+                </div>
+            </div>
+
+            <div class="panel panel-default">
+                <div class="panel-heading"><h4 class="panel-title">Keycloak Setup</h4></div>
+                <div class="panel-body">
+                    <ol>
+                        <li>Create a <strong>confidential OIDC client</strong> with the standard authorization code flow.</li>
+                        <li>Add redirect URI: <code>https://&lt;admin-host&gt;/auth/oidc/callback</code> — must match <code>redirect_url</code> exactly.</li>
+                        <li>Add a <strong>group mapper</strong> so the ID token or UserInfo includes a <code>groups</code> claim (array of group names).</li>
+                        <li>Create a realm group (e.g. <code>anglerphish-admins</code>) and assign authorized users.</li>
+                        <li>Set <code>required_group</code> to match the group name Keycloak sends — leading <code>/</code> is normalized automatically.</li>
+                        <li>Pre-create matching local users in the Anglerphish Users page before first SSO login. With <code>username_from_email: "local_part"</code>, email <code>firstlast@example.com</code> maps to local username <code>firstlast</code>. The identity provider must include a verified email claim (<code>email_verified: true</code>) for SSO login to succeed.</li>
+                        <li>Provision SSO users with <strong>password_change_required disabled</strong> — SSO sessions skip the forced password-reset redirect if misconfigured.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="panel panel-default">
+                <div class="panel-heading"><h4 class="panel-title">Behaviour</h4></div>
+                <div class="panel-body">
+                    <ul>
+                        <li>When OIDC is enabled, non-<code>admin</code> users must use <strong>Sign in with SSO</strong> on the login page.</li>
+                        <li>The <code>admin</code> account remains available for break-glass password login.</li>
+                        <li>API key authentication is unchanged.</li>
+                        <li>SSO login endpoints share the same per-IP rate limit as POST <code>/login</code> (default 5 requests per minute).</li>
+                        <li>If OIDC provider discovery fails during a login attempt, Anglerphish retries on the next attempt without requiring a restart.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <!-- End Tab 4: Admin SSO (OIDC) -->
 
     </div>
     <!-- End Tab Content -->

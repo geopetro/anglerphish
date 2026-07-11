@@ -13,16 +13,8 @@ See also the Medium [article](https://medium.com/@gpetro/anglerphish-6dc3e552024
 ## Table of Contents
 
 - [Table of Contents](#table-of-contents)
-- [🚀 Features and Enhancements](#-features-and-enhancements)
-  - [Campaign Management \& Flexibility](#campaign-management--flexibility)
-  - [New Campaign Vectors](#new-campaign-vectors)
-  - [Reporting \& Tracking](#reporting--tracking)
-  - [Templates, Variables, \& Group Management](#templates-variables--group-management)
-  - [UI \& User Experience](#ui--user-experience)
-  - [Security](#security)
-  - [Stealth Tweaks](#stealth-tweaks)
-  - [Potential Expansion Ideas - (Not Guaranteed)](#potential-expansion-ideas---not-guaranteed)
-  - [Visual Previews](#visual-previews)
+- [Features and Enhancements](#features-and-enhancements)
+- [Visual Previews](#visual-previews)
 - [A fork based on original Gophish v0.12.1:](#a-fork-based-on-original-gophish-v0121)
   - [Gophish: Open-Source Phishing Toolkit](#gophish-open-source-phishing-toolkit)
   - [Install](#install)
@@ -32,143 +24,18 @@ See also the Medium [article](https://medium.com/@gpetro/anglerphish-6dc3e552024
   - [Issues](#issues)
   - [License](#license)
 
-
 ---
 
-## 🚀 Features and Enhancements
+## Features and Enhancements
 
-### Campaign Management & Flexibility
+See [FEATURES.md](FEATURES.md) for the full list of features and enhancements.
 
-| Feature | Description | Relevant Context / Use Case |
-| :--- | :--- | :--- |
-| **Campaign Sets** | Enables the creation and configuration of **multiple campaigns simultaneously**. Users can save them as drafts, modify, and launch them all at once. | Ideal for large-scale, multi-vector, or multi-stage assessments. |
-| **Per-Campaign URL Parameters** | Allows **unique URL parameters** to be used for each campaign instead of being limited to a global `rid`. | Better isolation and tracking across different campaigns. |
-| **Campaign Summary Before Launching** | Provides a **summarized overview** of all configured parameters (targets, template, landing page, etc.) **before launching**. | Essential for avoiding misconfiguration and ensuring everything is set up correctly. |
-| **Dashboard Filtering** | Allows **filtering the campaign list** on the dashboard to show only **Email**, **SMS**, or **Generic** campaigns. | Improved management and viewing of campaigns on the main dashboard. |
-| **Generic Campaigns** | Run flexible campaigns not tied to email/SMS. Creates trackable links that can be distributed via any channel (QR codes, social media, flyers, etc.). | Ideal for scenarios where the phishing link is delivered outside of email/SMS, such as QR code posters, USB drops, or manual distribution. |
-| **QR Code Generator** | Built-in tool to **generate QR codes**. | Useful for Generic Campaigns and other phishing scenarios requiring QR code delivery. |
-| **Resend Failed Emails** | Re-queue **all failed/errored emails** in a campaign with one click, or resend to a **single recipient** directly from the results page. | Recovers from SMTP errors or transient delivery failures without restarting the campaign. |
-
----
-
-### New Campaign Vectors
-
-| Feature | Description | Relevant Context / Use Case |
-| :--- | :--- | :--- |
-| **SMS Campaigns** | Adds support for **SMS-based campaigns** alongside traditional email. Includes dedicated SMS profiles (Twilio and Vonage) and SMS template creation. | Expanding phishing simulations beyond email. |
-| **MFA Simulation** | Enables **Multi-Factor Authentication simulation** on landing pages. After credential submission, sends a verification code via SMS to the target's phone number. Tracks MFA events: Code Sent, Verified, Failed. | Simulates real-world MFA bypass scenarios and tests user behavior when presented with fake MFA prompts. Configurable code length, type (numeric/alpha/alphanumeric), custom SMS message, and sender ID. |
-| **HTTP Basic Auth Landing Pages** | Enables **basic authentication landing page campaigns** based on [edermi/gophish_mods](https://github.com/edermi/gophish_mods/tree/master). | Allows simulation of attacks requiring Basic Auth credentials. |
-| **QR Code Embedding in Campaigns** | Integrates **QR code campaigns**, based on [Evil-Gophish](https://github.com/fin3ss3g0d/evilgophish.git). | Allows phishing links to be delivered via scannable QR codes. |
-| **Email Replied** | Tracks when users **reply to phishing emails** (with an additional chart). | Recognizes replies as a form of sensitive data disclosure, not just clicks or form submissions. |
-
----
-
-### Reporting & Tracking
-
-| Feature | Description | Relevant Context / Use Case |
-| :--- | :--- | :--- |
-| **Reports Page** | New reporting feature to **export campaign results and metrics as Word or Excel files**, with **Privacy Options** to anonymize results. | Easier sharing and better presentation of results. |
-| **Reported Phishing Monitoring Enhancement** | Improved handling of reported phishing emails, now recognizing **all variations of URL parameters** across active campaigns. | More accurate tracking of reported phishing attempts, even if parameters are slightly modified. |
-| **IMAP Monitor** | Dedicated view for received emails in the IMAP inbox that are **unrelated to any Gophish campaign**. | It can help track general user reporting habits outside of active simulations, email delivery errors, etc.  |
-| **X-Tracked Header Handling** | Supports custom **`POST` requests containing the header `X-Tracked`**. When posted, the system parses the URL parameters and generates a `.csv` log entry. | Tracking for scenarios like **macro-enabled `.doc`/`.xls` files** or custom POST requests from landing pages. |
-| **Multiple IMAP Configurations** | Supports adding and managing **multiple IMAP server profiles** (Email Replied and Email Reported types). | Supports dedicated inboxes for different tracking needs. |
-
----
-
-### Templates, Variables, & Group Management
-
-| Feature | Description | Relevant Context / Use Case |
-| :--- | :--- | :--- |
-| **New Template Variables** | Introduces **`{{.Custom}}`**, **`{{.Phone}}`**, **`{{.CurrentDateTime}}`**, **`{{.CurrentDate}}`**, **`{{.CurrentTime}}`**, and **`{{.CurrentTime24}}`** for use in emails, landing pages, and attachments. | Enables deeper personalization with custom data fields, phone numbers for SMS, and dynamic time-sensitive scenarios. |
-| **URL Templates** | Provides **ready-to-use URL examples** of popular services to modify, and allows for the creation/reuse of URL templates. | Speeds up campaign creation by offering common, complex URL structures. |
-| **Preview Templates / Landing Pages** | Added the ability to **preview Email, SMS, and Landing Page Templates directly**—no need to open the editor. | Faster workflow and template QA. |
-| **Global Variables** | Define **system-wide variables** (e.g. company name, helpdesk URL) once and reuse them across email/SMS templates and landing pages. | Eliminates repetition and keeps campaigns consistent without editing each template individually. |
-| **Group Locking** | **Lock groups** to prevent accidental edits or deletions while they are in active use. | Protects target lists during live campaigns from being modified unintentionally. |
-| **Group Export** | Supports **exporting user groups to `.csv`** for easy backup and editing. | Simplifies group management and allows for external modifications. |
-
----
-
-### UI & User Experience
-
-| Feature | Description | Relevant Context / Use Case |
-| :--- | :--- | :--- |
-| **Dark Theme** | Provides a **dark mode option** for the entire UI. Can be enabled in **Settings → UI Settings**. | Reduces eye strain and provides a modern, sleek appearance for users who prefer dark interfaces. |
-| **In-App API Documentation** | Built-in **API Documentation page** accessible from the UI, documenting all Anglerphish API endpoints including new ones for SMS, Campaign Sets, QR codes, and more. | Enables developers and integrators to quickly reference available APIs without leaving the application. |
-
----
-
-### Security
-
-| Feature | Description | Relevant Context / Use Case |
-| :--- | :--- | :--- |
-| **Database Encryption** | Optional **AES-256-GCM encryption** for sensitive database fields (SMTP passwords, SMS provider credentials, IMAP passwords and Captured Data). Enabled via `ANGLERPHISH_ENCRYPTION_KEY` environment variable. | Protects sensitive credentials at rest. Includes CLI commands for key generation, migration to encrypted state, and reverse migration back to plaintext. Backward compatible—works with or without encryption enabled. |
-| **Admin SSO (OIDC)** | Optional **Keycloak OIDC login** for the admin UI only. Users in a configured Keycloak group are mapped to pre-provisioned local accounts. Password login is restricted to the `admin` break-glass account when SSO is enabled. | Restrict admin access via your identity provider without changing campaign or API authentication. |
-
-#### Admin SSO (Keycloak OIDC)
-
-OIDC is configured in `config.json` (there is no admin UI for these settings). Restart Anglerphish after changes.
-
-```json
-"oidc": {
-  "enabled": true,
-  "issuer": "https://keycloak.example.com/realms/your-realm",
-  "client_id": "anglerphish-admin",
-  "redirect_url": "https://admin.example.com:3333/auth/oidc/callback",
-  "required_group": "anglerphish-admins",
-  "groups_claim": "groups",
-  "username_from_email": "local_part"
-}
-```
-
-Set the client secret via environment variable (do not commit it to config):
-
-```bash
-export GOPHISH_OIDC_CLIENT_SECRET="your-client-secret"
-```
-
-**Keycloak setup:**
-
-1. Create a confidential OIDC client with the standard authorization code flow.
-2. Add redirect URI: `https://<admin-host>/auth/oidc/callback` (must match `redirect_url` exactly).
-3. Add a group mapper so the ID token or UserInfo includes a `groups` claim (array of group names).
-4. Create a realm group (e.g. `anglerphish-admins`) and assign authorized users.
-5. Set `required_group` to match the group name Keycloak sends (leading `/` is normalized automatically).
-6. Pre-create matching local users in the Anglerphish Users page before first SSO login. With `username_from_email: "local_part"`, email `firstlast@example.com` maps to local username `firstlast`. The identity provider must include a verified email claim (`email_verified: true`) for SSO login to succeed.
-7. Provision SSO users with `password_change_required` disabled when possible; SSO sessions skip the forced password-reset redirect if misconfigured.
-
-When OIDC is enabled, non-`admin` users must use **Sign in with SSO** on the login page. The `admin` account remains available for break-glass password login. API key authentication is unchanged.
-
-SSO login endpoints (`/auth/oidc/login`, `/auth/oidc/callback`) share the same per-IP rate limit as POST `/login` (default 5 requests per minute). If OIDC provider discovery fails during a login attempt (for example, while Keycloak is temporarily unavailable), Anglerphish retries discovery on the next attempt without requiring a process restart.
-
----
-
-### Stealth Tweaks
-
-| Feature | Description | Relevant Context / Use Case |
-| :--- | :--- | :--- |
-| **Transparency & Header Removal** | Completely removed GoPhish's **transparency request handler** (`+` suffix endpoint), **`X-Server`** response header, and **`X-Mailer`/`X-Contact`** email headers — known GoPhish detection fingerprints. | Removes basic detectability hints for Anglerphish. |
-| **Default Landing Page** | A **default Error 404 landing** when visiting the domain, based on [edermi/gophish_mods](https://github.com/edermi/gophish_mods/tree/master). The page content is **fully editable from Settings**. | Provides a clean 404 page for direct domain visits instead of a blank page, customizable without touching code. |
-
----
-
-### Potential Expansion Ideas - (Not Guaranteed)
-
-| Feature                                          | Short Explanation                                                                                                   |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| **MS Teams Campaign Integration**                | Send phishing simulations directly via Microsoft Teams messages.                                   |
-| **Evilginx Integration**                         | Integrate with Evilginx for advanced red-team simulations.         |
-| **Randomized Email Template Sending to Targets** | Automatically rotate between multiple templates so each target receives a different  phishing message. |
-|**Other Integrations**|Integrations such as Direct Email Injection (DMI), internal support for Turnstile.|
-
----
-
-### Visual Previews
+## Visual Previews
 
 ![1](static/images/1.gif)
 ![2](static/images/2.gif)
 ![3](static/images/3.gif)
 ![4](static/images/4.gif)
-
 
 ## A fork based on original Gophish v0.12.1:
 
