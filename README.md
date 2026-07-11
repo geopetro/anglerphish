@@ -30,6 +30,8 @@ See also the Medium [article](https://medium.com/@gpetro/anglerphish-6dc3e552024
 
 See [FEATURES.md](FEATURES.md) for the full list of features and enhancements.
 
+For the latest changes check out [CHANGELOG.md](CHANGELOG.md).
+
 ## Visual Previews
 
 ![1](static/images/1.gif)
