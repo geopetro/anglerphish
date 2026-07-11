@@ -102,6 +102,43 @@ See also the Medium [article](https://medium.com/@gpetro/anglerphish-6dc3e552024
 | Feature | Description | Relevant Context / Use Case |
 | :--- | :--- | :--- |
 | **Database Encryption** | Optional **AES-256-GCM encryption** for sensitive database fields (SMTP passwords, SMS provider credentials, IMAP passwords and Captured Data). Enabled via `ANGLERPHISH_ENCRYPTION_KEY` environment variable. | Protects sensitive credentials at rest. Includes CLI commands for key generation, migration to encrypted state, and reverse migration back to plaintext. Backward compatible—works with or without encryption enabled. |
+| **Admin SSO (OIDC)** | Optional **Keycloak OIDC login** for the admin UI only. Users in a configured Keycloak group are mapped to pre-provisioned local accounts. Password login is restricted to the `admin` break-glass account when SSO is enabled. | Restrict admin access via your identity provider without changing campaign or API authentication. |
+
+#### Admin SSO (Keycloak OIDC)
+
+OIDC is configured in `config.json` (there is no admin UI for these settings). Restart Anglerphish after changes.
+
+```json
+"oidc": {
+  "enabled": true,
+  "issuer": "https://keycloak.example.com/realms/your-realm",
+  "client_id": "anglerphish-admin",
+  "redirect_url": "https://admin.example.com:3333/auth/oidc/callback",
+  "required_group": "anglerphish-admins",
+  "groups_claim": "groups",
+  "username_from_email": "local_part"
+}
+```
+
+Set the client secret via environment variable (do not commit it to config):
+
+```bash
+export GOPHISH_OIDC_CLIENT_SECRET="your-client-secret"
+```
+
+**Keycloak setup:**
+
+1. Create a confidential OIDC client with the standard authorization code flow.
+2. Add redirect URI: `https://<admin-host>/auth/oidc/callback` (must match `redirect_url` exactly).
+3. Add a group mapper so the ID token or UserInfo includes a `groups` claim (array of group names).
+4. Create a realm group (e.g. `anglerphish-admins`) and assign authorized users.
+5. Set `required_group` to match the group name Keycloak sends (leading `/` is normalized automatically).
+6. Pre-create matching local users in the Anglerphish Users page before first SSO login. With `username_from_email: "local_part"`, email `firstlast@example.com` maps to local username `firstlast`. The identity provider must include a verified email claim (`email_verified: true`) for SSO login to succeed.
+7. Provision SSO users with `password_change_required` disabled when possible; SSO sessions skip the forced password-reset redirect if misconfigured.
+
+When OIDC is enabled, non-`admin` users must use **Sign in with SSO** on the login page. The `admin` account remains available for break-glass password login. API key authentication is unchanged.
+
+SSO login endpoints (`/auth/oidc/login`, `/auth/oidc/callback`) share the same per-IP rate limit as POST `/login` (default 5 requests per minute). If OIDC provider discovery fails during a login attempt (for example, while Keycloak is temporarily unavailable), Anglerphish retries discovery on the next attempt without requiring a process restart.
 
 ---
 

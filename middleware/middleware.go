@@ -9,6 +9,7 @@ import (
 	ctx "github.com/gophish/gophish/context"
 	"github.com/gophish/gophish/models"
 	"github.com/gorilla/csrf"
+	"github.com/gorilla/sessions"
 )
 
 // CSRFExemptPrefixes are a list of routes that are exempt from CSRF protection
@@ -111,10 +112,19 @@ func RequireAPIKey(handler http.Handler) http.Handler {
 func RequireLogin(handler http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if u := ctx.Get(r, "user"); u != nil {
+			session := ctx.Get(r, "session")
+			authMethod := ""
+			if session != nil {
+				if s, ok := session.(*sessions.Session); ok {
+					if method, ok := s.Values["auth_method"].(string); ok {
+						authMethod = method
+					}
+				}
+			}
 			// If a password change is required for the user, then redirect them
 			// to the login page
 			currentUser := u.(models.User)
-			if currentUser.PasswordChangeRequired && r.URL.Path != "/reset_password" {
+			if currentUser.PasswordChangeRequired && authMethod != "oidc" && r.URL.Path != "/reset_password" {
 				q := r.URL.Query()
 				q.Set("next", r.URL.Path)
 				http.Redirect(w, r, fmt.Sprintf("/reset_password?%s", q.Encode()), http.StatusTemporaryRedirect)

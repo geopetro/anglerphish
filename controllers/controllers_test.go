@@ -12,6 +12,25 @@ import (
 	"github.com/gophish/gophish/models"
 )
 
+func setupOIDCTest(t *testing.T) *testContext {
+	t.Helper()
+	t.Setenv(auth.OIDCClientSecretEnv, "test-secret")
+	ctx := setupTest(t)
+	ctx.config.OIDC = config.OIDC{
+		Enabled:       true,
+		Issuer:        "https://keycloak.example.com/realms/test",
+		ClientID:      "anglerphish-admin",
+		RedirectURL:   fmt.Sprintf("%s/auth/oidc/callback", ctx.adminServer.URL),
+		RequiredGroup: "anglerphish-admins",
+		GroupsClaim:   "groups",
+	}
+	ctx.adminServer.Close()
+	ctx.adminServer = httptest.NewUnstartedServer(NewAdminServer(ctx.config.AdminConf, ctx.config).server.Handler)
+	ctx.adminServer.Config.Addr = ctx.config.AdminConf.ListenURL
+	ctx.adminServer.Start()
+	return ctx
+}
+
 // testContext is the data required to test API related functions
 type testContext struct {
 	apiKey      string

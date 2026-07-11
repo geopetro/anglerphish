@@ -31,6 +31,17 @@ type Reports struct {
 	StoragePath string `json:"storage_path"`
 }
 
+// OIDC holds optional OpenID Connect settings for admin UI login.
+type OIDC struct {
+	Enabled           bool   `json:"enabled"`
+	Issuer            string `json:"issuer"`
+	ClientID          string `json:"client_id"`
+	RedirectURL       string `json:"redirect_url"`
+	RequiredGroup     string `json:"required_group"`
+	GroupsClaim       string `json:"groups_claim"`
+	UsernameFromEmail string `json:"username_from_email"`
+}
+
 // Config represents the configuration information.
 type Config struct {
 	AdminConf      AdminServer `json:"admin_server"`
@@ -43,6 +54,7 @@ type Config struct {
 	ContactAddress string      `json:"contact_address"`
 	Logging        *log.Config `json:"logging"`
 	ReportsConf    Reports     `json:"reports"`
+	OIDC           OIDC        `json:"oidc"`
 }
 
 // Version contains the current gophish version
