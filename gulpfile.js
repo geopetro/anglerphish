@@ -68,6 +68,7 @@ scripts = function () {
             app_directory + 'webhooks.js',
             app_directory + 'passwords.js',
             app_directory + 'non_campaign_reports.js',
+            app_directory + 'message_modal.js',
             app_directory + 'reports.js'
         ])
         .pipe(rename({

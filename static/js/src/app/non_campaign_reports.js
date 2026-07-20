@@ -245,7 +245,7 @@ function load(imapId) {
                 targets: "no-sort"
             }],
             order: [
-                [3, "desc"]
+                [4, "desc"]
             ],
             data: response.reports,
             columns: [{
@@ -263,6 +263,19 @@ function load(imapId) {
                 title: "Subject",
                 data: "subject",
                 className: "subject"
+            }, {
+                title: "",
+                className: "no-sort",
+                orderable: false,
+                data: function(row) {
+                    if (!row.imap_uid && !row.message_id) {
+                        return '<button class="btn btn-xs btn-default" disabled ' +
+                               'title="Not available for reports created before this feature">' +
+                               '<i class="fa fa-envelope-o"></i> View</button>';
+                    }
+                    return '<button class="btn btn-xs btn-primary view-message-btn" data-id="' + row.id + '">' +
+                           '<i class="fa fa-envelope-o"></i> View</button>';
+                }
             }, {
                 title: "Reported At",
                 data: function(row) {
@@ -296,7 +309,12 @@ function load(imapId) {
                     var reportId = $(this).data('id');
                     handleReportCheckboxChange(reportId);
                 });
-                
+
+                $(document).off('click', '.view-message-btn').on('click', '.view-message-btn', function() {
+                    var reportId = $(this).data('id');
+                    showMessageModal({ url: "/api/imap/non_campaign_reports/" + reportId + "/message" });
+                });
+
                 // Clear selections when loading
                 clearReportSelections();
             }

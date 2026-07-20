@@ -1611,3 +1611,6 @@ body.crimson-theme ::-webkit-scrollbar-thumb {
 body.crimson-theme ::-webkit-scrollbar-thumb:hover {
     background: var(--dark-accent);
 }
+
+body.crimson-theme #messageTabText, body.crimson-theme .message-headers { background-color: #1e1e1e; color: #e0e0e0; }
+body.crimson-theme .message-html-frame { border-color: #444; }

@@ -38,6 +38,7 @@
                     <th class="no-sort" style="width: 30px;"></th>
                     <th>Reporter</th>
                     <th>Subject</th>
+                    <th></th>
                     <th>Reported At</th>
                 </tr>
             </thead>
@@ -45,8 +46,61 @@
             </tbody>
         </table>
     </div>
+    <div class="modal fade" id="messageModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                    <h4 class="modal-title" id="messageModalSubject"></h4>
+                </div>
+                <div class="modal-body">
+                    <div id="messageModalLoading" style="display:none;">
+                        <i class="fa fa-spinner fa-spin"></i> Loading message&hellip;
+                    </div>
+                    <div id="messageModalError" class="alert alert-warning" style="display:none;"></div>
+                    <div id="messageModalBody" style="display:none;">
+                        <dl class="dl-horizontal message-meta">
+                            <dt>From</dt><dd id="messageModalFrom"></dd>
+                            <dt>Date</dt><dd id="messageModalDate"></dd>
+                        </dl>
+                        <ul class="nav nav-tabs" id="messageModalTabs">
+                            <li class="active"><a href="#messageTabTextPane" data-toggle="tab">Text</a></li>
+                            <li><a href="#messageTabHtmlPane" data-toggle="tab">HTML</a></li>
+                            <li><a href="#messageTabHeadersPane" data-toggle="tab">Headers</a></li>
+                        </ul>
+                        <div class="tab-content message-tab-content">
+                            <div class="tab-pane active" id="messageTabTextPane">
+                                <pre id="messageTabText"></pre>
+                            </div>
+                            <div class="tab-pane" id="messageTabHtmlPane">
+                                <div id="messageImageBar" class="message-image-bar">
+                                    <span id="messageImageWarning">
+                                        <i class="fa fa-exclamation-triangle"></i>
+                                        Remote images blocked &mdash; loading them tells the sender this mailbox is monitored.
+                                    </span>
+                                    <button type="button" class="btn btn-xs btn-default"
+                                            id="messageImageToggle" onclick="toggleMessageImages()">Load images</button>
+                                </div>
+                                <!-- SECURITY: sandbox must stay empty. See message_modal.js. -->
+                                <iframe id="messageHtmlFrame" sandbox="" class="message-html-frame"></iframe>
+                                <div id="messageHtmlUnavailable" style="display:none;">
+                                    <em>This message has no HTML part.</em>
+                                </div>
+                            </div>
+                            <div class="tab-pane" id="messageTabHeadersPane">
+                                <table class="table table-condensed message-headers">
+                                    <tbody id="messageTabHeaders"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {{end}}
 {{define "scripts"}}
+<script src="/js/dist/app/message_modal.min.js"></script>
 <script src="/js/dist/app/non_campaign_reports.min.js"></script>
 {{end}}
