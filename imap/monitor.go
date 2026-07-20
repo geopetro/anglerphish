@@ -459,17 +459,17 @@ func checkForNewEmails(im models.IMAP) {
 
 			// Check if sender is from company's domain, if enabled. TODO: Make this an IMAP filter
 			if im.RestrictDomain != "" { // e.g domainResitct = widgets.com
-				splitEmail := strings.Split(m.Email.From, "@")
-				if len(splitEmail) < 2 {
-					log.Debugf("Invalid email format from '%s', skipping domain check", m.Email.From)
+				if !DomainMatches(m.Email.From, im.RestrictDomain) {
+					log.Debug("Ignoring email as not from company domain: ", m.Email.From)
 					continue
 				}
+			}
 
-				senderDomain := splitEmail[len(splitEmail)-1]
-				if senderDomain != im.RestrictDomain {
-					log.Debug("Ignoring email as not from company domain: ", senderDomain)
-					continue
-				}
+			// Email.From is the raw header; store a bare address so the UI and
+			// any later matching see `jane@corp.com`, not `Jane Doe <jane@corp.com>`.
+			reporter := m.Email.From
+			if addr, err := ParseSenderAddress(m.Email.From); err == nil {
+				reporter = addr
 			}
 
 			// If no active campaigns, record as non-campaign report without pattern matching
@@ -480,7 +480,7 @@ func checkForNewEmails(im models.IMAP) {
 				err := models.RecordNonCampaignReport(
 					im.UserId,
 					im.Id,
-					m.Email.From,
+					reporter,
 					m.Email.Subject,
 				)
 
@@ -506,7 +506,7 @@ func checkForNewEmails(im models.IMAP) {
 				err := models.RecordNonCampaignReport(
 					im.UserId,
 					im.Id, // Use the IMAP ID to track which IMAP configuration received the report
-					m.Email.From,
+					reporter,
 					m.Email.Subject,
 				)
 

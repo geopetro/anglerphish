@@ -9,6 +9,13 @@ All notable changes to Anglerphish are documented here.
 ### Added
 - **Admin SSO (OIDC)** - Optional OIDC login for the admin UI. Users in a configured IdP group are mapped to pre-provisioned local accounts. The `admin` account retains password login as a break-glass fallback. *(contributed by [@audrey0042](https://github.com/audrey0042))*
 
+### Fixed
+- Fixed: IMAP `RestrictDomain` never matched senders whose From header included
+  a display name (`Jane Doe <jane@corp.com>`), silently discarding those reports
+  and marking them read. Deployments using `RestrictDomain` will see report
+  volume rise as a result. Mail discarded before this fix is unrecoverable, as it
+  was already marked as seen.
+
 ---
 
 ## [1.2.0] - 2026-06-19
