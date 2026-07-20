@@ -8,12 +8,15 @@ import (
 
 // NonCampaignReport represents a reported email that was not part of a GoPhish campaign
 type NonCampaignReport struct {
-	Id            int64     `json:"id" gorm:"primary_key:yes"`
-	UserId        int64     `json:"user_id"`
-	ImapId        int64     `json:"imap_id"`
-	ReporterEmail string    `json:"reporter_email"`
-	Subject       string    `json:"subject"`
-	ReportedAt    time.Time `json:"reported_at"`
+	Id              int64     `json:"id" gorm:"primary_key:yes"`
+	UserId          int64     `json:"user_id"`
+	ImapId          int64     `json:"imap_id"`
+	ReporterEmail   string    `json:"reporter_email"`
+	Subject         string    `json:"subject"`
+	ReportedAt      time.Time `json:"reported_at"`
+	ImapUid         int64     `json:"imap_uid" gorm:"column:imap_uid"`
+	ImapUidValidity int64     `json:"imap_uidvalidity" gorm:"column:imap_uidvalidity"`
+	MessageId       string    `json:"message_id" gorm:"column:message_id"`
 }
 
 // NonCampaignStats represents aggregated statistics about non-campaign reports
@@ -35,17 +38,20 @@ func (n NonCampaignStats) TableName() string {
 
 // RecordNonCampaignReport creates a new record for a non-campaign email report
 // and updates the stats table
-func RecordNonCampaignReport(userId int64, imapId int64, reporterEmail string, subject string) error {
+func RecordNonCampaignReport(userId int64, imapId int64, reporterEmail string, subject string, uid int64, uidValidity int64, messageId string) error {
 	// Begin transaction
 	tx := db.Begin()
 
 	// Create report record
 	report := &NonCampaignReport{
-		UserId:        userId,
-		ImapId:        imapId,
-		ReporterEmail: reporterEmail,
-		Subject:       subject,
-		ReportedAt:    time.Now().UTC(),
+		UserId:          userId,
+		ImapId:          imapId,
+		ReporterEmail:   reporterEmail,
+		Subject:         subject,
+		ReportedAt:      time.Now().UTC(),
+		ImapUid:         uid,
+		ImapUidValidity: uidValidity,
+		MessageId:       messageId,
 	}
 
 	if err := tx.Create(report).Error; err != nil {
