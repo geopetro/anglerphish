@@ -267,3 +267,12 @@ func GetImapConfigsWithReports(userId int64) ([]IMAP, error) {
 
 	return imaps, nil
 }
+
+// GetNonCampaignReport retrieves a single report, scoped to its owner.
+// Scoping by user id here means an unauthorized id is indistinguishable from a
+// missing one, which is the behaviour we want.
+func GetNonCampaignReport(id int64, userId int64) (NonCampaignReport, error) {
+	report := NonCampaignReport{}
+	err := db.Where("id = ? AND user_id = ?", id, userId).First(&report).Error
+	return report, err
+}
