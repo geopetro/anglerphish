@@ -482,7 +482,9 @@ func checkForNewEmails(im models.IMAP) {
 					im.Id,
 					reporter,
 					m.Email.Subject,
-					0, 0, "",
+					int64(m.Uid),
+					int64(m.UidValidity),
+					m.MessageId,
 				)
 
 				if err != nil {
@@ -509,7 +511,9 @@ func checkForNewEmails(im models.IMAP) {
 					im.Id, // Use the IMAP ID to track which IMAP configuration received the report
 					reporter,
 					m.Email.Subject,
-					0, 0, "",
+					int64(m.Uid),
+					int64(m.UidValidity),
+					m.MessageId,
 				)
 
 				if err != nil {
