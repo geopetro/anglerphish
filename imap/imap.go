@@ -30,6 +30,11 @@ type Client interface {
 // Email represents an email.Email with an included IMAP Sequence Number
 type Email struct {
 	SeqNum uint32 `json:"seqnum"`
+	// Uid is the server-assigned unique identifier, stable for the lifetime of
+	// the mailbox's UidValidity. Requires imap.FetchUid to be requested.
+	Uid         uint32 `json:"uid"`
+	UidValidity uint32 `json:"uidvalidity"`
+	MessageId   string `json:"message_id"`
 	*email.Email
 }
 
@@ -221,18 +226,18 @@ func (mbox *Mailbox) GetUnread(markAsRead, delete bool) ([]Email, error) {
 
 	// Implement a connection retry with backoff
 	var imapClient *client.Client
+	var mboxStatus *imap.MailboxStatus
 	var err error
 
 	maxRetries := 3
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		if attempt > 0 {
-			// Add exponential backoff between retries
 			backoffTime := time.Duration(attempt*attempt) * time.Second
 			log.Infof("IMAP connection attempt %d failed, retrying in %v", attempt, backoffTime)
 			time.Sleep(backoffTime)
 		}
 
-		imapClient, err = mbox.newClient()
+		imapClient, mboxStatus, err = mbox.newClientWithStatus()
 		if err == nil {
 			break
 		}
@@ -267,7 +272,7 @@ func (mbox *Mailbox) GetUnread(markAsRead, delete bool) ([]Email, error) {
 	seqset := new(imap.SeqSet)
 	seqset.AddNum(seqs...)
 	section := &imap.BodySectionName{}
-	items := []imap.FetchItem{imap.FetchEnvelope, imap.FetchFlags, imap.FetchInternalDate, section.FetchItem()}
+	items := []imap.FetchItem{imap.FetchEnvelope, imap.FetchFlags, imap.FetchInternalDate, imap.FetchUid, section.FetchItem()}
 	messages := make(chan *imap.Message)
 
 	go func() {
@@ -299,7 +304,21 @@ func (mbox *Mailbox) GetUnread(markAsRead, delete bool) ([]Email, error) {
 			return emails, err
 		}
 
-		emtmp := Email{Email: em, SeqNum: msg.SeqNum} // Not sure why msg.Uid is always 0, so swapped to sequence numbers
+		var uidValidity uint32
+		if mboxStatus != nil {
+			uidValidity = mboxStatus.UidValidity
+		}
+		messageID := ""
+		if msg.Envelope != nil {
+			messageID = msg.Envelope.MessageId
+		}
+		emtmp := Email{
+			Email:       em,
+			SeqNum:      msg.SeqNum,
+			Uid:         msg.Uid,
+			UidValidity: uidValidity,
+			MessageId:   messageID,
+		}
 		emails = append(emails, emtmp)
 
 	}
@@ -308,6 +327,14 @@ func (mbox *Mailbox) GetUnread(markAsRead, delete bool) ([]Email, error) {
 
 // newClient will initiate a new IMAP connection with the given creds.
 func (mbox *Mailbox) newClient() (*client.Client, error) {
+	c, _, err := mbox.newClientWithStatus()
+	return c, err
+}
+
+// newClientWithStatus is newClient, additionally returning the SELECTed
+// mailbox status. UIDVALIDITY is only available here — it must be captured at
+// SELECT time to be meaningful.
+func (mbox *Mailbox) newClientWithStatus() (*client.Client, *imap.MailboxStatus, error) {
 	var imapClient *client.Client
 	var err error
 	restrictedDialer := dialer.Dialer()
@@ -319,20 +346,20 @@ func (mbox *Mailbox) newClient() (*client.Client, error) {
 		imapClient, err = client.DialWithDialer(restrictedDialer, mbox.Host)
 	}
 	if err != nil {
-		return imapClient, err
+		return imapClient, nil, err
 	}
 
 	err = imapClient.Login(mbox.User, mbox.Pwd)
 	if err != nil {
-		return imapClient, err
+		return imapClient, nil, err
 	}
 
-	_, err = imapClient.Select(mbox.Folder, mbox.ReadOnly)
+	status, err := imapClient.Select(mbox.Folder, mbox.ReadOnly)
 	if err != nil {
-		return imapClient, err
+		return imapClient, nil, err
 	}
 
-	return imapClient, nil
+	return imapClient, status, nil
 }
 
 // extractIPFromEmail attempts to extract the sender's originating IP address from email headers.

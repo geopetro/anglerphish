@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"errors"
 	"net/url"
 	"time"
@@ -131,6 +132,9 @@ func (e *Event) AfterFind() error {
 type EventDetails struct {
 	Payload url.Values        `json:"payload"`
 	Browser map[string]string `json:"browser"`
+	// Message is the captured body of a reply, when capture is enabled.
+	// omitempty keeps existing events serializing exactly as before.
+	Message *MessageContent `json:"message,omitempty"`
 }
 
 // EventError is a struct that wraps an error that occurs when sending an
@@ -1388,4 +1392,73 @@ func CompleteCampaign(id int64, uid int64) error {
 		log.Error(err)
 	}
 	return err
+}
+
+// ReplyRecord is a single reply event, joined to its campaign for display.
+type ReplyRecord struct {
+	EventId      int64           `json:"event_id"`
+	CampaignId   int64           `json:"campaign_id"`
+	CampaignName string          `json:"campaign_name"`
+	Email        string          `json:"email"`
+	Time         time.Time       `json:"time"`
+	Message      *MessageContent `json:"message,omitempty"`
+}
+
+// GetReplies returns reply events across the user's campaigns, most recent
+// first. A campaignId above zero narrows to a single campaign.
+func GetReplies(userId int64, campaignId int64, limit int) ([]ReplyRecord, error) {
+	replies := []ReplyRecord{}
+
+	type row struct {
+		Id           int64
+		CampaignId   int64
+		CampaignName string
+		Email        string
+		Time         time.Time
+		Details      string
+	}
+	rows := []row{}
+
+	query := db.Table("events").
+		Select("events.id, events.campaign_id, campaigns.name as campaign_name, events.email, events.time, events.details").
+		Joins("JOIN campaigns ON campaigns.id = events.campaign_id").
+		Where("campaigns.user_id = ? AND events.message = ?", userId, EventReplied)
+
+	if campaignId > 0 {
+		query = query.Where("events.campaign_id = ?", campaignId)
+	}
+
+	err := query.Order("events.time DESC").Limit(limit).Scan(&rows).Error
+	if err != nil {
+		return replies, err
+	}
+
+	for _, r := range rows {
+		record := ReplyRecord{
+			EventId:      r.Id,
+			CampaignId:   r.CampaignId,
+			CampaignName: r.CampaignName,
+			Email:        r.Email,
+			Time:         r.Time,
+		}
+		// Raw scans bypass the AfterFind hook, so decrypt explicitly.
+		raw := r.Details
+		if isFieldEncrypted(raw) {
+			if decrypted, derr := decryptField(raw); derr == nil {
+				raw = decrypted
+			} else {
+				log.Warnf("Failed to decrypt reply event details: %v", derr)
+				raw = ""
+			}
+		}
+		if raw != "" {
+			details := EventDetails{}
+			if jerr := json.Unmarshal([]byte(raw), &details); jerr == nil {
+				record.Message = details.Message
+			}
+		}
+		replies = append(replies, record)
+	}
+
+	return replies, nil
 }

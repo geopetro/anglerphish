@@ -73,6 +73,7 @@ $(document).ready(function () {
         $('#use_tls').prop('checked', true);
         $('#ignorecerterrors').prop('checked', false);
         $('#deletecampaign').prop('checked', true);
+        $('#capture_reply_body').prop('checked', true);
         $("#imapfreq").val("60");
         $("#folder").val("INBOX");
         imapModal.modal('show');
@@ -169,6 +170,7 @@ $(document).ready(function () {
         imapSettings.ignore_cert_errors = $('#ignorecerterrors').prop('checked');
         imapSettings.delete_reported_campaign_email = $('#deletecampaign').prop('checked');
         imapSettings.tracking_type = parseInt($("#trackingtype").val());
+        imapSettings.capture_reply_body = $('#capture_reply_body').prop('checked');
         
         // Basic validation
         if (imapSettings.name == "") {
@@ -274,6 +276,7 @@ $(document).ready(function () {
             $('#deletecampaign').prop('checked', imap.delete_reported_campaign_email);
             $('#imapfreq').val(imap.imap_freq || "60");
             $('#trackingtype').val(imap.tracking_type || 0);
+            $('#capture_reply_body').prop('checked', imap.capture_reply_body);
             
             // Set the current IMAP ID
             currentIMAPId = imap.id;

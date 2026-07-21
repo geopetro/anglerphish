@@ -1650,3 +1650,6 @@ body.dark-theme ::-webkit-scrollbar-thumb {
 body.dark-theme ::-webkit-scrollbar-thumb:hover {
     background: var(--dark-accent);
 }
+
+body.dark-theme #messageTabText, body.dark-theme .message-headers { background-color: #1e1e1e; color: #e0e0e0; }
+body.dark-theme .message-html-frame { border-color: #444; }

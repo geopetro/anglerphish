@@ -9,12 +9,17 @@ All notable changes to Anglerphish are documented here.
 ### Added
 - **Admin SSO (OIDC)** - Optional OIDC login for the admin UI. Users in a configured IdP group are mapped to pre-provisioned local accounts. The `admin` account retains password login as a break-glass fallback. *(contributed by [@audrey0042](https://github.com/audrey0042))*
 - **Campaign Set Overview** - New Overview tab on launched campaign sets showing set-wide statistics rolled up two ways — cross-campaign totals and unique contacts — alongside a per-campaign breakdown that links to full results. Backed by a new `GET /api/campaign_sets/:id/summary` API endpoint.
+- **Message viewer in the IMAP Monitor** - Reported emails can be read in-app. Message bodies are not stored: they are fetched from the mailbox on demand by UID (with a Message-ID fallback) and rendered in a sandboxed iframe with an independent CSP, remote images off by default and links neutralized. Reports created before this release show a disabled View button.
+- **Replies tab in the IMAP Monitor** - Replies to simulated phishing emails are listed with their captured content, filterable by campaign. Capture is controlled per IMAP configuration by the new "Store Reply Content" setting (on by default, reply tracking only); body is capped at 256KB and headers at a separate 16KB, both encrypted at rest alongside the rest of the event details. Headers are captured at read time because reply events carry no IMAP identifier to re-fetch with, and the message may be deleted from the mailbox afterwards. Replies captured before this release have no headers stored.
 
 ### Improved
 - Viewing a launched campaign set now loads statistics in a single request instead of one per campaign, and indexes `results` and `events` by campaign for faster stats on larger datasets.
 
 ### Fixed
 - Selecting a campaign with a long name in a campaign set no longer causes a slight panel resize.
+- Replies with no plain-text part rendered the literal string `undefined` in the message viewer's Text tab.
+- The message viewer's stylesheet was never built into the served CSS bundle, so the HTML preview fell back to the browser default 300x150 iframe instead of filling the modal.
+- IMAP `RestrictDomain` never matched senders whose From header included a display name (`Jane Doe <jane@corp.com>`), silently discarding those reports and marking them read. Deployments using `RestrictDomain` will see report volume rise as a result. Mail discarded before this fix is unrecoverable, as it was already marked as seen.
 
 ---
 
