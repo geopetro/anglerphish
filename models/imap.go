@@ -34,6 +34,7 @@ type IMAP struct {
 	RestrictDomain              string    `json:"restrict_domain"`
 	DeleteReportedCampaignEmail bool      `json:"delete_reported_campaign_email"`
 	TrackingType                int       `json:"tracking_type"` // 0=report, 1=reply
+	CaptureReplyBody            bool      `json:"capture_reply_body" gorm:"column:capture_reply_body"`
 	LastLogin                   time.Time `json:"last_login,omitempty"`
 	LoginFailures               int       `json:"login_failures"`
 	LastLoginError              time.Time `json:"last_login_error,omitempty"`

@@ -29,3 +29,25 @@ func (s *ModelsSuite) TestLegacyReportHasZeroIdentifiers(c *check.C) {
 	c.Assert(reports[0].ImapUid, check.Equals, int64(0))
 	c.Assert(reports[0].MessageId, check.Equals, "")
 }
+
+func (s *ModelsSuite) TestIMAPCaptureReplyBodyDefaultsOn(c *check.C) {
+	im := IMAP{
+		UserId:           1,
+		Name:             "capture-default",
+		// A literal IP keeps Validate()'s host check off the network.
+		Host:             "127.0.0.1",
+		Port:             993,
+		Username:         "user",
+		Password:         "pass",
+		TLS:              true,
+		Folder:           "INBOX",
+		IMAPFreq:         60,
+		TrackingType:     TrackingTypeReply,
+		CaptureReplyBody: true,
+	}
+	c.Assert(PostIMAP(&im, 1), check.Equals, nil)
+
+	stored, err := GetIMAPById(im.Id, 1)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(stored.CaptureReplyBody, check.Equals, true)
+}
