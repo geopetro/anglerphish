@@ -131,6 +131,9 @@ func (e *Event) AfterFind() error {
 type EventDetails struct {
 	Payload url.Values        `json:"payload"`
 	Browser map[string]string `json:"browser"`
+	// Message is the captured body of a reply, when capture is enabled.
+	// omitempty keeps existing events serializing exactly as before.
+	Message *MessageContent `json:"message,omitempty"`
 }
 
 // EventError is a struct that wraps an error that occurs when sending an
