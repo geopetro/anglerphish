@@ -79,3 +79,46 @@ func (as *Server) NonCampaignReportMessage(w http.ResponseWriter, r *http.Reques
 
 	JSONResponse(w, message, http.StatusOK)
 }
+
+// IMAPReplies returns reply events across the user's campaigns.
+func (as *Server) IMAPReplies(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		JSONResponse(w, models.Response{Success: false, Message: "Method not allowed"}, http.StatusMethodNotAllowed)
+		return
+	}
+	uid := ctx.Get(r, "user_id").(int64)
+
+	var campaignId int64
+	if param := r.URL.Query().Get("campaign_id"); param != "" {
+		if parsed, err := strconv.ParseInt(param, 10, 64); err == nil {
+			campaignId = parsed
+		}
+	}
+
+	replies, err := models.GetReplies(uid, campaignId, 100)
+	if err != nil {
+		JSONResponse(w, models.Response{Success: false, Message: "Error getting replies"}, http.StatusInternalServerError)
+		return
+	}
+
+	campaigns, err := models.GetCampaigns(uid)
+	if err != nil {
+		JSONResponse(w, models.Response{Success: false, Message: "Error getting campaigns"}, http.StatusInternalServerError)
+		return
+	}
+
+	type campaignOption struct {
+		Id   int64  `json:"id"`
+		Name string `json:"name"`
+	}
+	options := []campaignOption{}
+	for _, c := range campaigns {
+		options = append(options, campaignOption{Id: c.Id, Name: c.Name})
+	}
+
+	JSONResponse(w, struct {
+		Replies            []models.ReplyRecord `json:"replies"`
+		Campaigns          []campaignOption     `json:"campaigns"`
+		SelectedCampaignId int64                `json:"selected_campaign_id"`
+	}{replies, options, campaignId}, http.StatusOK)
+}

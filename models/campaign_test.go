@@ -555,3 +555,32 @@ func (s *ModelsSuite) TestEventDetailsOmitsAbsentMessage(c *check.C) {
 	c.Assert(err, check.Equals, nil)
 	c.Assert(strings.Contains(string(encoded), "message"), check.Equals, false)
 }
+
+func (s *ModelsSuite) TestGetRepliesScopedToUser(c *check.C) {
+	replies, err := GetReplies(1, 0, 100)
+	c.Assert(err, check.Equals, nil)
+	for _, r := range replies {
+		campaign, cerr := GetCampaign(r.CampaignId, 1)
+		c.Assert(cerr, check.Equals, nil)
+		c.Assert(campaign.UserId, check.Equals, int64(1))
+	}
+}
+
+// GetReplies scans raw rows, which bypasses the Event AfterFind hook, so it has
+// to decrypt details itself. This asserts captured content survives that path.
+func (s *ModelsSuite) TestGetRepliesReturnsDecryptedMessage(c *check.C) {
+	campaign := s.createCampaign(c)
+	result := campaign.Results[0]
+	details := EventDetails{
+		Message: NewMessageContent("I sent my password", "<p>I sent my password</p>"),
+	}
+	c.Assert(result.HandleEmailReply(details), check.Equals, nil)
+
+	replies, err := GetReplies(campaign.UserId, campaign.Id, 100)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(len(replies), check.Equals, 1)
+	c.Assert(replies[0].CampaignName, check.Equals, campaign.Name)
+	c.Assert(replies[0].Email, check.Equals, result.Email)
+	c.Assert(replies[0].Message, check.NotNil)
+	c.Assert(replies[0].Message.Text, check.Equals, "I sent my password")
+}

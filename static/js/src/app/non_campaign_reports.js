@@ -386,3 +386,102 @@ $(document).ready(function() {
         }
     }, 5000);
 });
+
+var repliesTable = null;
+var replyRows = {};
+
+function loadReplies(campaignId) {
+    var apiUrl = "/api/imap/replies";
+    if (campaignId && campaignId > 0) {
+        apiUrl += "?campaign_id=" + campaignId;
+    }
+
+    $.ajax({
+        url: apiUrl,
+        method: "GET",
+        dataType: "json",
+        beforeSend: function(xhr) {
+            xhr.setRequestHeader('Authorization', 'Bearer ' + user.api_key);
+        }
+    })
+    .done(function(response) {
+        var filterDropdown = $("#campaign_filter");
+        filterDropdown.find('option:not(:first)').remove();
+        $.each(response.campaigns || [], function(i, c) {
+            filterDropdown.append($('<option></option>').val(c.id).text(c.name));
+        });
+        filterDropdown.val(response.selected_campaign_id || 0);
+
+        var replies = response.replies || [];
+        replyRows = {};
+        $.each(replies, function(i, r) { replyRows[r.event_id] = r; });
+
+        if (replies.length === 0) {
+            $("#no_replies_message").show();
+            $("#replies_table").hide();
+            return;
+        }
+        $("#no_replies_message").hide();
+        $("#replies_table").show();
+
+        repliesTable = $("#replies_table").DataTable({
+            destroy: true,
+            columnDefs: [{ orderable: false, targets: "no-sort" }],
+            order: [[2, "desc"]],
+            data: replies,
+            columns: [{
+                title: "Campaign",
+                data: "campaign_name"
+            }, {
+                title: "Recipient",
+                data: "email"
+            }, {
+                title: "Replied At",
+                data: function(row) {
+                    return moment(row.time).format('MMMM Do YYYY, h:mm:ss a');
+                }
+            }, {
+                title: "",
+                className: "no-sort",
+                orderable: false,
+                data: function(row) {
+                    if (!row.message) {
+                        return '<button class="btn btn-xs btn-default" disabled ' +
+                               'title="No content was captured for this reply">' +
+                               '<i class="fa fa-envelope-o"></i> View</button>';
+                    }
+                    return '<button class="btn btn-xs btn-primary view-reply-btn" data-id="' + row.event_id + '">' +
+                           '<i class="fa fa-envelope-o"></i> View</button>';
+                }
+            }]
+        });
+    })
+    .fail(function(xhr, status, error) {
+        errorFlash("Error loading replies: " + error);
+    });
+}
+
+$(document).ready(function() {
+    $('#monitorTabs a[href="#repliesPane"]').on('shown.bs.tab', function() {
+        loadReplies($("#campaign_filter").val() || 0);
+    });
+
+    $("#campaign_filter").on('change', function() {
+        loadReplies($(this).val());
+    });
+
+    $(document).on('click', '.view-reply-btn', function() {
+        var row = replyRows[$(this).data('id')];
+        if (!row || !row.message) { return; }
+        showMessageModal({
+            message: {
+                subject: "Reply from " + row.email,
+                from: row.email,
+                date: moment(row.time).format('MMMM Do YYYY, h:mm:ss a'),
+                text: row.message.text + (row.message.truncated ? "\n\n[Content truncated at 256KB]" : ""),
+                html: row.message.html,
+                headers: []
+            }
+        });
+    });
+});
