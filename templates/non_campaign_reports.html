@@ -112,11 +112,12 @@
                                 <pre id="messageTabText"></pre>
                             </div>
                             <div class="tab-pane" id="messageTabHtmlPane">
-                                <div id="messageImageBar" class="message-image-bar">
-                                    <span id="messageImageWarning">
-                                        <i class="fa fa-exclamation-triangle"></i>
-                                        Remote images blocked &mdash; loading them tells the sender this mailbox is monitored.
-                                    </span>
+                                <div id="messageImageBar" class="alert alert-warning message-image-bar">
+                                    <i class="fa fa-exclamation-triangle"></i>
+                                    <span id="messageImageWarning">Remote images blocked</span>
+                                    <i class="fa fa-info-circle message-image-info" data-toggle="tooltip"
+                                       data-placement="top" data-container="body"
+                                       title="Remote images are fetched from the sender's server when rendered. Loading them tells the sender this mailbox is monitored, including when the message was opened and from which IP address."></i>
                                     <button type="button" class="btn btn-xs btn-default"
                                             id="messageImageToggle" onclick="toggleMessageImages()">Load images</button>
                                 </div>
@@ -127,9 +128,11 @@
                                 </div>
                             </div>
                             <div class="tab-pane" id="messageTabHeadersPane">
-                                <table class="table table-condensed message-headers">
-                                    <tbody id="messageTabHeaders"></tbody>
-                                </table>
+                                <div class="message-headers-scroll">
+                                    <table class="table table-condensed message-headers">
+                                        <tbody id="messageTabHeaders"></tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>

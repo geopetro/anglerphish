@@ -83,10 +83,16 @@ function renderMessage(msg) {
     $('#messageModalBody').show();
 }
 
+// The bar stays visible in both states so the frame below it does not shift
+// when toggling; only the label and the button change.
+function setImageBarState() {
+    $('#messageImageToggle').text(imagesEnabled ? 'Block images' : 'Load images');
+    $('#messageImageWarning').text(imagesEnabled ? 'Remote images loaded' : 'Remote images blocked');
+}
+
 function toggleMessageImages() {
     imagesEnabled = !imagesEnabled;
-    $('#messageImageToggle').text(imagesEnabled ? 'Block images' : 'Load images');
-    $('#messageImageWarning').toggle(!imagesEnabled);
+    setImageBarState();
     if (currentMessage && currentMessage.html) {
         document.getElementById('messageHtmlFrame').srcdoc = buildSrcdoc(currentMessage.html);
     }
@@ -96,8 +102,7 @@ window.toggleMessageImages = toggleMessageImages;
 function showMessageModal(source) {
     imagesEnabled = false;
     currentMessage = null;
-    $('#messageImageToggle').text('Load images');
-    $('#messageImageWarning').show();
+    setImageBarState();
     $('#messageModalBody').hide();
     $('#messageModalError').hide();
     $('#messageModalLoading').show();
@@ -127,3 +132,10 @@ function showMessageModal(source) {
     });
 }
 window.showMessageModal = showMessageModal;
+
+// Unlike the settings page, this page initializes no tooltips of its own, so
+// the info icon has to opt in. data-container="body" keeps the tooltip from
+// being clipped by the modal it lives in.
+$(document).ready(function () {
+    $('#messageImageBar [data-toggle="tooltip"]').tooltip();
+});

@@ -473,14 +473,21 @@ $(document).ready(function() {
     $(document).on('click', '.view-reply-btn', function() {
         var row = replyRows[$(this).data('id')];
         if (!row || !row.message) { return; }
+        // text and html are omitempty on the wire, so either may be absent.
+        // Concatenating an absent text yields the string "undefined", which
+        // defeats the modal's own empty-content fallback.
+        var replyText = row.message.text || "";
+        if (row.message.truncated) {
+            replyText += "\n\n[Content truncated at 256KB]";
+        }
         showMessageModal({
             message: {
                 subject: "Reply from " + row.email,
                 from: row.email,
                 date: moment(row.time).format('MMMM Do YYYY, h:mm:ss a'),
-                text: row.message.text + (row.message.truncated ? "\n\n[Content truncated at 256KB]" : ""),
-                html: row.message.html,
-                headers: []
+                text: replyText,
+                html: row.message.html || "",
+                headers: row.message.headers || []
             }
         });
     });

@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"net/textproto"
 	"strings"
 	"testing"
 	"time"
@@ -538,7 +539,8 @@ func BenchmarkGetCampaign10000(b *testing.B) {
 
 func (s *ModelsSuite) TestEventDetailsRoundTripsMessage(c *check.C) {
 	details := EventDetails{
-		Message: NewMessageContent("I sent my password", "<p>I sent my password</p>"),
+		Message: NewMessageContent("I sent my password", "<p>I sent my password</p>",
+			textproto.MIMEHeader{"Subject": []string{"Re: Payroll"}}),
 	}
 	encoded, err := json.Marshal(details)
 	c.Assert(err, check.Equals, nil)
@@ -547,6 +549,9 @@ func (s *ModelsSuite) TestEventDetailsRoundTripsMessage(c *check.C) {
 	c.Assert(json.Unmarshal(encoded, &decoded), check.Equals, nil)
 	c.Assert(decoded.Message, check.NotNil)
 	c.Assert(decoded.Message.Text, check.Equals, "I sent my password")
+	c.Assert(decoded.Message.Headers, check.HasLen, 1)
+	c.Assert(decoded.Message.Headers[0].Name, check.Equals, "Subject")
+	c.Assert(decoded.Message.Headers[0].Value, check.Equals, "Re: Payroll")
 }
 
 // Events without captured content must serialize exactly as before.
@@ -572,7 +577,8 @@ func (s *ModelsSuite) TestGetRepliesReturnsDecryptedMessage(c *check.C) {
 	campaign := s.createCampaign(c)
 	result := campaign.Results[0]
 	details := EventDetails{
-		Message: NewMessageContent("I sent my password", "<p>I sent my password</p>"),
+		Message: NewMessageContent("I sent my password", "<p>I sent my password</p>",
+			textproto.MIMEHeader{"Message-Id": []string{"<abc@corp.com>"}}),
 	}
 	c.Assert(result.HandleEmailReply(details), check.Equals, nil)
 
@@ -583,4 +589,6 @@ func (s *ModelsSuite) TestGetRepliesReturnsDecryptedMessage(c *check.C) {
 	c.Assert(replies[0].Email, check.Equals, result.Email)
 	c.Assert(replies[0].Message, check.NotNil)
 	c.Assert(replies[0].Message.Text, check.Equals, "I sent my password")
+	c.Assert(replies[0].Message.Headers, check.HasLen, 1)
+	c.Assert(replies[0].Message.Headers[0].Value, check.Equals, "<abc@corp.com>")
 }

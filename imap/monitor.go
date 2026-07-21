@@ -758,7 +758,7 @@ func buildReplyDetails(im models.IMAP, em *email.Email) models.EventDetails {
 	}
 
 	if im.CaptureReplyBody {
-		details.Message = models.NewMessageContent(string(em.Text), string(em.HTML))
+		details.Message = models.NewMessageContent(string(em.Text), string(em.HTML), em.Headers)
 	}
 
 	return details
