@@ -1,7 +1,9 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -532,4 +534,24 @@ func BenchmarkGetCampaign10000(b *testing.B) {
 		}
 	}
 	tearDownBenchmark(b)
+}
+
+func (s *ModelsSuite) TestEventDetailsRoundTripsMessage(c *check.C) {
+	details := EventDetails{
+		Message: NewMessageContent("I sent my password", "<p>I sent my password</p>"),
+	}
+	encoded, err := json.Marshal(details)
+	c.Assert(err, check.Equals, nil)
+
+	decoded := EventDetails{}
+	c.Assert(json.Unmarshal(encoded, &decoded), check.Equals, nil)
+	c.Assert(decoded.Message, check.NotNil)
+	c.Assert(decoded.Message.Text, check.Equals, "I sent my password")
+}
+
+// Events without captured content must serialize exactly as before.
+func (s *ModelsSuite) TestEventDetailsOmitsAbsentMessage(c *check.C) {
+	encoded, err := json.Marshal(EventDetails{})
+	c.Assert(err, check.Equals, nil)
+	c.Assert(strings.Contains(string(encoded), "message"), check.Equals, false)
 }

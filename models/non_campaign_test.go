@@ -32,8 +32,8 @@ func (s *ModelsSuite) TestLegacyReportHasZeroIdentifiers(c *check.C) {
 
 func (s *ModelsSuite) TestIMAPCaptureReplyBodyDefaultsOn(c *check.C) {
 	im := IMAP{
-		UserId:           1,
-		Name:             "capture-default",
+		UserId: 1,
+		Name:   "capture-default",
 		// A literal IP keeps Validate()'s host check off the network.
 		Host:             "127.0.0.1",
 		Port:             993,

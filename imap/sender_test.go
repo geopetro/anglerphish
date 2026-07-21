@@ -1,6 +1,11 @@
 package imap
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/gophish/gophish/models"
+	"github.com/jordan-wright/email"
+)
 
 func TestParseSenderAddress(t *testing.T) {
 	cases := []struct {
@@ -80,5 +85,30 @@ func TestDomainMatches(t *testing.T) {
 				t.Errorf("DomainMatches(%q, %q) = %v, want %v", tc.from, tc.restrict, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestBuildReplyDetailsCaptureEnabled(t *testing.T) {
+	em := &email.Email{
+		Text: []byte("I sent my password"),
+		HTML: []byte("<p>I sent my password</p>"),
+	}
+	details := buildReplyDetails(models.IMAP{CaptureReplyBody: true}, em)
+
+	if details.Message == nil {
+		t.Fatal("expected message content to be captured")
+	}
+	if details.Message.Text != "I sent my password" {
+		t.Errorf("got text %q", details.Message.Text)
+	}
+}
+
+// With the toggle off, nothing about the body may be persisted.
+func TestBuildReplyDetailsCaptureDisabled(t *testing.T) {
+	em := &email.Email{Text: []byte("I sent my password")}
+	details := buildReplyDetails(models.IMAP{CaptureReplyBody: false}, em)
+
+	if details.Message != nil {
+		t.Fatalf("expected no message content, got %+v", details.Message)
 	}
 }

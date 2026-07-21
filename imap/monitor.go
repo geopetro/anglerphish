@@ -543,12 +543,7 @@ func checkForNewEmails(im models.IMAP) {
 				// Choose which handler to call based on the IMAP tracking type
 				if im.TrackingType == models.TrackingTypeReply {
 					// This IMAP config is set to track replies
-					// Try to extract IP from email - if it fails, we pass empty details (same as before)
-					details := models.EventDetails{}
-					if ip := extractIPFromEmail(m.Email); ip != "" {
-						details.Browser = map[string]string{"address": ip}
-						log.Infof("Extracted IP %s from reply email", ip)
-					}
+					details := buildReplyDetails(im, m.Email)
 					err = result.HandleEmailReply(details)
 					log.Infof("User '%s' replied to email with rid %s", m.Email.From, rid)
 				} else {
@@ -746,4 +741,25 @@ func matchEmail(em *email.Email) (map[string]bool, error) {
 	}
 
 	return rids, nil
+}
+
+// buildReplyDetails assembles the event details recorded for a reply.
+//
+// The source message is deleted from the mailbox when
+// DeleteReportedCampaignEmail is set, so the body has to be captured here or it
+// is lost permanently. Capture is skipped entirely when the config disables it,
+// since this is employee-authored content.
+func buildReplyDetails(im models.IMAP, em *email.Email) models.EventDetails {
+	details := models.EventDetails{}
+
+	if ip := extractIPFromEmail(em); ip != "" {
+		details.Browser = map[string]string{"address": ip}
+		log.Infof("Extracted IP %s from reply email", ip)
+	}
+
+	if im.CaptureReplyBody {
+		details.Message = models.NewMessageContent(string(em.Text), string(em.HTML))
+	}
+
+	return details
 }
