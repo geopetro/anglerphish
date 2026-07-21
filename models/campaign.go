@@ -471,74 +471,82 @@ func (c *Campaign) generateSendDate(idx int, totalRecipients int) time.Time {
 	return c.LaunchDate.Add(time.Duration(offset) * time.Minute)
 }
 
-// getCampaignStats returns a CampaignStats object for the campaign with the given campaign ID.
-// It also backfills numbers as appropriate with a running total, so that the values are aggregated.
-func getCampaignStats(cid int64) (CampaignStats, error) {
-	s := CampaignStats{}
+// recipientFlags records which actions a single recipient took during a campaign.
+type recipientFlags map[string]bool
 
-	// Get all results for this campaign
+// newRecipientFlags returns a zeroed flag set for one recipient.
+func newRecipientFlags() recipientFlags {
+	return recipientFlags{
+		"sent":           false,
+		"opened":         false,
+		"clicked":        false,
+		"submitted_data": false,
+		"replied":        false,
+		"reported":       false,
+		"error":          false,
+	}
+}
+
+// buildRecipientStats loads the results and events for a campaign and returns a
+// per-recipient map of action flags, plus the number of result rows (the
+// campaign's target count).
+//
+// Recipients are keyed by email address, falling back to phone number for SMS
+// campaigns. SMS events store the phone number in the event's email column, so
+// both sides of the join agree on the key.
+//
+// Logical implications are applied before returning. They are monotonic — they
+// only ever set flags to true — which is what makes it safe to union these maps
+// across campaigns to get a set-wide unique rollup.
+func buildRecipientStats(cid int64) (map[string]recipientFlags, int64, error) {
 	var results []Result
 	err := db.Where("campaign_id = ?", cid).Find(&results).Error
 	if err != nil {
-		return s, err
+		return nil, 0, err
 	}
 
-	s.Total = int64(len(results))
-
-	// Get all events for this campaign to reconstruct complete timeline
 	var events []Event
 	err = db.Where("campaign_id = ?", cid).Order("time ASC").Find(&events).Error
 	if err != nil {
-		return s, err
+		return nil, 0, err
 	}
 
-	// Track each recipient's actions
-	recipientStats := make(map[string]map[string]bool)
+	recipientStats := make(map[string]recipientFlags)
 
-	// Initialize recipient tracking from results
 	for _, result := range results {
 		email := result.Email
 		if email == "" {
 			email = result.Phone // For SMS campaigns
 		}
-
-		if recipientStats[email] == nil {
-			recipientStats[email] = map[string]bool{
-				"sent":           false,
-				"opened":         false,
-				"clicked":        false,
-				"submitted_data": false,
-				"replied":        false,
-				"reported":       false,
-				"error":          false,
-			}
+		if email == "" {
+			continue
 		}
-
-		// Handle flags from results table
+		if recipientStats[email] == nil {
+			recipientStats[email] = newRecipientFlags()
+		}
 		if result.Reported {
 			recipientStats[email]["reported"] = true
 		}
 		if result.Replied {
 			recipientStats[email]["replied"] = true
 		}
+		if result.Status == Error || result.Status == StatusRetry {
+			recipientStats[email]["error"] = true
+		}
 	}
 
-	// Process events to get complete action history
 	for _, event := range events {
 		email := event.Email
-		if recipientStats[email] == nil {
-			recipientStats[email] = map[string]bool{
-				"sent":           false,
-				"opened":         false,
-				"clicked":        false,
-				"submitted_data": false,
-				"replied":        false,
-				"reported":       false,
-				"error":          false,
-			}
+		if email == "" {
+			// System events (e.g. "Campaign Created", "Failed Emails
+			// Re-queued") describe the campaign, not a recipient, and
+			// carry a blank email. Skip them so they don't become a
+			// phantom "" recipient key.
+			continue
 		}
-
-		// Map events to actions
+		if recipientStats[email] == nil {
+			recipientStats[email] = newRecipientFlags()
+		}
 		switch event.Message {
 		case EventSent, EventSMSSent:
 			recipientStats[email]["sent"] = true
@@ -552,14 +560,10 @@ func getCampaignStats(cid int64) (CampaignStats, error) {
 			recipientStats[email]["replied"] = true
 		case EventReported:
 			recipientStats[email]["reported"] = true
-		case EventSendingError, EventSMSError, Error:
-			recipientStats[email]["error"] = true
 		}
 	}
 
-	// Apply logical backfilling and count totals
 	for _, stats := range recipientStats {
-		// Apply logical implications
 		if stats["submitted_data"] {
 			stats["clicked"] = true
 			stats["opened"] = true
@@ -571,8 +575,19 @@ func getCampaignStats(cid int64) (CampaignStats, error) {
 			stats["opened"] = true
 		}
 		// Note: "reported" remains standalone - no implications
+	}
 
-		// Count totals
+	return recipientStats, int64(len(results)), nil
+}
+
+// collapseRecipientStats counts a per-recipient flag map into a CampaignStats.
+//
+// Total is deliberately left zero. Its meaning differs by caller: for a single
+// campaign it is the number of result rows, while for a set-wide rollup it is
+// the number of unique recipients.
+func collapseRecipientStats(recipientStats map[string]recipientFlags) CampaignStats {
+	s := CampaignStats{}
+	for _, stats := range recipientStats {
 		if stats["sent"] {
 			s.EmailsSent++
 		}
@@ -595,7 +610,16 @@ func getCampaignStats(cid int64) (CampaignStats, error) {
 			s.Error++
 		}
 	}
+	return s
+}
 
+func getCampaignStats(cid int64) (CampaignStats, error) {
+	recipientStats, total, err := buildRecipientStats(cid)
+	if err != nil {
+		return CampaignStats{}, err
+	}
+	s := collapseRecipientStats(recipientStats)
+	s.Total = total
 	return s, nil
 }
 

@@ -30,6 +30,7 @@
 		"redirect_url": "",
 		"required_group": "",
 		"groups_claim": "groups",
-		"username_from_email": "local_part"
+		"username_from_email": "local_part",
+		"allow_unverified_email": false
 	}
 }

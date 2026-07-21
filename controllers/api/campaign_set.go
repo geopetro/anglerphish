@@ -75,6 +75,23 @@ func (as *Server) CampaignSetsSummary(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// CampaignSetSummary returns the summary for a single campaign set, including
+// per-campaign stats and the set-wide rollups.
+func (as *Server) CampaignSetSummary(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, _ := strconv.ParseInt(vars["id"], 0, 64)
+	switch {
+	case r.Method == "GET":
+		cs, err := models.GetCampaignSetSummary(id, ctx.Get(r, "user_id").(int64))
+		if err != nil {
+			log.Error(err)
+			JSONResponse(w, models.Response{Success: false, Message: "Campaign set not found"}, http.StatusNotFound)
+			return
+		}
+		JSONResponse(w, cs, http.StatusOK)
+	}
+}
+
 // CampaignSet returns details about the requested campaign set. If the campaign set is not
 // valid, CampaignSet returns null.
 func (as *Server) CampaignSet(w http.ResponseWriter, r *http.Request) {

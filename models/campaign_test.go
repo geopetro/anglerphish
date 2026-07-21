@@ -533,3 +533,36 @@ func BenchmarkGetCampaign10000(b *testing.B) {
 	}
 	tearDownBenchmark(b)
 }
+
+// TestGetCampaignStatsRegression pins the behavior of getCampaignStats so the
+// refactor that extracts buildRecipientStats cannot silently change it.
+func (s *ModelsSuite) TestGetCampaignStatsRegression(c *check.C) {
+	campaign := s.createCampaign(c)
+
+	// One recipient submits data. This must imply clicked and opened via the
+	// logical backfill, even though no open or click event was recorded.
+	err := AddEvent(&Event{Email: "test1@example.com", Message: EventSent}, campaign.Id)
+	c.Assert(err, check.Equals, nil)
+	err = AddEvent(&Event{Email: "test1@example.com", Message: EventDataSubmit}, campaign.Id)
+	c.Assert(err, check.Equals, nil)
+
+	// A second recipient only opens.
+	err = AddEvent(&Event{Email: "test2@example.com", Message: EventSent}, campaign.Id)
+	c.Assert(err, check.Equals, nil)
+	err = AddEvent(&Event{Email: "test2@example.com", Message: EventOpened}, campaign.Id)
+	c.Assert(err, check.Equals, nil)
+
+	// Duplicate events for the same recipient must not double-count.
+	err = AddEvent(&Event{Email: "test2@example.com", Message: EventOpened}, campaign.Id)
+	c.Assert(err, check.Equals, nil)
+
+	stats, err := getCampaignStats(campaign.Id)
+	c.Assert(err, check.Equals, nil)
+
+	c.Assert(stats.Total, check.Equals, int64(4))         // 4 targets from createCampaignDependencies
+	c.Assert(stats.EmailsSent, check.Equals, int64(2))
+	c.Assert(stats.OpenedEmail, check.Equals, int64(2))   // test2 opened, test1 backfilled
+	c.Assert(stats.ClickedLink, check.Equals, int64(1))   // test1 backfilled from submit
+	c.Assert(stats.SubmittedData, check.Equals, int64(1))
+	c.Assert(stats.EmailReported, check.Equals, int64(0))
+}

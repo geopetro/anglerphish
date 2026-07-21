@@ -551,6 +551,38 @@ body.crimson-theme .campaign-list-item:hover {
     background-color: #2a1818;
 }
 
+/* Campaign Set Overview tab */
+body.crimson-theme .cs-overview-header .cs-overview-meta,
+body.crimson-theme .cs-fn-scale,
+body.crimson-theme .cs-fn-pct,
+body.crimson-theme .cs-fn-sig-hd {
+    color: var(--dark-text-muted);
+}
+
+body.crimson-theme .cs-fn-label {
+    color: var(--dark-text-secondary);
+}
+
+body.crimson-theme .cs-fn-n {
+    color: var(--dark-text-primary);
+}
+
+body.crimson-theme .cs-fn-track {
+    background: var(--dark-bg-input);
+}
+
+body.crimson-theme .cs-fn-zero {
+    background: var(--dark-border);
+}
+
+body.crimson-theme .cs-fn-rule {
+    background: var(--dark-border);
+}
+
+body.crimson-theme .cs-overview-table {
+    color: var(--dark-text-primary);
+}
+
 body.crimson-theme .panel-danger > .panel-heading {
     background-color: #7a3232 !important;
     border-color: #a94442 !important;

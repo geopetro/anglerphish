@@ -64,6 +64,9 @@
                 
                 <!-- Tabs Navigation -->
                 <ul class="nav nav-tabs" role="tablist">
+                    <li role="presentation" id="overviewTabNav" style="display:none;">
+                        <a href="#overviewTab" aria-controls="overviewTab" role="tab" data-toggle="tab">Overview</a>
+                    </li>
                     <li role="presentation" class="active">
                         <a href="#generalSettings" aria-controls="generalSettings" role="tab" data-toggle="tab">General Settings</a>
                     </li>
@@ -71,9 +74,45 @@
                         <a href="#campaignsTab" aria-controls="campaignsTab" role="tab" data-toggle="tab">Campaigns</a>
                     </li>
                 </ul>
-                
+
                 <!-- Tab Content -->
                 <div class="tab-content" style="margin-top: 20px;">
+                    <!-- Overview Tab (launched sets only) -->
+                    <div role="tabpanel" class="tab-pane" id="overviewTab">
+                        <div id="overviewHeader" class="cs-overview-header"></div>
+
+                        <div class="cs-overview-toggle-row">
+                            <div class="btn-group" role="group" id="overviewStatsToggle">
+                                <button type="button" class="btn btn-sm btn-primary active" data-mode="totals">Totals</button>
+                                <button type="button" class="btn btn-sm btn-default" data-mode="unique">Unique contacts</button>
+                            </div>
+                            <i class="fa fa-info-circle text-muted cs-overview-info" id="overviewStatsInfo"
+                               data-toggle="tooltip" data-html="true" data-placement="right"
+                               title="<strong>Totals:</strong> Summed across campaigns. Someone in two campaigns is counted twice.<br><br><strong>Unique contacts:</strong> Deduplicated by contact across the set. An email and a phone number for the same person count separately."></i>
+                        </div>
+
+                        <div id="overviewKpis" class="cs-funnel"></div>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped cs-overview-table" id="overviewBreakdown">
+                                <thead>
+                                    <tr>
+                                        <th>Campaign</th>
+                                        <th>Status</th>
+                                        <th class="text-right"><i class="fa fa-users cs-stat-total"></i> Targets</th>
+                                        <th class="text-right"><i class="fa fa-envelope-o cs-stat-sent"></i> Sent</th>
+                                        <th class="text-right"><i class="fa fa-envelope-open-o cs-stat-opened"></i> Opened</th>
+                                        <th class="text-right"><i class="fa fa-mouse-pointer cs-stat-clicked"></i> Clicked</th>
+                                        <th class="text-right"><i class="fa fa-reply cs-stat-replied"></i> Replied</th>
+                                        <th class="text-right"><i class="fa fa-exclamation-circle cs-stat-submitted"></i> Submitted</th>
+                                        <th class="text-right"><i class="fa fa-bullhorn cs-stat-reported"></i> Reported</th>
+                                        <th class="no-sort"></th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
                     <!-- General Settings Tab -->
                     <div role="tabpanel" class="tab-pane active" id="generalSettings">
                         <!-- Hidden checkboxes — still drive all JS logic, untouched -->

@@ -75,6 +75,7 @@ func (as *Server) registerRoutes() {
 	router.HandleFunc("/campaign_sets/", as.CampaignSets)
 	router.HandleFunc("/campaign_sets/summary", as.CampaignSetsSummary)
 	router.HandleFunc("/campaign_sets/{id:[0-9]+}", as.CampaignSet)
+	router.HandleFunc("/campaign_sets/{id:[0-9]+}/summary", as.CampaignSetSummary)
 	router.HandleFunc("/campaign_sets/{id:[0-9]+}/complete", as.CampaignSetComplete)
 	router.HandleFunc("/draft_campaign_sets/", as.DraftCampaignSets)
 	router.HandleFunc("/draft_campaign_sets/{id:[0-9]+}", as.DraftCampaignSet)

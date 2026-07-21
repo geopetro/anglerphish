@@ -33,13 +33,14 @@ type Reports struct {
 
 // OIDC holds optional OpenID Connect settings for admin UI login.
 type OIDC struct {
-	Enabled           bool   `json:"enabled"`
-	Issuer            string `json:"issuer"`
-	ClientID          string `json:"client_id"`
-	RedirectURL       string `json:"redirect_url"`
-	RequiredGroup     string `json:"required_group"`
-	GroupsClaim       string `json:"groups_claim"`
-	UsernameFromEmail string `json:"username_from_email"`
+	Enabled              bool   `json:"enabled"`
+	Issuer               string `json:"issuer"`
+	ClientID             string `json:"client_id"`
+	RedirectURL          string `json:"redirect_url"`
+	RequiredGroup        string `json:"required_group"`
+	GroupsClaim          string `json:"groups_claim"`
+	UsernameFromEmail    string `json:"username_from_email"`
+	AllowUnverifiedEmail bool   `json:"allow_unverified_email"`
 }
 
 // Config represents the configuration information.

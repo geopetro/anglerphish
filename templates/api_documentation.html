@@ -183,6 +183,11 @@ Response: 201 Created
             </div>
 
             <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/campaign_sets/:id/summary</strong>
+                <p>Returns a summary of a single campaign set, including per-campaign statistics and set-wide rollups. The <code>stats</code> object sums figures across all campaigns (a recipient in two campaigns counts twice), while <code>unique_stats</code> deduplicates by contact across the set.</p>
+            </div>
+
+            <div class="endpoint-doc">
                 <strong><span class="label label-danger">DELETE</span> /api/campaign_sets/:id</strong>
                 <p>Deletes a campaign set.</p>
             </div>

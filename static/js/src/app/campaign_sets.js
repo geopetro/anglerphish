@@ -4,6 +4,133 @@
 var urlTemplates = [];
 var currentUrlFieldTarget = null; // Track which URL field triggered the template modal
 
+// Cache of per-campaign stats from the set summary endpoint, keyed by campaign
+// id. Lets showCampaignSummary render target counts without its own API call.
+var campaignSetSummaryById = {};
+
+// The most recent set summary, retained so the Totals/Unique toggle can
+// re-render without refetching.
+var currentSetSummary = null;
+
+// Renders the Overview funnel for one of the two stat modes.
+//
+// Sent → Opened → Clicked → Submitted is a funnel: each stage is a subset of
+// the one before, so a shared track whose full width is the contact count shows
+// drop-off directly. Replied and Reported are not funnel stages — Reported is
+// the metric where a target caught the phish — so they sit below a rule as
+// separate signals.
+//
+// "totals" sums across campaigns (someone in two campaigns counts twice);
+// "unique" dedups by contact. The base (100% of the track) is that mode's total.
+function renderOverviewKpis(summary, mode) {
+    var stats = mode === "unique" ? summary.unique_stats : summary.stats;
+    var base = stats.total || 0;
+    var contactWord = mode === "unique" ? "unique contacts" : "targets";
+
+    var stages = [
+        { value: stats.sent, label: "Sent", icon: "fa-envelope-o", color: "cs-stat-sent", hex: "#1abc9c" },
+        { value: stats.opened, label: "Opened", icon: "fa-envelope-open-o", color: "cs-stat-opened", hex: "#f9bf3b" },
+        { value: stats.clicked, label: "Clicked", icon: "fa-mouse-pointer", color: "cs-stat-clicked", hex: "#F39C12" },
+        { value: stats.submitted_data, label: "Submitted", icon: "fa-exclamation-circle", color: "cs-stat-submitted", hex: "#f05b4f", outcome: true }
+    ];
+    var signals = [
+        { value: stats.replied, label: "Replied", icon: "fa-reply", color: "cs-stat-replied", hex: "#E67E22" },
+        { value: stats.email_reported, label: "Reported", icon: "fa-bullhorn", color: "cs-stat-reported", hex: "#45d6ef", good: true }
+    ];
+
+    function row(item) {
+        var v = item.value || 0;
+        var pct = base > 0 ? (v / base) * 100 : 0;
+        var width = Math.max(0, Math.min(100, pct));
+        // Zero rows show a hairline tick and an em dash, so an empty set reads as
+        // "nothing yet" rather than a broken wall of zeros.
+        var fill = v > 0
+            ? '<span class="cs-fn-fill" style="width:' + width.toFixed(1) + '%;background:' + item.hex + '"></span>'
+            : '<span class="cs-fn-zero"></span>';
+        var pctLabel = (base > 0 && v > 0) ? (pct < 1 ? pct.toFixed(1) : Math.round(pct)) + "%" : "—";
+        var nCls = "cs-fn-n" + (item.outcome ? " cs-fn-n-outcome" : "") + (item.good ? " cs-fn-n-good" : "");
+        return '<div class="cs-fn-row">' +
+            '<div class="cs-fn-label"><i class="fa ' + item.icon + ' ' + item.color + '"></i>' + item.label + '</div>' +
+            '<div class="cs-fn-track">' + fill + '</div>' +
+            '<div class="' + nCls + '">' + v + '</div>' +
+            '<div class="cs-fn-pct">' + pctLabel + '</div>' +
+            '</div>';
+    }
+
+    var html = '<div class="cs-fn-scale"><span>Progression of ' + contactWord + '</span>' +
+        '<span>' + base + ' ' + contactWord + '</span></div>';
+    html += stages.map(row).join("");
+    html += '<hr class="cs-fn-rule">';
+    html += '<div class="cs-fn-sig-hd">Signals</div>';
+    html += signals.map(row).join("");
+
+    $("#overviewKpis").html(html);
+}
+
+// Renders the whole Overview tab from a campaign set summary response.
+function renderCampaignSetOverview(summary) {
+    currentSetSummary = summary;
+
+    var launched = summary.launch_date && summary.launch_date !== "0001-01-01T00:00:00Z"
+        ? moment(summary.launch_date).format("MMM Do YYYY, h:mm a")
+        : "Not scheduled";
+    var sendBy = summary.send_by_date && summary.send_by_date !== "0001-01-01T00:00:00Z"
+        ? " · Send by " + moment(summary.send_by_date).format("MMM Do YYYY, h:mm a")
+        : "";
+
+    $("#overviewHeader").html(
+        '<span class="cs-overview-title">' + escapeHtml(summary.name) + '</span>' +
+        '<span class="label label-default">' + escapeHtml(summary.status || "Unknown") + '</span>' +
+        '<div class="cs-overview-meta">' +
+        summary.campaign_count + ' campaign' + (summary.campaign_count === 1 ? '' : 's') +
+        ' · Launched ' + launched + sendBy +
+        '</div>'
+    );
+
+    // Reset the toggle to Totals on every open.
+    $("#overviewStatsToggle button").removeClass("active btn-primary").addClass("btn-default");
+    $('#overviewStatsToggle button[data-mode="totals"]').addClass("active btn-primary").removeClass("btn-default");
+    renderOverviewKpis(summary, "totals");
+
+    // Initialize the stats info tooltip. This is static template markup, so there
+    // is no page-load init for it; init here (idempotent) when the tab is populated.
+    $("#overviewStatsInfo").tooltip();
+
+    var rows = "";
+    (summary.campaigns || []).forEach(function (campaign) {
+        var stats = campaign.stats || {};
+        var isEmail = campaign.type === "email";
+        rows += '<tr>' +
+            '<td><div class="cs-overview-campaign-name" title="' + escapeHtml(campaign.name) + '">' +
+            '<i class="fa ' + (isEmail ? "fa-envelope" : "fa-mobile") + '"></i> ' +
+            escapeHtml(campaign.name) + '</div></td>' +
+            '<td>' + escapeHtml(campaign.status || "") + '</td>' +
+            '<td class="text-right">' + (stats.total || 0) + '</td>' +
+            '<td class="text-right">' + (stats.sent || 0) + '</td>' +
+            '<td class="text-right">' + (isEmail ? (stats.opened || 0) : "—") + '</td>' +
+            '<td class="text-right">' + (stats.clicked || 0) + '</td>' +
+            '<td class="text-right">' + (isEmail ? (stats.replied || 0) : "—") + '</td>' +
+            '<td class="text-right">' + (stats.submitted_data || 0) + '</td>' +
+            '<td class="text-right">' + (isEmail ? (stats.email_reported || 0) : "—") + '</td>' +
+            '<td class="text-right"><a class="btn btn-xs btn-primary" href="/campaigns/' + campaign.id + '">' +
+            '<i class="fa fa-bar-chart"></i></a></td>' +
+            '</tr>';
+    });
+    $("#overviewBreakdown tbody").html(rows);
+}
+
+// Toggle handler — bound once at load, not per modal open, to avoid stacking
+// duplicate handlers each time a set is viewed.
+$(document).on("click", "#overviewStatsToggle button", function () {
+    if (!currentSetSummary) {
+        return;
+    }
+    var mode = $(this).data("mode");
+    $("#overviewStatsToggle button").removeClass("active btn-primary").addClass("btn-default");
+    $(this).addClass("active btn-primary").removeClass("btn-default");
+    renderOverviewKpis(currentSetSummary, mode);
+});
+
 // Calculate and display URL length with parameter and RID
 function updateURLLengthIndicator(urlFieldId, urlParamFieldId, indicatorId) {
     var url = $(urlFieldId).val();
@@ -2848,6 +2975,10 @@ function viewCampaignSet(id) {
         $(".nav-tabs a[href='#campaignsTab']").parent().show();
         // Restore any campaign summaries that might have been added
         $(".campaign-summary").remove();
+        $("#overviewTabNav").hide().removeClass("active");
+        $("#overviewTab").removeClass("active");
+        currentSetSummary = null;
+        campaignSetSummaryById = {};
     });
 
     // Get the campaign set
@@ -2898,11 +3029,14 @@ function viewCampaignSet(id) {
                 $("#modal").data("campaignSetId", cs.id);
 
                 // Clear and reset the modal content
+                // Show Overview + Campaigns, hide General Settings, default to Overview.
                 $("#sharedSettingsSection").hide();
-                $(".nav-tabs a[href='#generalSettings']").parent().hide(); // Hide general settings tab
-                $(".nav-tabs a[href='#campaignsTab']").parent().addClass("active"); // Make campaigns tab active
-                $("#generalSettings").removeClass("active"); // Remove active class from generalSettings
-                $("#campaignsTab").addClass("active"); // Add active class to campaignsTab
+                $(".nav-tabs a[href='#generalSettings']").parent().hide();
+                $("#overviewTabNav").show().addClass("active");
+                $(".nav-tabs a[href='#campaignsTab']").parent().removeClass("active");
+                $("#generalSettings").removeClass("active");
+                $("#campaignsTab").removeClass("active");
+                $("#overviewTab").addClass("active");
                 $("#campaignDetail").empty();
                 $("#campaignList").empty();
                 
@@ -2959,43 +3093,57 @@ function viewCampaignSet(id) {
                                         </button>
                                     </div>
                                 `);
-                            
-                            // Fetch campaign summary with pre-calculated stats from backend
-                            api.campaignId.summary(campaign.id)
-                                .success(function(campaignSummary) {
-                                    // Show the stats container
-                                    $(`.campaign-list-item[data-index="${i}"] .campaign-stats-container`).show();
-
-                                    // Use the backend's pre-calculated statistics
-                                    const stats = campaignSummary.stats || {
-                                        sent: 0,
-                                        opened: 0,
-                                        clicked: 0,
-                                        submitted_data: 0,
-                                        email_reported: 0,
-                                        replied: 0
-                                    };
-
-                                    // Update the stats in the UI
-                                    $(`.campaign-list-item[data-index="${i}"] .stat-sent`).text(stats.sent);
-                                    
-                                    // Only update email-specific stats if this is an email campaign
-                                    if (campaign.type === "email") {
-                                        $(`.campaign-list-item[data-index="${i}"] .stat-opened`).text(stats.opened);
-                                        $(`.campaign-list-item[data-index="${i}"] .stat-reported`).text(stats.email_reported);
-                                        $(`.campaign-list-item[data-index="${i}"] .stat-replied`).text(stats.replied || 0);
-                                    }
-                                    
-                                    // These stats apply to both email and SMS
-                                    $(`.campaign-list-item[data-index="${i}"] .stat-clicked`).text(stats.clicked);
-                                    $(`.campaign-list-item[data-index="${i}"] .stat-submitted`).text(stats.submitted_data);
-                                })
-                                .error(function() {
-                                    console.error(`Error fetching campaign summary for campaign ${campaign.id}`);
-                                });
                         }
                     });
-                    
+
+                    // One request supplies the Overview tab AND every list badge,
+                    // replacing the previous per-campaign summary calls.
+                    api.campaignSetId.summary(cs.id)
+                        .success(function (summary) {
+                            renderCampaignSetOverview(summary);
+
+                            campaignSetSummaryById = {};
+                            (summary.campaigns || []).forEach(function (campaign) {
+                                campaignSetSummaryById[campaign.id] = campaign;
+                            });
+
+                            // Fill the left-hand list badges from the same payload.
+                            $(".campaign-list-item").each(function () {
+                                var $item = $(this);
+                                var campaign = campaignSetSummaryById[$item.data("campaign-id")];
+                                if (!campaign) {
+                                    return;
+                                }
+                                var stats = campaign.stats || {};
+                                $item.find(".campaign-stats-container").show();
+                                $item.find(".stat-sent").text(stats.sent || 0);
+                                $item.find(".stat-clicked").text(stats.clicked || 0);
+                                $item.find(".stat-submitted").text(stats.submitted_data || 0);
+                                if (campaign.type === "email") {
+                                    $item.find(".stat-opened").text(stats.opened || 0);
+                                    $item.find(".stat-reported").text(stats.email_reported || 0);
+                                    $item.find(".stat-replied").text(stats.replied || 0);
+                                }
+                            });
+
+                            // The detail panel was already rendered (synchronously, from
+                            // cs.campaigns.forEach's .first().trigger("click")) before this
+                            // summary response arrived, so its targets count was written as
+                            // "Unavailable". Now that campaignSetSummaryById is populated,
+                            // re-render whichever campaign is currently selected so its
+                            // targets count fills in. showCampaignSummary() removes any
+                            // existing ".campaign-summary" before appending a new one, so this
+                            // re-invoke replaces the stale panel rather than stacking a second.
+                            const $activeItem = $(".campaign-list-item.active");
+                            if ($activeItem.length) {
+                                const activeIndex = $activeItem.data("index");
+                                showCampaignSummary(cs.campaigns[activeIndex], activeIndex, cs.use_shared_settings, cs.id, cs.campaigns.length === 1);
+                            }
+                        })
+                        .error(function () {
+                            $("#overviewHeader").html('<div class="alert alert-warning">Could not load the campaign set overview.</div>');
+                        });
+
                     // Add click handler to campaign list items
                     $(".campaign-list-item").on("click", function(e) {
                         e.preventDefault();
@@ -3220,25 +3368,15 @@ function showCampaignSummary(campaign, index, useSharedSettings, campaignSetId, 
         }
     }
     
-    // Fetch campaign results to show total targets
+    // Targets come from the set summary already in memory. getCampaignStats
+    // computes this as len(results), which is exactly what the old
+    // api.campaignId.results(...).length call was measuring — so this is the
+    // same number without the request.
     if (campaign.id) {
-        // Add a placeholder for targets that will be filled when results are fetched
-        summaryContent += `<strong>Targets:</strong> <span id="targets_count_${index}">Loading...</span><br>`;
-        
-        api.campaignId.results(campaign.id)
-            .success(function(campaignResults) {
-                // Get total count of results
-                let totalTargets = 0;
-                if (campaignResults.results) {
-                    totalTargets = campaignResults.results.length;
-                }
-                
-                // Update the targets count
-                $(`#targets_count_${index}`).text(`${totalTargets} total targets`);
-            })
-            .error(function(error) {
-                $(`#targets_count_${index}`).text("Could not load targets");
-            });
+        var cached = campaignSetSummaryById[campaign.id];
+        var totalTargets = cached && cached.stats ? cached.stats.total : null;
+        summaryContent += "<strong>Targets:</strong> " +
+            (totalTargets === null ? "Unavailable" : totalTargets + " total targets") + "<br>";
     }
     
     // Landing page

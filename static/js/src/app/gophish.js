@@ -403,6 +403,10 @@ var api = {
         get: function (id) {
             return query("/campaign_sets/" + id, "GET", {}, true)
         },
+        // summary() - Queries the API for GET /campaign_sets/:id/summary
+        summary: function (id) {
+            return query("/campaign_sets/" + id + "/summary", "GET", {}, true)
+        },
         // put() - Updates a campaign set at PUT /campaign_sets/:id
         put: function (id, campaignSet) {
             return query("/campaign_sets/" + id, "PUT", campaignSet, false)
@@ -604,4 +608,29 @@ $(document).ready(function () {
     $.fn.dataTable.moment('MMMM Do YYYY, h:mm:ss a');
     // Setup tooltips
     $('[data-toggle="tooltip"]').tooltip()
+
+    // Remember the last-selected tab on each page-level tab bar, per browser.
+    // Modal tab bars are skipped on purpose: they're transient, and some (e.g.
+    // the campaign-set modal) reset their tabs intentionally.
+    $(".nav-tabs").not(".modal .nav-tabs").each(function (i) {
+        var $bar = $(this);
+        var key = "gophish.tab:" + location.pathname + ":" + i;
+
+        // An explicit #hash pointing at a tab in this bar wins over the saved one.
+        var hashWins = location.hash && $bar.find('a[href="' + location.hash + '"]').length;
+        if (!hashWins) {
+            try {
+                var saved = localStorage.getItem(key);
+                if (saved && $bar.find('a[href="' + saved + '"]').length) {
+                    $bar.find('a[href="' + saved + '"]').tab("show");
+                }
+            } catch (e) { /* localStorage unavailable (e.g. private mode) */ }
+        }
+
+        $bar.on("shown.bs.tab", 'a[data-toggle="tab"]', function (e) {
+            try {
+                localStorage.setItem(key, $(e.target).attr("href"));
+            } catch (err) { /* localStorage unavailable */ }
+        });
+    });
 });

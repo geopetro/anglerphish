@@ -30,7 +30,9 @@
     flex-wrap: wrap;
     align-items: center;
     padding: 10px 15px;
-    border-left: 3px solid transparent;
+    /* Must match the active state's border width so selecting an item does not
+       shift its content by 1px. */
+    border-left: 4px solid transparent;
     cursor: pointer;
 }
 
@@ -143,6 +145,10 @@
 /* Campaign Detail Panel */
 .campaign-detail-panel {
     padding: 15px;
+    /* Long unbroken URLs must wrap rather than stretch the flex panel */
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 .campaign-detail-actions {
@@ -330,4 +336,165 @@
     display: inline-block;
     margin-right: 10px;
     vertical-align: middle;
+}
+
+/* ── Campaign Set Overview Tab ── */
+
+.cs-overview-header {
+    margin-bottom: 16px;
+}
+
+.cs-overview-header .cs-overview-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-right: 8px;
+}
+
+.cs-overview-header .cs-overview-meta {
+    color: #777;
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+.cs-overview-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.cs-overview-info {
+    font-size: 14px;
+}
+
+/* ── Overview funnel ──
+   Sent/Opened/Clicked/Submitted share one track whose full width is the
+   contact count, so the narrowing reads as drop-off. Replied/Reported sit
+   below the rule as non-funnel signals. */
+.cs-funnel {
+    margin-bottom: 20px;
+}
+
+.cs-fn-scale {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #8a94a0;
+    margin-bottom: 8px;
+}
+
+.cs-fn-row {
+    display: grid;
+    grid-template-columns: 108px minmax(120px, 1fr) 56px 50px;
+    align-items: center;
+    gap: 12px;
+    padding: 5px 0;
+}
+
+.cs-fn-label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    color: #52616f;
+}
+
+.cs-fn-label i {
+    width: 14px;
+    text-align: center;
+}
+
+.cs-fn-track {
+    position: relative;
+    height: 20px;
+    background: #eceff2;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.cs-fn-fill {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+}
+
+.cs-fn-zero {
+    position: absolute;
+    left: 0;
+    top: 3px;
+    bottom: 3px;
+    width: 2px;
+    background: #cfd6dc;
+    border-radius: 2px;
+}
+
+.cs-fn-n {
+    text-align: right;
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #1f2933;
+}
+
+.cs-fn-n-outcome {
+    color: #f05b4f;
+}
+
+.cs-fn-n-good {
+    color: #45d6ef;
+}
+
+.cs-fn-pct {
+    text-align: right;
+    font-size: 12.5px;
+    color: #8a94a0;
+    font-variant-numeric: tabular-nums;
+}
+
+.cs-fn-rule {
+    height: 1px;
+    background: #e3e7eb;
+    border: 0;
+    margin: 12px 0 8px;
+}
+
+.cs-fn-sig-hd {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8a94a0;
+    margin-bottom: 2px;
+}
+
+/* Stat colour coding — same hues as the campaign-stat badges in the Campaigns
+   tab, reused for the funnel row icons and the breakdown table headers. */
+.cs-stat-total     { color: #95a5a6; }
+.cs-stat-sent      { color: #1abc9c; }
+.cs-stat-opened    { color: #f9bf3b; }
+.cs-stat-clicked   { color: #F39C12; }
+.cs-stat-replied   { color: #E67E22; }
+.cs-stat-submitted { color: #f05b4f; }
+.cs-stat-reported  { color: #45d6ef; }
+
+.cs-overview-table {
+    font-size: 13px;
+}
+
+.cs-overview-table td,
+.cs-overview-table th {
+    vertical-align: middle;
+}
+
+/* Long campaign names must not stretch the table */
+.cs-overview-table .cs-overview-campaign-name {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
