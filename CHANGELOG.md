@@ -8,6 +8,8 @@ All notable changes to Anglerphish are documented here.
 
 ### Added
 - **Admin SSO (OIDC)** - Optional OIDC login for the admin UI. Users in a configured IdP group are mapped to pre-provisioned local accounts. The `admin` account retains password login as a break-glass fallback. *(contributed by [@audrey0042](https://github.com/audrey0042))*
+- **Message viewer in the IMAP Monitor** - Reported emails can be read in-app. Message bodies are not stored: they are fetched from the mailbox on demand by UID (with a Message-ID fallback) and rendered in a sandboxed iframe with an independent CSP, remote images off by default and links neutralized. Reports created before this release show a disabled View button.
+- **Replies tab in the IMAP Monitor** - Replies to simulated phishing emails are listed with their captured content, filterable by campaign. Capture is controlled per IMAP configuration by the new "Store Reply Content" setting (on by default, reply tracking only); content is capped at 256KB and encrypted at rest alongside the rest of the event details.
 
 ### Fixed
 - Fixed: IMAP `RestrictDomain` never matched senders whose From header included
