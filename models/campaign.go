@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"math/rand"
 	"net/url"
 	"time"
 
@@ -13,33 +14,34 @@ import (
 
 // Campaign is a struct representing a created campaign
 type Campaign struct {
-	Id            int64       `json:"id"`
-	UserId        int64       `json:"-"`
-	Name          string      `json:"name" sql:"not null"`
-	CreatedDate   time.Time   `json:"created_date"`
-	LaunchDate    time.Time   `json:"launch_date"`
-	SendByDate    time.Time   `json:"send_by_date"`
-	CompletedDate time.Time   `json:"completed_date"`
-	Type          string      `json:"type" sql:"default:'email'"`
-	TemplateId    int64       `json:"-"`
-	Template      Template    `json:"template"`
-	SMSTemplateId int64       `json:"-"`
-	SMSTemplate   SMSTemplate `json:"sms_template,omitempty"`
-	PageId        int64       `json:"-"`
-	Page          Page        `json:"page"`
-	Status        string      `json:"status"`
-	Results       []Result    `json:"results,omitempty"`
-	Groups        []Group     `json:"groups,omitempty"`
-	Events        []Event     `json:"timeline,omitempty"`
-	SMTPId        int64       `json:"-"`
-	SMTP          SMTP        `json:"smtp"`
-	SMSId         int64       `json:"-"`
-	SMS           SMS         `json:"sms,omitempty"`
-	URL           string      `json:"url"`
-	URLParam      string      `json:"urlparam" sql:"column:url_param"`
-	QRSize        string      `json:"qrsize" sql:"column:qr_size"`
-	HTTPAuth      bool        `json:"basicauth" sql:"column:http_auth"`
-	CampaignSetId int64       `json:"campaign_set_id,omitempty"`
+	Id                 int64       `json:"id"`
+	UserId             int64       `json:"-"`
+	Name               string      `json:"name" sql:"not null"`
+	CreatedDate        time.Time   `json:"created_date"`
+	LaunchDate         time.Time   `json:"launch_date"`
+	SendByDate         time.Time   `json:"send_by_date"`
+	CompletedDate      time.Time   `json:"completed_date"`
+	Type               string      `json:"type" sql:"default:'email'"`
+	TemplateId         int64       `json:"-"`
+	Template           Template    `json:"template"`
+	SMSTemplateId      int64       `json:"-"`
+	SMSTemplate        SMSTemplate `json:"sms_template,omitempty"`
+	PageId             int64       `json:"-"`
+	Page               Page        `json:"page"`
+	Status             string      `json:"status"`
+	Results            []Result    `json:"results,omitempty"`
+	Groups             []Group     `json:"groups,omitempty"`
+	Events             []Event     `json:"timeline,omitempty"`
+	SMTPId             int64       `json:"-"`
+	SMTP               SMTP        `json:"smtp"`
+	SMSId              int64       `json:"-"`
+	SMS                SMS         `json:"sms,omitempty"`
+	URL                string      `json:"url"`
+	URLParam           string      `json:"urlparam" sql:"column:url_param"`
+	QRSize             string      `json:"qrsize" sql:"column:qr_size"`
+	HTTPAuth           bool        `json:"basicauth" sql:"column:http_auth"`
+	CampaignSetId      int64       `json:"campaign_set_id,omitempty"`
+	RandomizeSendOrder bool        `json:"randomize_send_order" sql:"default:false"`
 }
 
 // CampaignResults is a struct representing the results from a campaign
@@ -930,12 +932,12 @@ func PostCampaign(c *Campaign, uid int64) error {
 		log.Error(err)
 	}
 
-	// Insert all the results
+	// Collect all the unique targets across the campaign's groups. We
+	// deduplicate here so that the recipient index (and therefore the
+	// send date) is only assigned once per unique recipient.
 	resultMap := make(map[string]bool)
-	recipientIndex := 0
-	tx := db.Begin()
+	targets := []Target{}
 	for _, g := range c.Groups {
-		// Insert a result for each target in the group
 		for _, t := range g.Targets {
 			// Remove duplicate results - we should only
 			// send messages to unique addresses.
@@ -950,86 +952,101 @@ func PostCampaign(c *Campaign, uid int64) error {
 				continue
 			}
 			resultMap[dedupKey] = true
-			sendDate := c.generateSendDate(recipientIndex, totalRecipients)
-			r := &Result{
-				BaseRecipient: BaseRecipient{
-					Email:     t.Email,
-					Phone:     t.Phone,
-					Position:  t.Position,
-					FirstName: t.FirstName,
-					LastName:  t.LastName,
-					Custom:    t.Custom,
-				},
-				Status:       StatusScheduled,
-				CampaignId:   c.Id,
-				UserId:       c.UserId,
-				SendDate:     sendDate,
-				Reported:     false,
-				ModifiedDate: c.CreatedDate,
-				SMSTarget:    c.Type == "sms",
-			}
+			targets = append(targets, t)
+		}
+	}
 
-			// For SMS campaigns, we require the Phone field to be set
-			// We no longer use the Email field to store phone numbers
-			err = r.GenerateId(tx)
+	// If requested, randomize the order in which recipients are sent
+	// messages, rather than the default order derived from the groups.
+	if c.RandomizeSendOrder {
+		rand.Shuffle(len(targets), func(i, j int) {
+			targets[i], targets[j] = targets[j], targets[i]
+		})
+	}
+
+	// Insert all the results
+	recipientIndex := 0
+	tx := db.Begin()
+	for _, t := range targets {
+		sendDate := c.generateSendDate(recipientIndex, totalRecipients)
+		r := &Result{
+			BaseRecipient: BaseRecipient{
+				Email:     t.Email,
+				Phone:     t.Phone,
+				Position:  t.Position,
+				FirstName: t.FirstName,
+				LastName:  t.LastName,
+				Custom:    t.Custom,
+			},
+			Status:       StatusScheduled,
+			CampaignId:   c.Id,
+			UserId:       c.UserId,
+			SendDate:     sendDate,
+			Reported:     false,
+			ModifiedDate: c.CreatedDate,
+			SMSTarget:    c.Type == "sms",
+		}
+
+		// For SMS campaigns, we require the Phone field to be set
+		// We no longer use the Email field to store phone numbers
+		err = r.GenerateId(tx)
+		if err != nil {
+			log.Error(err)
+			tx.Rollback()
+			return err
+		}
+		processing := false
+		if r.SendDate.Before(c.CreatedDate) || r.SendDate.Equal(c.CreatedDate) {
+			r.Status = StatusSending
+			processing = true
+		}
+		err = tx.Save(r).Error
+		if err != nil {
+			log.WithFields(logrus.Fields{
+				"email": t.Email,
+			}).Errorf("error creating result: %v", err)
+			tx.Rollback()
+			return err
+		}
+		c.Results = append(c.Results, *r)
+
+		// Create the appropriate log entry based on campaign type
+		if c.Type == "sms" {
+			// Create SMS log entry
+			s := &SMSLog{
+				UserId:     c.UserId,
+				CampaignId: c.Id,
+				RId:        r.RId,
+				SendDate:   sendDate,
+				Processing: processing,
+			}
+			err = tx.Save(s).Error
 			if err != nil {
-				log.Error(err)
+				log.WithFields(logrus.Fields{
+					"phone": t.Email, // Phone number is stored in Email field
+				}).Errorf("error creating smslog entry: %v", err)
 				tx.Rollback()
 				return err
 			}
-			processing := false
-			if r.SendDate.Before(c.CreatedDate) || r.SendDate.Equal(c.CreatedDate) {
-				r.Status = StatusSending
-				processing = true
+		} else {
+			// Create mail log entry
+			m := &MailLog{
+				UserId:     c.UserId,
+				CampaignId: c.Id,
+				RId:        r.RId,
+				SendDate:   sendDate,
+				Processing: processing,
 			}
-			err = tx.Save(r).Error
+			err = tx.Save(m).Error
 			if err != nil {
 				log.WithFields(logrus.Fields{
 					"email": t.Email,
-				}).Errorf("error creating result: %v", err)
+				}).Errorf("error creating maillog entry: %v", err)
 				tx.Rollback()
 				return err
 			}
-			c.Results = append(c.Results, *r)
-
-			// Create the appropriate log entry based on campaign type
-			if c.Type == "sms" {
-				// Create SMS log entry
-				s := &SMSLog{
-					UserId:     c.UserId,
-					CampaignId: c.Id,
-					RId:        r.RId,
-					SendDate:   sendDate,
-					Processing: processing,
-				}
-				err = tx.Save(s).Error
-				if err != nil {
-					log.WithFields(logrus.Fields{
-						"phone": t.Email, // Phone number is stored in Email field
-					}).Errorf("error creating smslog entry: %v", err)
-					tx.Rollback()
-					return err
-				}
-			} else {
-				// Create mail log entry
-				m := &MailLog{
-					UserId:     c.UserId,
-					CampaignId: c.Id,
-					RId:        r.RId,
-					SendDate:   sendDate,
-					Processing: processing,
-				}
-				err = tx.Save(m).Error
-				if err != nil {
-					log.WithFields(logrus.Fields{
-						"email": t.Email,
-					}).Errorf("error creating maillog entry: %v", err)
-					tx.Rollback()
-					return err
-				}
-			}
-			recipientIndex++
 		}
+		recipientIndex++
 	}
 	return tx.Commit().Error
 }

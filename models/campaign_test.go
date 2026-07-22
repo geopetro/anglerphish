@@ -257,6 +257,55 @@ func (s *ModelsSuite) TestCampaignDefaultURLParam(c *check.C) {
 	c.Assert(RecipientParameter, check.Equals, "rid")
 }
 
+func (s *ModelsSuite) TestCampaignSendOrderNotRandomized(c *check.C) {
+	// With RandomizeSendOrder left at its default (false), recipients must
+	// be scheduled in exactly the order they appear in the group's targets.
+	campaign := s.createCampaignDependencies(c)
+	campaign.LaunchDate = time.Now().UTC()
+	campaign.SendByDate = campaign.LaunchDate.Add(4 * time.Minute)
+
+	err := PostCampaign(&campaign, campaign.UserId)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(len(campaign.Results), check.Equals, 4)
+
+	expectedOrder := []string{"test1@example.com", "test2@example.com", "test3@example.com", "test4@example.com"}
+	for i, r := range campaign.Results {
+		c.Assert(r.Email, check.Equals, expectedOrder[i])
+	}
+
+	// The send dates should be staggered in the same, non-decreasing order.
+	for i := 1; i < len(campaign.Results); i++ {
+		c.Assert(campaign.Results[i].SendDate.Before(campaign.Results[i-1].SendDate), check.Equals, false)
+	}
+}
+
+func (s *ModelsSuite) TestCampaignRandomizeSendOrder(c *check.C) {
+	// With RandomizeSendOrder enabled, the recipient -> send date mapping
+	// should not always follow the group's target order across multiple
+	// campaigns using the same targets.
+	baselineOrder := []string{"test1@example.com", "test2@example.com", "test3@example.com", "test4@example.com"}
+
+	sawDifferentOrder := false
+	for i := 0; i < 25 && !sawDifferentOrder; i++ {
+		campaign := s.createCampaignDependencies(c)
+		campaign.RandomizeSendOrder = true
+		campaign.LaunchDate = time.Now().UTC()
+		campaign.SendByDate = campaign.LaunchDate.Add(4 * time.Minute)
+
+		err := PostCampaign(&campaign, campaign.UserId)
+		c.Assert(err, check.Equals, nil)
+		c.Assert(len(campaign.Results), check.Equals, 4)
+
+		for j, r := range campaign.Results {
+			if r.Email != baselineOrder[j] {
+				sawDifferentOrder = true
+				break
+			}
+		}
+	}
+	c.Assert(sawDifferentOrder, check.Equals, true)
+}
+
 func (s *ModelsSuite) TestGetCampaignMailContext(c *check.C) {
 	// Test the GetCampaignMailContext function
 	campaign := s.createCampaign(c)
