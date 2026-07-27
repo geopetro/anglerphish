@@ -554,12 +554,12 @@ var api = {
 }
 window.api = api
 
-// Global function to apply theme (supports: 'default', 'dark-teal', 'dark-crimson')
+// Global function to apply theme (supports: 'default', 'dark-teal', 'dark-crimson', 'goldphish', 'lagocephalus', 'light-sand', 'matrix')
 function applyTheme(theme) {
     // Remove all theme classes first
-    document.body.classList.remove('dark-theme', 'crimson-theme');
-    document.documentElement.classList.remove('dark-theme', 'crimson-theme');
-    
+    document.body.classList.remove('dark-theme', 'crimson-theme', 'goldphish-theme', 'lagocephalus-theme', 'light-sand-theme', 'matrix-theme');
+    document.documentElement.classList.remove('dark-theme', 'crimson-theme', 'goldphish-theme', 'lagocephalus-theme', 'light-sand-theme', 'matrix-theme');
+
     // Apply the selected theme
     if (theme === 'dark-teal') {
         document.body.classList.add('dark-theme');
@@ -567,6 +567,18 @@ function applyTheme(theme) {
     } else if (theme === 'dark-crimson') {
         document.body.classList.add('crimson-theme');
         document.documentElement.classList.add('crimson-theme');
+    } else if (theme === 'goldphish') {
+        document.body.classList.add('goldphish-theme');
+        document.documentElement.classList.add('goldphish-theme');
+    } else if (theme === 'lagocephalus') {
+        document.body.classList.add('lagocephalus-theme');
+        document.documentElement.classList.add('lagocephalus-theme');
+    } else if (theme === 'light-sand') {
+        document.body.classList.add('light-sand-theme');
+        document.documentElement.classList.add('light-sand-theme');
+    } else if (theme === 'matrix') {
+        document.body.classList.add('matrix-theme');
+        document.documentElement.classList.add('matrix-theme');
     }
     // 'default' theme has no classes, so light theme is shown
 }
@@ -616,21 +628,31 @@ $(document).ready(function () {
         var $bar = $(this);
         var key = "gophish.tab:" + location.pathname + ":" + i;
 
+        // Save on switch. Bound now so it captures user tab changes immediately.
+        $bar.on("shown.bs.tab", 'a[data-toggle="tab"]', function (e) {
+            try {
+                localStorage.setItem(key, $(e.target).attr("href"));
+            } catch (err) { /* localStorage unavailable */ }
+        });
+
         // An explicit #hash pointing at a tab in this bar wins over the saved one.
         var hashWins = location.hash && $bar.find('a[href="' + location.hash + '"]').length;
-        if (!hashWins) {
+        if (hashWins) {
+            return;
+        }
+
+        // Restore is deferred one tick on purpose. gophish.js loads before each
+        // page's own script, so a page's shown.bs.tab content-loader (e.g. the
+        // IMAP monitor's Replies tab calling loadReplies) isn't bound yet during
+        // this ready callback. Deferring lets those handlers bind first, so
+        // .tab("show") triggers them and the restored tab's content loads.
+        setTimeout(function () {
             try {
                 var saved = localStorage.getItem(key);
                 if (saved && $bar.find('a[href="' + saved + '"]').length) {
                     $bar.find('a[href="' + saved + '"]').tab("show");
                 }
             } catch (e) { /* localStorage unavailable (e.g. private mode) */ }
-        }
-
-        $bar.on("shown.bs.tab", 'a[data-toggle="tab"]', function (e) {
-            try {
-                localStorage.setItem(key, $(e.target).attr("href"));
-            } catch (err) { /* localStorage unavailable */ }
-        });
+        }, 0);
     });
 });
