@@ -10,6 +10,9 @@
         <button type="button" class="btn btn-primary" data-toggle="modal" data-backdrop="static" data-target="#modal"
             onclick="edit('new')">
             <i class="fa fa-plus"></i> New Campaign</button>
+        <button type="button" class="btn btn-success" id="completeSelectedCampaigns" style="display:none; margin-left: 10px;"
+            onclick="completeSelectedCampaigns()">
+            <i class="fa fa-check"></i> Complete Selected (<span id="selectedCompleteCount">0</span>)</button>
         <button type="button" class="btn btn-danger" id="deleteSelectedCampaigns" style="display:none; margin-left: 10px;"
             onclick="deleteSelectedCampaigns()">
             <i class="fa fa-trash-o"></i> Delete Selected (<span id="selectedCount">0</span>)</button>
