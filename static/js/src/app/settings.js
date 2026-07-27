@@ -73,6 +73,7 @@ $(document).ready(function () {
         $('#use_tls').prop('checked', true);
         $('#ignorecerterrors').prop('checked', false);
         $('#deletecampaign').prop('checked', true);
+        $('#capture_reply_body').prop('checked', true);
         $("#imapfreq").val("60");
         $("#folder").val("INBOX");
         imapModal.modal('show');
@@ -169,6 +170,7 @@ $(document).ready(function () {
         imapSettings.ignore_cert_errors = $('#ignorecerterrors').prop('checked');
         imapSettings.delete_reported_campaign_email = $('#deletecampaign').prop('checked');
         imapSettings.tracking_type = parseInt($("#trackingtype").val());
+        imapSettings.capture_reply_body = $('#capture_reply_body').prop('checked');
         
         // Basic validation
         if (imapSettings.name == "") {
@@ -274,6 +276,7 @@ $(document).ready(function () {
             $('#deletecampaign').prop('checked', imap.delete_reported_campaign_email);
             $('#imapfreq').val(imap.imap_freq || "60");
             $('#trackingtype').val(imap.tracking_type || 0);
+            $('#capture_reply_body').prop('checked', imap.capture_reply_body);
             
             // Set the current IMAP ID
             currentIMAPId = imap.id;
@@ -411,9 +414,9 @@ $(document).ready(function () {
     // Apply theme function
     function applyTheme(theme) {
         // Remove all theme classes
-        document.body.classList.remove('dark-theme', 'crimson-theme');
-        document.documentElement.classList.remove('dark-theme', 'crimson-theme');
-        
+        document.body.classList.remove('dark-theme', 'crimson-theme', 'goldphish-theme', 'lagocephalus-theme', 'light-sand-theme', 'matrix-theme');
+        document.documentElement.classList.remove('dark-theme', 'crimson-theme', 'goldphish-theme', 'lagocephalus-theme', 'light-sand-theme', 'matrix-theme');
+
         // Apply the selected theme
         if (theme === 'dark-teal') {
             document.body.classList.add('dark-theme');
@@ -421,6 +424,18 @@ $(document).ready(function () {
         } else if (theme === 'dark-crimson') {
             document.body.classList.add('crimson-theme');
             document.documentElement.classList.add('crimson-theme');
+        } else if (theme === 'goldphish') {
+            document.body.classList.add('goldphish-theme');
+            document.documentElement.classList.add('goldphish-theme');
+        } else if (theme === 'lagocephalus') {
+            document.body.classList.add('lagocephalus-theme');
+            document.documentElement.classList.add('lagocephalus-theme');
+        } else if (theme === 'light-sand') {
+            document.body.classList.add('light-sand-theme');
+            document.documentElement.classList.add('light-sand-theme');
+        } else if (theme === 'matrix') {
+            document.body.classList.add('matrix-theme');
+            document.documentElement.classList.add('matrix-theme');
         }
         // 'default' theme has no classes, so light theme is shown
     }

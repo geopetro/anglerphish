@@ -50,6 +50,13 @@ type CampaignSetSummary struct {
 	Status        string            `json:"status"`
 	CampaignCount int               `json:"campaign_count"`
 	Campaigns     []CampaignSummary `json:"campaigns,omitempty"`
+	// Stats sums the per-campaign figures. A recipient who appears in two
+	// campaigns is counted twice, so this measures sends, not people.
+	Stats CampaignStats `json:"stats"`
+	// UniqueStats dedups by contact identifier across the whole set. Note that
+	// the same human reached by email in one campaign and by phone in another
+	// counts as two contacts.
+	UniqueStats CampaignStats `json:"unique_stats"`
 }
 
 // CampaignSetSummaries is a struct representing the overview of campaign sets
@@ -212,6 +219,95 @@ func GetCampaignSet(id int64, uid int64) (CampaignSet, error) {
 	return cs, nil
 }
 
+// mergeRecipientStats unions src into dst, so that a recipient counts as having
+// taken an action if they took it in any campaign in the set.
+func mergeRecipientStats(dst map[string]recipientFlags, src map[string]recipientFlags) {
+	for email, flags := range src {
+		if dst[email] == nil {
+			dst[email] = newRecipientFlags()
+		}
+		for action, done := range flags {
+			if done {
+				dst[email][action] = true
+			}
+		}
+	}
+}
+
+// loadCampaignSetCampaigns fills in the campaigns, campaign count, and both stat
+// rollups for a campaign set summary.
+//
+// The loop is intentionally serial. Per-campaign stat work is measured in
+// microseconds at realistic set sizes, so concurrency would add race and
+// error-handling risk for no measurable gain.
+func loadCampaignSetCampaigns(css *CampaignSetSummary) error {
+	var campaigns []CampaignSummary
+	query := db.Table("campaigns").Where("campaign_set_id = ?", css.Id)
+	query = query.Select("id, name, type, created_date, launch_date, send_by_date, completed_date, status")
+	if err := query.Scan(&campaigns).Error; err != nil {
+		log.Error(err)
+		return err
+	}
+
+	totals := CampaignStats{}
+	unique := make(map[string]recipientFlags)
+
+	for j := range campaigns {
+		recipientStats, total, err := buildRecipientStats(campaigns[j].Id)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		stats := collapseRecipientStats(recipientStats)
+		stats.Total = total
+		campaigns[j].Stats = stats
+
+		totals.Total += stats.Total
+		totals.EmailsSent += stats.EmailsSent
+		totals.OpenedEmail += stats.OpenedEmail
+		totals.ClickedLink += stats.ClickedLink
+		totals.SubmittedData += stats.SubmittedData
+		totals.Replied += stats.Replied
+		totals.EmailReported += stats.EmailReported
+		totals.Error += stats.Error
+
+		mergeRecipientStats(unique, recipientStats)
+	}
+
+	uniqueStats := collapseRecipientStats(unique)
+	uniqueStats.Total = int64(len(unique))
+
+	css.CampaignCount = len(campaigns)
+	css.Campaigns = campaigns
+	css.Stats = totals
+	css.UniqueStats = uniqueStats
+	return nil
+}
+
+// GetCampaignSetSummary gets the summary object for a single campaign set owned
+// by the given user.
+//
+// Ownership is scoped in the query rather than checked afterward, so another
+// user's set is indistinguishable from one that does not exist.
+func GetCampaignSetSummary(id int64, uid int64) (CampaignSetSummary, error) {
+	cs := CampaignSetSummary{}
+	query := db.Table("campaign_sets").Where("id = ? AND user_id = ?", id, uid)
+	query = query.Select("id, name, created_date, launch_date, send_by_date, completed_date, status")
+	if err := query.Scan(&cs).Error; err != nil {
+		log.Error(err)
+		return cs, err
+	}
+	// Scan does not report missing rows as an error, so check explicitly.
+	if cs.Id == 0 {
+		return cs, gorm.ErrRecordNotFound
+	}
+	if err := loadCampaignSetCampaigns(&cs); err != nil {
+		return cs, err
+	}
+	return cs, nil
+}
+
 // GetCampaignSetSummaries gets the summary objects for all the campaign sets
 // owned by the current user
 func GetCampaignSetSummaries(uid int64) (CampaignSetSummaries, error) {
@@ -228,28 +324,9 @@ func GetCampaignSetSummaries(uid int64) (CampaignSetSummaries, error) {
 	}
 
 	for i := range css {
-		// Get the campaigns for this set
-		var campaigns []CampaignSummary
-		campaignQuery := db.Table("campaigns").Where("campaign_set_id = ?", css[i].Id)
-		campaignQuery = campaignQuery.Select("id, name, created_date, launch_date, send_by_date, completed_date, status")
-		err := campaignQuery.Scan(&campaigns).Error
-		if err != nil {
-			log.Error(err)
+		if err := loadCampaignSetCampaigns(&css[i]); err != nil {
 			return overview, err
 		}
-
-		// Get stats for each campaign
-		for j := range campaigns {
-			s, err := getCampaignStats(campaigns[j].Id)
-			if err != nil {
-				log.Error(err)
-				return overview, err
-			}
-			campaigns[j].Stats = s
-		}
-
-		css[i].CampaignCount = len(campaigns)
-		css[i].Campaigns = campaigns
 	}
 
 	overview.Total = int64(len(css))

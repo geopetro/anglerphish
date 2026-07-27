@@ -1,10 +1,14 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/textproto"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/gophish/gophish/crypto"
 	check "gopkg.in/check.v1"
 )
 
@@ -581,4 +585,134 @@ func BenchmarkGetCampaign10000(b *testing.B) {
 		}
 	}
 	tearDownBenchmark(b)
+}
+
+// TestGetCampaignStatsRegression pins the behavior of getCampaignStats so the
+// refactor that extracts buildRecipientStats cannot silently change it.
+func (s *ModelsSuite) TestGetCampaignStatsRegression(c *check.C) {
+	campaign := s.createCampaign(c)
+
+	// One recipient submits data. This must imply clicked and opened via the
+	// logical backfill, even though no open or click event was recorded.
+	err := AddEvent(&Event{Email: "test1@example.com", Message: EventSent}, campaign.Id)
+	c.Assert(err, check.Equals, nil)
+	err = AddEvent(&Event{Email: "test1@example.com", Message: EventDataSubmit}, campaign.Id)
+	c.Assert(err, check.Equals, nil)
+
+	// A second recipient only opens.
+	err = AddEvent(&Event{Email: "test2@example.com", Message: EventSent}, campaign.Id)
+	c.Assert(err, check.Equals, nil)
+	err = AddEvent(&Event{Email: "test2@example.com", Message: EventOpened}, campaign.Id)
+	c.Assert(err, check.Equals, nil)
+
+	// Duplicate events for the same recipient must not double-count.
+	err = AddEvent(&Event{Email: "test2@example.com", Message: EventOpened}, campaign.Id)
+	c.Assert(err, check.Equals, nil)
+
+	stats, err := getCampaignStats(campaign.Id)
+	c.Assert(err, check.Equals, nil)
+
+	c.Assert(stats.Total, check.Equals, int64(4)) // 4 targets from createCampaignDependencies
+	c.Assert(stats.EmailsSent, check.Equals, int64(2))
+	c.Assert(stats.OpenedEmail, check.Equals, int64(2)) // test2 opened, test1 backfilled
+	c.Assert(stats.ClickedLink, check.Equals, int64(1)) // test1 backfilled from submit
+	c.Assert(stats.SubmittedData, check.Equals, int64(1))
+	c.Assert(stats.EmailReported, check.Equals, int64(0))
+}
+
+func (s *ModelsSuite) TestEventDetailsRoundTripsMessage(c *check.C) {
+	details := EventDetails{
+		Message: NewMessageContent("I sent my password", "<p>I sent my password</p>",
+			textproto.MIMEHeader{"Subject": []string{"Re: Payroll"}}),
+	}
+	encoded, err := json.Marshal(details)
+	c.Assert(err, check.Equals, nil)
+
+	decoded := EventDetails{}
+	c.Assert(json.Unmarshal(encoded, &decoded), check.Equals, nil)
+	c.Assert(decoded.Message, check.NotNil)
+	c.Assert(decoded.Message.Text, check.Equals, "I sent my password")
+	c.Assert(decoded.Message.Headers, check.HasLen, 1)
+	c.Assert(decoded.Message.Headers[0].Name, check.Equals, "Subject")
+	c.Assert(decoded.Message.Headers[0].Value, check.Equals, "Re: Payroll")
+}
+
+// Events without captured content must serialize exactly as before.
+func (s *ModelsSuite) TestEventDetailsOmitsAbsentMessage(c *check.C) {
+	encoded, err := json.Marshal(EventDetails{})
+	c.Assert(err, check.Equals, nil)
+	c.Assert(strings.Contains(string(encoded), "message"), check.Equals, false)
+}
+
+func (s *ModelsSuite) TestGetRepliesScopedToUser(c *check.C) {
+	replies, err := GetReplies(1, 0, 100)
+	c.Assert(err, check.Equals, nil)
+	for _, r := range replies {
+		campaign, cerr := GetCampaign(r.CampaignId, 1)
+		c.Assert(cerr, check.Equals, nil)
+		c.Assert(campaign.UserId, check.Equals, int64(1))
+	}
+}
+
+// GetReplies scans raw rows, which bypasses the Event AfterFind hook, so it has
+// to decrypt details itself. This asserts captured content survives that path.
+func (s *ModelsSuite) TestGetRepliesReturnsDecryptedMessage(c *check.C) {
+	campaign := s.createCampaign(c)
+	result := campaign.Results[0]
+	details := EventDetails{
+		Message: NewMessageContent("I sent my password", "<p>I sent my password</p>",
+			textproto.MIMEHeader{"Message-Id": []string{"<abc@corp.com>"}}),
+	}
+	c.Assert(result.HandleEmailReply(details), check.Equals, nil)
+
+	replies, err := GetReplies(campaign.UserId, campaign.Id, 100)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(len(replies), check.Equals, 1)
+	c.Assert(replies[0].CampaignName, check.Equals, campaign.Name)
+	c.Assert(replies[0].Email, check.Equals, result.Email)
+	c.Assert(replies[0].Message, check.NotNil)
+	c.Assert(replies[0].Message.Text, check.Equals, "I sent my password")
+	c.Assert(replies[0].Message.Headers, check.HasLen, 1)
+	c.Assert(replies[0].Message.Headers[0].Value, check.Equals, "<abc@corp.com>")
+}
+
+// Event.Details is serialized to the admin UI as `details`, so a blob that
+// cannot be decrypted must never survive the read as ciphertext. Failing open
+// would put ENC:v1: strings straight into campaign results.
+func (s *ModelsSuite) TestEventDetailsNeverExposesCiphertext(c *check.C) {
+	campaign := s.createCampaign(c)
+	c.Assert(AddEvent(&Event{Email: "test@example.com", Message: EventSent, Details: "{}"}, campaign.Id), check.Equals, nil)
+
+	// Simulate a row we cannot read back: wrong key, rotated key, corrupt value.
+	// Written via a raw update so BeforeSave does not normalize it.
+	err := db.Table("events").Where("campaign_id = ?", campaign.Id).
+		Update("details", crypto.EncryptedPrefix+"not-a-valid-payload").Error
+	c.Assert(err, check.Equals, nil)
+
+	events := []Event{}
+	c.Assert(db.Where("campaign_id = ?", campaign.Id).Find(&events).Error, check.Equals, nil)
+	c.Assert(len(events) > 0, check.Equals, true)
+	for _, e := range events {
+		c.Assert(strings.HasPrefix(e.Details, crypto.EncryptedPrefix), check.Equals, false)
+	}
+}
+
+// The same guarantee as above, held at the GetReplies boundary. This is the
+// path that actually reaches the Replies tab, and it reads events differently
+// from the rest of the codebase, so it is pinned separately.
+func (s *ModelsSuite) TestGetRepliesNeverExposesCiphertext(c *check.C) {
+	campaign := s.createCampaign(c)
+	result := campaign.Results[0]
+	details := EventDetails{Message: NewMessageContent("secret reply", "", nil)}
+	c.Assert(result.HandleEmailReply(details), check.Equals, nil)
+
+	err := db.Table("events").Where("campaign_id = ? AND message = ?", campaign.Id, EventReplied).
+		Update("details", crypto.EncryptedPrefix+"not-a-valid-payload").Error
+	c.Assert(err, check.Equals, nil)
+
+	replies, err := GetReplies(campaign.UserId, campaign.Id, 100)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(len(replies), check.Equals, 1)
+	// The row is still listed, but carries no unreadable content.
+	c.Assert(replies[0].Message, check.IsNil)
 }

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"errors"
 	"math/rand"
 	"net/url"
@@ -113,14 +114,20 @@ func (e *Event) BeforeSave() error {
 	return nil
 }
 
-// AfterFind decrypts sensitive Event fields after loading from database
+// AfterFind decrypts sensitive Event fields after loading from database.
+//
+// On failure the field is cleared rather than left as ciphertext. Details is
+// serialized to the admin UI as `details`, so returning the raw blob would put
+// stored ciphertext into API responses. Events are append-only — every save
+// builds a fresh Event, none writes back one that was loaded — so clearing
+// here cannot destroy the stored row.
 func (e *Event) AfterFind() error {
 	// Only decrypt Details if it's encrypted
 	if e.Details != "" && isFieldEncrypted(e.Details) {
 		decrypted, err := decryptField(e.Details)
 		if err != nil {
-			// Log but don't fail - return encrypted data
 			log.Warnf("Failed to decrypt event details: %v", err)
+			e.Details = ""
 		} else {
 			e.Details = decrypted
 		}
@@ -133,6 +140,9 @@ func (e *Event) AfterFind() error {
 type EventDetails struct {
 	Payload url.Values        `json:"payload"`
 	Browser map[string]string `json:"browser"`
+	// Message is the captured body of a reply, when capture is enabled.
+	// omitempty keeps existing events serializing exactly as before.
+	Message *MessageContent `json:"message,omitempty"`
 }
 
 // EventError is a struct that wraps an error that occurs when sending an
@@ -473,74 +483,82 @@ func (c *Campaign) generateSendDate(idx int, totalRecipients int) time.Time {
 	return c.LaunchDate.Add(time.Duration(offset) * time.Minute)
 }
 
-// getCampaignStats returns a CampaignStats object for the campaign with the given campaign ID.
-// It also backfills numbers as appropriate with a running total, so that the values are aggregated.
-func getCampaignStats(cid int64) (CampaignStats, error) {
-	s := CampaignStats{}
+// recipientFlags records which actions a single recipient took during a campaign.
+type recipientFlags map[string]bool
 
-	// Get all results for this campaign
+// newRecipientFlags returns a zeroed flag set for one recipient.
+func newRecipientFlags() recipientFlags {
+	return recipientFlags{
+		"sent":           false,
+		"opened":         false,
+		"clicked":        false,
+		"submitted_data": false,
+		"replied":        false,
+		"reported":       false,
+		"error":          false,
+	}
+}
+
+// buildRecipientStats loads the results and events for a campaign and returns a
+// per-recipient map of action flags, plus the number of result rows (the
+// campaign's target count).
+//
+// Recipients are keyed by email address, falling back to phone number for SMS
+// campaigns. SMS events store the phone number in the event's email column, so
+// both sides of the join agree on the key.
+//
+// Logical implications are applied before returning. They are monotonic — they
+// only ever set flags to true — which is what makes it safe to union these maps
+// across campaigns to get a set-wide unique rollup.
+func buildRecipientStats(cid int64) (map[string]recipientFlags, int64, error) {
 	var results []Result
 	err := db.Where("campaign_id = ?", cid).Find(&results).Error
 	if err != nil {
-		return s, err
+		return nil, 0, err
 	}
 
-	s.Total = int64(len(results))
-
-	// Get all events for this campaign to reconstruct complete timeline
 	var events []Event
 	err = db.Where("campaign_id = ?", cid).Order("time ASC").Find(&events).Error
 	if err != nil {
-		return s, err
+		return nil, 0, err
 	}
 
-	// Track each recipient's actions
-	recipientStats := make(map[string]map[string]bool)
+	recipientStats := make(map[string]recipientFlags)
 
-	// Initialize recipient tracking from results
 	for _, result := range results {
 		email := result.Email
 		if email == "" {
 			email = result.Phone // For SMS campaigns
 		}
-
-		if recipientStats[email] == nil {
-			recipientStats[email] = map[string]bool{
-				"sent":           false,
-				"opened":         false,
-				"clicked":        false,
-				"submitted_data": false,
-				"replied":        false,
-				"reported":       false,
-				"error":          false,
-			}
+		if email == "" {
+			continue
 		}
-
-		// Handle flags from results table
+		if recipientStats[email] == nil {
+			recipientStats[email] = newRecipientFlags()
+		}
 		if result.Reported {
 			recipientStats[email]["reported"] = true
 		}
 		if result.Replied {
 			recipientStats[email]["replied"] = true
 		}
+		if result.Status == Error || result.Status == StatusRetry {
+			recipientStats[email]["error"] = true
+		}
 	}
 
-	// Process events to get complete action history
 	for _, event := range events {
 		email := event.Email
-		if recipientStats[email] == nil {
-			recipientStats[email] = map[string]bool{
-				"sent":           false,
-				"opened":         false,
-				"clicked":        false,
-				"submitted_data": false,
-				"replied":        false,
-				"reported":       false,
-				"error":          false,
-			}
+		if email == "" {
+			// System events (e.g. "Campaign Created", "Failed Emails
+			// Re-queued") describe the campaign, not a recipient, and
+			// carry a blank email. Skip them so they don't become a
+			// phantom "" recipient key.
+			continue
 		}
-
-		// Map events to actions
+		if recipientStats[email] == nil {
+			recipientStats[email] = newRecipientFlags()
+		}
 		switch event.Message {
 		case EventSent, EventSMSSent:
 			recipientStats[email]["sent"] = true
@@ -554,14 +572,10 @@ func getCampaignStats(cid int64) (CampaignStats, error) {
 			recipientStats[email]["replied"] = true
 		case EventReported:
 			recipientStats[email]["reported"] = true
-		case EventSendingError, EventSMSError, Error:
-			recipientStats[email]["error"] = true
 		}
 	}
 
-	// Apply logical backfilling and count totals
 	for _, stats := range recipientStats {
-		// Apply logical implications
 		if stats["submitted_data"] {
 			stats["clicked"] = true
 			stats["opened"] = true
@@ -573,8 +587,19 @@ func getCampaignStats(cid int64) (CampaignStats, error) {
 			stats["opened"] = true
 		}
 		// Note: "reported" remains standalone - no implications
+	}
 
-		// Count totals
+	return recipientStats, int64(len(results)), nil
+}
+
+// collapseRecipientStats counts a per-recipient flag map into a CampaignStats.
+//
+// Total is deliberately left zero. Its meaning differs by caller: for a single
+// campaign it is the number of result rows, while for a set-wide rollup it is
+// the number of unique recipients.
+func collapseRecipientStats(recipientStats map[string]recipientFlags) CampaignStats {
+	s := CampaignStats{}
+	for _, stats := range recipientStats {
 		if stats["sent"] {
 			s.EmailsSent++
 		}
@@ -597,7 +622,16 @@ func getCampaignStats(cid int64) (CampaignStats, error) {
 			s.Error++
 		}
 	}
+	return s
+}
 
+func getCampaignStats(cid int64) (CampaignStats, error) {
+	recipientStats, total, err := buildRecipientStats(cid)
+	if err != nil {
+		return CampaignStats{}, err
+	}
+	s := collapseRecipientStats(recipientStats)
+	s.Total = total
 	return s, nil
 }
 
@@ -1381,4 +1415,94 @@ func CompleteCampaign(id int64, uid int64) error {
 		log.Error(err)
 	}
 	return err
+}
+
+// ReplyRecord is a single reply event, joined to its campaign for display.
+type ReplyRecord struct {
+	EventId      int64           `json:"event_id"`
+	CampaignId   int64           `json:"campaign_id"`
+	CampaignName string          `json:"campaign_name"`
+	Email        string          `json:"email"`
+	Time         time.Time       `json:"time"`
+	Message      *MessageContent `json:"message,omitempty"`
+}
+
+// GetReplies returns reply events across the user's campaigns, most recent
+// first. A campaignId above zero narrows to a single campaign.
+func GetReplies(userId int64, campaignId int64, limit int) ([]ReplyRecord, error) {
+	replies := []ReplyRecord{}
+
+	// Load through the Event model rather than scanning into an anonymous
+	// struct. A raw Scan bypasses the AfterFind hook, which is what decrypts
+	// Details, and reimplementing that here would mean two decrypt paths to
+	// keep in agreement. Campaign names are resolved in a second query below.
+	events := []Event{}
+	query := db.Table("events").
+		Select("events.*").
+		Joins("JOIN campaigns ON campaigns.id = events.campaign_id").
+		Where("campaigns.user_id = ? AND events.message = ?", userId, EventReplied)
+
+	if campaignId > 0 {
+		query = query.Where("events.campaign_id = ?", campaignId)
+	}
+
+	err := query.Order("events.time DESC").Limit(limit).Find(&events).Error
+	if err != nil {
+		return replies, err
+	}
+
+	names, err := campaignNamesForEvents(events)
+	if err != nil {
+		return replies, err
+	}
+
+	for _, e := range events {
+		record := ReplyRecord{
+			EventId:      e.Id,
+			CampaignId:   e.CampaignId,
+			CampaignName: names[e.CampaignId],
+			Email:        e.Email,
+			Time:         e.Time,
+		}
+		// Details is already decrypted by AfterFind, and cleared by it if the
+		// value could not be read, so an unreadable row yields no message.
+		if e.Details != "" {
+			details := EventDetails{}
+			if jerr := json.Unmarshal([]byte(e.Details), &details); jerr == nil {
+				record.Message = details.Message
+			}
+		}
+		replies = append(replies, record)
+	}
+
+	return replies, nil
+}
+
+// campaignNamesForEvents maps campaign id to name for the campaigns referenced
+// by the given events.
+func campaignNamesForEvents(events []Event) (map[int64]string, error) {
+	names := map[int64]string{}
+	ids := []int64{}
+	for _, e := range events {
+		if _, ok := names[e.CampaignId]; !ok {
+			names[e.CampaignId] = ""
+			ids = append(ids, e.CampaignId)
+		}
+	}
+	if len(ids) == 0 {
+		return names, nil
+	}
+
+	rows := []struct {
+		Id   int64
+		Name string
+	}{}
+	err := db.Table("campaigns").Select("id, name").Where("id IN (?)", ids).Scan(&rows).Error
+	if err != nil {
+		return names, err
+	}
+	for _, r := range rows {
+		names[r.Id] = r.Name
+	}
+	return names, nil
 }

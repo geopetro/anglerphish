@@ -551,6 +551,38 @@ body.dark-theme .campaign-list-item:hover {
     background-color: #2c2c2c;
 }
 
+/* Campaign Set Overview tab */
+body.dark-theme .cs-overview-header .cs-overview-meta,
+body.dark-theme .cs-fn-scale,
+body.dark-theme .cs-fn-pct,
+body.dark-theme .cs-fn-sig-hd {
+    color: var(--dark-text-muted);
+}
+
+body.dark-theme .cs-fn-label {
+    color: var(--dark-text-secondary);
+}
+
+body.dark-theme .cs-fn-n {
+    color: var(--dark-text-primary);
+}
+
+body.dark-theme .cs-fn-track {
+    background: var(--dark-bg-input);
+}
+
+body.dark-theme .cs-fn-zero {
+    background: var(--dark-border);
+}
+
+body.dark-theme .cs-fn-rule {
+    background: var(--dark-border);
+}
+
+body.dark-theme .cs-overview-table {
+    color: var(--dark-text-primary);
+}
+
 body.dark-theme .panel-danger > .panel-heading {
     background-color: #7a3232 !important;
     border-color: #a94442 !important;
@@ -1618,3 +1650,6 @@ body.dark-theme ::-webkit-scrollbar-thumb {
 body.dark-theme ::-webkit-scrollbar-thumb:hover {
     background: var(--dark-accent);
 }
+
+body.dark-theme #messageTabText, body.dark-theme .message-headers { background-color: #1e1e1e; color: #e0e0e0; }
+body.dark-theme .message-html-frame { border-color: #444; }

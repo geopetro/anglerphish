@@ -87,9 +87,10 @@ func TestClaimsFromMap(t *testing.T) {
 
 func TestValidateEmailClaims(t *testing.T) {
 	tests := []struct {
-		name    string
-		claims  *OIDCClaims
-		wantErr error
+		name            string
+		claims          *OIDCClaims
+		allowUnverified bool
+		wantErr         error
 	}{
 		{
 			name: "verified email allowed",
@@ -118,15 +119,58 @@ func TestValidateEmailClaims(t *testing.T) {
 			claims:  &OIDCClaims{EmailVerified: true},
 			wantErr: ErrOIDCAccessDenied,
 		},
+		{
+			name: "unverified email allowed when relaxed",
+			claims: &OIDCClaims{
+				Email:         "firstlast@example.com",
+				EmailVerified: false,
+			},
+			allowUnverified: true,
+		},
+		{
+			name:            "missing email still rejected when relaxed",
+			claims:          &OIDCClaims{},
+			allowUnverified: true,
+			wantErr:         ErrOIDCAccessDenied,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateEmailClaims(tt.claims)
+			err := validateEmailClaims(tt.claims, tt.allowUnverified)
 			if err != tt.wantErr {
 				t.Fatalf("validateEmailClaims() error = %v, want %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestClaimsFromMapPreferredUsernameFallback(t *testing.T) {
+	// Microsoft Entra ID omits the email claim, placing the address in
+	// preferred_username; the fallback should surface it as the email.
+	claims, err := claimsFromMap(map[string]interface{}{
+		"preferred_username": "firstlast@example.com",
+		"groups":             []interface{}{"anglerphish-admins"},
+	}, "groups")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if claims.Email != "firstlast@example.com" {
+		t.Fatalf("expected email from preferred_username, got %q", claims.Email)
+	}
+}
+
+func TestClaimsFromMapEmailPreferredOverPreferredUsername(t *testing.T) {
+	// When both are present the explicit email claim wins.
+	claims, err := claimsFromMap(map[string]interface{}{
+		"email":              "real@example.com",
+		"preferred_username": "other@example.com",
+	}, "groups")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if claims.Email != "real@example.com" {
+		t.Fatalf("expected explicit email to win, got %q", claims.Email)
 	}
 }
 

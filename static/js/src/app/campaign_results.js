@@ -1511,6 +1511,30 @@ function load() {
                             hover: '#dc3545',
                             border: '#3a4d5c',
                             point: '#dc3545'
+                        },
+                        'goldphish': {
+                            fill: '#fffdf6',
+                            hover: '#f47a20',
+                            border: '#e0cba0',
+                            point: '#f47a20'
+                        },
+                        'lagocephalus': {
+                            fill: '#1b2b2f',
+                            hover: '#7fa8af',
+                            border: '#3a545a',
+                            point: '#7fa8af'
+                        },
+                        'light-sand': {
+                            fill: '#f5f0e4',
+                            hover: '#a85030',
+                            border: '#c6b998',
+                            point: '#a85030'
+                        },
+                        'matrix': {
+                            fill: '#0a120a',
+                            hover: '#00ff41',
+                            border: '#0f4a0f',
+                            point: '#00ff41'
                         }
                     };
                     var colors = mapColors[currentTheme] || mapColors['default'];

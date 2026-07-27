@@ -117,8 +117,12 @@
                 <label for="theme_selector" class="control-label">Theme:</label>
                 <select id="theme_selector" class="form-control" style="max-width: 300px;">
                     <option value="default">Default (Light)</option>
-                    <option value="dark-teal">Dark - Teal</option>
-                    <option value="dark-crimson">Dark - Crimson</option>
+                    <option value="dark-teal">Teal (Dark)</option>
+                    <option value="dark-crimson">Crimson (Dark)</option>
+                    <option value="matrix">Matrix (Dark)</option>
+                    <option value="light-sand">Sand (Light)</option>
+                    <option value="goldphish">Goldphish</option>
+                    <option value="lagocephalus">Lagocephalus</option>
                 </select>
                 <p class="help-block">Choose your preferred color theme for the interface</p>
             </div>
@@ -339,6 +343,11 @@
                                     <option value="0" selected>Report Tracking</option>
                                     <option value="1">Reply Tracking</option>
                                 </select>
+                            </div>
+                            <div class="checkbox checkbox-primary" id="capture_reply_body_group">
+                                <input id="capture_reply_body" type="checkbox" checked>
+                                <label for="capture_reply_body">Store Reply Content</label>
+                                <i class="fa fa-info-circle" data-toggle="tooltip" data-placement="right" style="margin-left: 4px;" title="Saves what the user wrote when replying to a simulation, so it can be reviewed from the IMAP Monitor. Content is encrypted at rest and readable by any administrator. Applies only to reply tracking."></i>
                             </div>
                         </div>
                     </div>

@@ -39,6 +39,11 @@ type OIDCConfig struct {
 	RequiredGroup     string
 	GroupsClaim       string
 	UsernameFromEmail string
+	// AllowUnverifiedEmail skips the email_verified check. Some providers,
+	// notably Microsoft Entra ID, never emit the email_verified claim, which
+	// would otherwise deny every login. Defaults to false to keep the strict
+	// behaviour for providers such as Keycloak that do emit it.
+	AllowUnverifiedEmail bool
 }
 
 // OIDCClaims holds identity information extracted from an OIDC token.
@@ -171,7 +176,7 @@ func (c *OIDCClient) Exchange(ctx context.Context, code string) (*OIDCClaims, er
 		return nil, ErrOIDCAccessDenied
 	}
 
-	if err := validateEmailClaims(claims); err != nil {
+	if err := validateEmailClaims(claims, c.config.AllowUnverifiedEmail); err != nil {
 		return nil, err
 	}
 
@@ -196,13 +201,16 @@ func issuerLogLabel(issuer string) string {
 	return parsed.Host + parsed.Path
 }
 
-// validateEmailClaims rejects email used for username mapping unless the IdP marked it verified.
-func validateEmailClaims(claims *OIDCClaims) error {
+// validateEmailClaims rejects the email used for username mapping unless it is
+// present, and unless the IdP marked it verified. When allowUnverified is set the
+// verified check is skipped for providers (such as Microsoft Entra ID) that never
+// emit the email_verified claim; an empty email is still rejected in all cases.
+func validateEmailClaims(claims *OIDCClaims, allowUnverified bool) error {
 	email := strings.TrimSpace(claims.Email)
 	if email == "" {
 		return ErrOIDCAccessDenied
 	}
-	if !claims.EmailVerified {
+	if !allowUnverified && !claims.EmailVerified {
 		return ErrOIDCAccessDenied
 	}
 	return nil
@@ -228,6 +236,14 @@ func claimsFromMap(raw map[string]interface{}, groupsClaim string) (*OIDCClaims,
 	claims := &OIDCClaims{}
 	if email, ok := raw["email"].(string); ok {
 		claims.Email = email
+	}
+	// Some providers (notably Microsoft Entra ID) do not emit an "email" claim,
+	// placing the user's address in "preferred_username" instead. Fall back to it
+	// so username mapping still has a value to work with.
+	if strings.TrimSpace(claims.Email) == "" {
+		if preferred, ok := raw["preferred_username"].(string); ok {
+			claims.Email = preferred
+		}
 	}
 	if verified, ok := parseBoolClaim(raw["email_verified"]); ok {
 		claims.EmailVerified = verified

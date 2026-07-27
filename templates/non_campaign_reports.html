@@ -4,6 +4,12 @@
         IMAP Monitor
     </h1>
     {{template "flashes" .Flashes}}
+    <ul class="nav nav-tabs" id="monitorTabs" style="margin-bottom:20px;">
+        <li class="active"><a href="#reportsPane" data-toggle="tab">Non-Campaign Reports</a></li>
+        <li><a href="#repliesPane" data-toggle="tab">Replies</a></li>
+    </ul>
+    <div class="tab-content">
+    <div class="tab-pane active" id="reportsPane">
     <div id="loading">
         <i class="fa fa-spinner fa-spin fa-4x"></i>
     </div>
@@ -38,6 +44,7 @@
                     <th class="no-sort" style="width: 30px;"></th>
                     <th>Reporter</th>
                     <th>Subject</th>
+                    <th></th>
                     <th>Reported At</th>
                 </tr>
             </thead>
@@ -45,8 +52,97 @@
             </tbody>
         </table>
     </div>
+    </div>
+    <div class="tab-pane" id="repliesPane">
+        <div id="replies_filter_div" style="margin-bottom:20px;">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="campaign_filter">Filter by Campaign:</label>
+                        <select id="campaign_filter" class="form-control">
+                            <option value="0">All Campaigns</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="no_replies_message" class="alert alert-info" style="display:none;">
+            <i class="fa fa-info-circle"></i>
+            No replies have been captured. Replies are only recorded for IMAP configurations
+            with Tracking Type set to <strong>Reply</strong> and &ldquo;Store Reply Content&rdquo;
+            enabled.
+        </div>
+        <table id="replies_table" class="table table-striped table-bordered" style="width:100%">
+            <thead>
+                <tr>
+                    <th>Campaign</th>
+                    <th>Recipient</th>
+                    <th>Replied At</th>
+                    <th class="no-sort"></th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    </div>
+    <div class="modal fade" id="messageModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                    <h4 class="modal-title" id="messageModalSubject"></h4>
+                </div>
+                <div class="modal-body">
+                    <div id="messageModalLoading" style="display:none;">
+                        <i class="fa fa-spinner fa-spin"></i> Loading message&hellip;
+                    </div>
+                    <div id="messageModalError" class="alert alert-warning" style="display:none;"></div>
+                    <div id="messageModalBody" style="display:none;">
+                        <dl class="dl-horizontal message-meta">
+                            <dt>From</dt><dd id="messageModalFrom"></dd>
+                            <dt>Date</dt><dd id="messageModalDate"></dd>
+                        </dl>
+                        <ul class="nav nav-tabs" id="messageModalTabs">
+                            <li class="active"><a href="#messageTabTextPane" data-toggle="tab">Text</a></li>
+                            <li><a href="#messageTabHtmlPane" data-toggle="tab">HTML</a></li>
+                            <li><a href="#messageTabHeadersPane" data-toggle="tab">Headers</a></li>
+                        </ul>
+                        <div class="tab-content message-tab-content">
+                            <div class="tab-pane active" id="messageTabTextPane">
+                                <pre id="messageTabText"></pre>
+                            </div>
+                            <div class="tab-pane" id="messageTabHtmlPane">
+                                <div id="messageImageBar" class="alert alert-warning message-image-bar">
+                                    <i class="fa fa-exclamation-triangle"></i>
+                                    <span id="messageImageWarning">Remote images blocked</span>
+                                    <i class="fa fa-info-circle message-image-info" data-toggle="tooltip"
+                                       data-placement="top" data-container="body"
+                                       title="Remote images are fetched from the sender's server when rendered. Loading them tells the sender this mailbox is monitored, including when the message was opened and from which IP address."></i>
+                                    <button type="button" class="btn btn-xs btn-default"
+                                            id="messageImageToggle" onclick="toggleMessageImages()">Load images</button>
+                                </div>
+                                <!-- SECURITY: sandbox must stay empty. See message_modal.js. -->
+                                <iframe id="messageHtmlFrame" sandbox="" class="message-html-frame"></iframe>
+                                <div id="messageHtmlUnavailable" style="display:none;">
+                                    <em>This message has no HTML part.</em>
+                                </div>
+                            </div>
+                            <div class="tab-pane" id="messageTabHeadersPane">
+                                <div class="message-headers-scroll">
+                                    <table class="table table-condensed message-headers">
+                                        <tbody id="messageTabHeaders"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {{end}}
 {{define "scripts"}}
+<script src="/js/dist/app/message_modal.min.js"></script>
 <script src="/js/dist/app/non_campaign_reports.min.js"></script>
 {{end}}

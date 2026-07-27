@@ -379,13 +379,14 @@ func (as *AdminServer) oidcEnabled() bool {
 
 func oidcConfigFrom(cfg config.OIDC) auth.OIDCConfig {
 	return auth.OIDCConfig{
-		Enabled:           cfg.Enabled,
-		Issuer:            cfg.Issuer,
-		ClientID:          cfg.ClientID,
-		RedirectURL:       cfg.RedirectURL,
-		RequiredGroup:     cfg.RequiredGroup,
-		GroupsClaim:       cfg.GroupsClaim,
-		UsernameFromEmail: cfg.UsernameFromEmail,
+		Enabled:              cfg.Enabled,
+		Issuer:               cfg.Issuer,
+		ClientID:             cfg.ClientID,
+		RedirectURL:          cfg.RedirectURL,
+		RequiredGroup:        cfg.RequiredGroup,
+		GroupsClaim:          cfg.GroupsClaim,
+		UsernameFromEmail:    cfg.UsernameFromEmail,
+		AllowUnverifiedEmail: cfg.AllowUnverifiedEmail,
 	}
 }
 

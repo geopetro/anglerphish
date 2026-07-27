@@ -20,10 +20,19 @@ function updateSelectionUI() {
     var count = Object.keys(selectedCampaigns).length;
     
     $('#selectedCount').text(count);
+    $('#selectedCompleteCount').text(count);
     if (count > 0) {
         $('#deleteSelectedCampaigns').show();
     } else {
         $('#deleteSelectedCampaigns').hide();
+    }
+
+    // Completing only applies to active (non-completed) campaigns, so the
+    // Complete button is limited to the Active tab.
+    if (count > 0 && currentTab === 'active') {
+        $('#completeSelectedCampaigns').show();
+    } else {
+        $('#completeSelectedCampaigns').hide();
     }
 }
 
@@ -161,6 +170,59 @@ function deleteSelectedCampaigns() {
     })
 }
 window.deleteSelectedCampaigns = deleteSelectedCampaigns;
+
+// Complete selected campaigns
+function completeSelectedCampaigns() {
+    var ids = Object.keys(selectedCampaigns).map(function(id) { return parseInt(id); });
+
+    if (ids.length === 0) {
+        return;
+    }
+
+    var confirmText = ids.length === 1
+        ? "Complete this campaign?"
+        : "Complete " + ids.length + " campaigns?";
+
+    Swal.fire({
+        title: "Are you sure?",
+        text: confirmText + " Gophish will stop processing events for them.",
+        type: "warning",
+        animation: false,
+        showCancelButton: true,
+        confirmButtonText: "Complete",
+        confirmButtonColor: "#428bca",
+        reverseButtons: true,
+        allowOutsideClick: false,
+        showLoaderOnConfirm: true,
+        preConfirm: function () {
+            // Complete each selected campaign independently, tolerating
+            // individual failures so one bad campaign doesn't block the rest.
+            return Promise.all(ids.map(function (id) {
+                return new Promise(function (resolve) {
+                    api.campaignId.complete(id)
+                        .success(function () { resolve({ id: id, ok: true }); })
+                        .error(function () { resolve({ id: id, ok: false }); })
+                });
+            })).then(function (results) {
+                return results.filter(function (r) { return r.ok; }).length;
+            });
+        }
+    }).then(function (result) {
+        if (typeof result.value !== "undefined") {
+            var succeeded = result.value;
+            Swal.fire(
+                'Campaigns Completed!',
+                succeeded + ' of ' + ids.length + ' campaign(s) marked as complete.',
+                succeeded === ids.length ? 'success' : 'warning'
+            );
+            selectedCampaigns = {};
+            $('button:contains("OK")').on('click', function () {
+                location.reload()
+            })
+        }
+    })
+}
+window.completeSelectedCampaigns = completeSelectedCampaigns;
 
 // generateCampaignSummary creates a formatted summary of campaign settings
 function generateCampaignSummary() {

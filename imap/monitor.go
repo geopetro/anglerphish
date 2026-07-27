@@ -459,17 +459,17 @@ func checkForNewEmails(im models.IMAP) {
 
 			// Check if sender is from company's domain, if enabled. TODO: Make this an IMAP filter
 			if im.RestrictDomain != "" { // e.g domainResitct = widgets.com
-				splitEmail := strings.Split(m.Email.From, "@")
-				if len(splitEmail) < 2 {
-					log.Debugf("Invalid email format from '%s', skipping domain check", m.Email.From)
+				if !DomainMatches(m.Email.From, im.RestrictDomain) {
+					log.Debug("Ignoring email as not from company domain: ", m.Email.From)
 					continue
 				}
+			}
 
-				senderDomain := splitEmail[len(splitEmail)-1]
-				if senderDomain != im.RestrictDomain {
-					log.Debug("Ignoring email as not from company domain: ", senderDomain)
-					continue
-				}
+			// Email.From is the raw header; store a bare address so the UI and
+			// any later matching see `jane@corp.com`, not `Jane Doe <jane@corp.com>`.
+			reporter := m.Email.From
+			if addr, err := ParseSenderAddress(m.Email.From); err == nil {
+				reporter = addr
 			}
 
 			// If no active campaigns, record as non-campaign report without pattern matching
@@ -480,8 +480,11 @@ func checkForNewEmails(im models.IMAP) {
 				err := models.RecordNonCampaignReport(
 					im.UserId,
 					im.Id,
-					m.Email.From,
+					reporter,
 					m.Email.Subject,
+					int64(m.Uid),
+					int64(m.UidValidity),
+					m.MessageId,
 				)
 
 				if err != nil {
@@ -506,8 +509,11 @@ func checkForNewEmails(im models.IMAP) {
 				err := models.RecordNonCampaignReport(
 					im.UserId,
 					im.Id, // Use the IMAP ID to track which IMAP configuration received the report
-					m.Email.From,
+					reporter,
 					m.Email.Subject,
+					int64(m.Uid),
+					int64(m.UidValidity),
+					m.MessageId,
 				)
 
 				if err != nil {
@@ -537,12 +543,7 @@ func checkForNewEmails(im models.IMAP) {
 				// Choose which handler to call based on the IMAP tracking type
 				if im.TrackingType == models.TrackingTypeReply {
 					// This IMAP config is set to track replies
-					// Try to extract IP from email - if it fails, we pass empty details (same as before)
-					details := models.EventDetails{}
-					if ip := extractIPFromEmail(m.Email); ip != "" {
-						details.Browser = map[string]string{"address": ip}
-						log.Infof("Extracted IP %s from reply email", ip)
-					}
+					details := buildReplyDetails(im, m.Email)
 					err = result.HandleEmailReply(details)
 					log.Infof("User '%s' replied to email with rid %s", m.Email.From, rid)
 				} else {
@@ -740,4 +741,25 @@ func matchEmail(em *email.Email) (map[string]bool, error) {
 	}
 
 	return rids, nil
+}
+
+// buildReplyDetails assembles the event details recorded for a reply.
+//
+// The source message is deleted from the mailbox when
+// DeleteReportedCampaignEmail is set, so the body has to be captured here or it
+// is lost permanently. Capture is skipped entirely when the config disables it,
+// since this is employee-authored content.
+func buildReplyDetails(im models.IMAP, em *email.Email) models.EventDetails {
+	details := models.EventDetails{}
+
+	if ip := extractIPFromEmail(em); ip != "" {
+		details.Browser = map[string]string{"address": ip}
+		log.Infof("Extracted IP %s from reply email", ip)
+	}
+
+	if im.CaptureReplyBody {
+		details.Message = models.NewMessageContent(string(em.Text), string(em.HTML), em.Headers)
+	}
+
+	return details
 }

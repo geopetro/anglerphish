@@ -309,11 +309,18 @@ def get_ip_location(ip, result=None):
     return 'Unknown'
 
 # Helper function to extract payload data - reused from word_generator
-def extract_payload_from_dict(data_dict):
+def extract_payload_from_dict(data_dict, redact=False):
+    """Extract submitted payload as key/value text.
+
+    When redact is True the values are replaced with [REDACTED] but the field
+    names are kept, so anonymized reports still show which fields were captured
+    (e.g. that a password was submitted) without exposing the captured data."""
     result = ""
     if isinstance(data_dict, dict) and 'payload' in data_dict and isinstance(data_dict['payload'], dict):
         for key, value in data_dict['payload'].items():
-            if isinstance(value, list) and value:
+            if redact:
+                result += f'{key}: "[REDACTED]"\n'
+            elif isinstance(value, list) and value:
                 result += f"{key}: \"{value[0]}\"\n"
             else:
                 result += f"{key}: \"{value}\"\n"
@@ -1634,10 +1641,12 @@ def generate_excel_document(data, output_path, gdpr_options=None):
                         'longitude': longitude
                     })
                 elif msg == 'Submitted Data':
-                    # Extract payload
+                    # Extract payload (redact captured values when anonymizing)
                     payload_text = ""
                     if details:
-                        payload_text = extract_payload_from_dict(details)
+                        payload_text = extract_payload_from_dict(
+                            details,
+                            redact=bool(gdpr_options and gdpr_options.get('anonymize_emails')))
                     detail_text = f'Data submitted from IP: {ip}'
                     if payload_text:
                         detail_text += f' - Data: {payload_text}'
@@ -1733,15 +1742,18 @@ def generate_excel_document(data, output_path, gdpr_options=None):
                 # Add submitted data event
                 if result.get('submitted_data') and 'submitted_time' in result:
                     payload = ""
-                    
+                    redact_payload = bool(gdpr_options and gdpr_options.get('anonymize_emails'))
+
                     # Try to extract payload data
                     if 'details' in result and isinstance(result['details'], dict):
-                        payload = extract_payload_from_dict(result['details'])
+                        payload = extract_payload_from_dict(result['details'], redact=redact_payload)
                     elif 'browser' in result and isinstance(result['browser'], dict):
-                        payload = extract_payload_from_dict(result['browser'])
+                        payload = extract_payload_from_dict(result['browser'], redact=redact_payload)
                     elif 'payload' in result and isinstance(result['payload'], dict):
                         for key, value in result['payload'].items():
-                            if isinstance(value, list) and value:
+                            if redact_payload:
+                                payload += f'{key}: "[REDACTED]", '
+                            elif isinstance(value, list) and value:
                                 payload += f"{key}: \"{value[0]}\", "
                             else:
                                 payload += f"{key}: \"{value}\", "
