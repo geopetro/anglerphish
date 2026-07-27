@@ -1178,7 +1178,7 @@ ExecStart=/opt/anglerphish/anglerphish</code></pre>
         <!-- Tab 4: Admin SSO (OIDC) -->
         <div role="tabpanel" class="tab-pane" id="admin-sso">
             <h3><i class="fa fa-sign-in"></i> Admin SSO (OIDC)</h3>
-            <p>Anglerphish supports optional OIDC login for the admin UI. Users in a configured IdP group are mapped to pre-provisioned local accounts. Password login is restricted to the <code>admin</code> break-glass account when SSO is enabled.</p>
+            <p>Anglerphish supports optional OIDC login for the admin UI, compatible with any standard OpenID Connect provider (Keycloak, Microsoft Entra ID, and others). Users in a configured IdP group are mapped to pre-provisioned local accounts. Password login is restricted to the <code>admin</code> break-glass account when SSO is enabled.</p>
 
             <div class="panel panel-default">
                 <div class="panel-heading"><h4 class="panel-title">Configuration</h4></div>
@@ -1192,9 +1192,11 @@ ExecStart=/opt/anglerphish/anglerphish</code></pre>
     "redirect_url": "https://admin.example.com:3333/auth/oidc/callback",
     "required_group": "anglerphish-admins",
     "groups_claim": "groups",
-    "username_from_email": "local_part"
+    "username_from_email": "local_part",
+    "allow_unverified_email": false
   }
 }</code></pre>
+                    <p><code>allow_unverified_email</code> defaults to <code>false</code>, requiring the IdP to assert <code>email_verified: true</code>. Set it to <code>true</code> for providers such as Microsoft Entra ID that do not emit that claim. When no <code>email</code> claim is present, the username is sourced from <code>preferred_username</code>.</p>
                     <p>Set the client secret via environment variable — do not commit it to config:</p>
                     <pre><code>export GOPHISH_OIDC_CLIENT_SECRET="your-client-secret"</code></pre>
                 </div>
@@ -1212,6 +1214,21 @@ ExecStart=/opt/anglerphish/anglerphish</code></pre>
                         <li>Pre-create matching local users in the Anglerphish Users page before first SSO login. With <code>username_from_email: "local_part"</code>, email <code>firstlast@example.com</code> maps to local username <code>firstlast</code>. The identity provider must include a verified email claim (<code>email_verified: true</code>) for SSO login to succeed.</li>
                         <li>Provision SSO users with <strong>password_change_required disabled</strong> — SSO sessions skip the forced password-reset redirect if misconfigured.</li>
                     </ol>
+                </div>
+            </div>
+
+            <div class="panel panel-default">
+                <div class="panel-heading"><h4 class="panel-title">Microsoft Entra ID Setup</h4></div>
+                <div class="panel-body">
+                    <ol>
+                        <li>Register an application (<strong>App registrations &rarr; New registration</strong>) with a <strong>Web</strong> redirect URI of <code>https://&lt;admin-host&gt;/auth/oidc/callback</code>.</li>
+                        <li>Note the <strong>Application (client) ID</strong> and <strong>Directory (tenant) ID</strong> from the Overview page.</li>
+                        <li>Under <strong>Certificates &amp; secrets</strong>, create a client secret and set it via <code>GOPHISH_OIDC_CLIENT_SECRET</code>.</li>
+                        <li>Under <strong>App roles</strong>, create a role (e.g. value <code>anglerphish-admins</code>) and assign users in <strong>Enterprise applications &rarr; Users and groups</strong>. Set <code>groups_claim: "roles"</code> and <code>required_group</code> to the role value.</li>
+                        <li>Set <code>issuer</code> to <code>https://login.microsoftonline.com/&lt;tenant-id&gt;/v2.0</code> and <code>allow_unverified_email: true</code> — Entra ID does not emit the <code>email_verified</code> claim.</li>
+                        <li>Pre-create matching local users. The address comes from the <code>email</code> claim, falling back to <code>preferred_username</code> (the UPN); with <code>username_from_email: "local_part"</code>, <code>jsmith@contoso.com</code> maps to local username <code>jsmith</code>.</li>
+                    </ol>
+                    <p>Entra ID does not connect inbound to the admin console — the callback is delivered by the user's browser. Only the server's <em>outbound</em> access to <code>login.microsoftonline.com</code> (and <code>graph.microsoft.com</code>) is required; allow-list by hostname, not IP.</p>
                 </div>
             </div>
 
