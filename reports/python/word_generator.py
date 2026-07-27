@@ -349,11 +349,18 @@ def _parse_iso(s: str) -> datetime.datetime:
     return datetime.datetime.fromisoformat(s + tz)
 
 # Helper function to extract payload data
-def extract_payload_from_dict(data_dict):
+def extract_payload_from_dict(data_dict, redact=False):
+    """Extract submitted payload as key/value text.
+
+    When redact is True the values are replaced with [REDACTED] but the field
+    names are kept, so anonymized reports still show which fields were captured
+    (e.g. that a password was submitted) without exposing the captured data."""
     result = ""
     if isinstance(data_dict, dict) and 'payload' in data_dict and isinstance(data_dict['payload'], dict):
         for key, value in data_dict['payload'].items():
-            if isinstance(value, list) and value:
+            if redact:
+                result += f'{key}: "[REDACTED]"\n'
+            elif isinstance(value, list) and value:
                 result += f"{key}: \"{value[0]}\"\n"
             else:
                 result += f"{key}: \"{value}\"\n"
@@ -1612,10 +1619,12 @@ def generate_word_document(data, output_path, include_toc=True, gdpr_options=Non
                         except json.JSONDecodeError:
                             details = {}
                     
-                    # Extract payload
+                    # Extract payload (redact captured values when anonymizing)
                     payload_text = ""
                     if details:
-                        payload_text = extract_payload_from_dict(details)
+                        payload_text = extract_payload_from_dict(
+                            details,
+                            redact=bool(gdpr_options and gdpr_options.get('anonymize_emails')))
                         # Also get IP
                         browser = details.get('browser', {}) if isinstance(details, dict) else {}
                         ip_info = browser.get('address', '') if browser else ''
@@ -1638,24 +1647,27 @@ def generate_word_document(data, output_path, include_toc=True, gdpr_options=Non
                     actions_list.append(("Link Clicked", format_date(r['clicked_time']), "User clicked the phishing link", 'F39C12'))
                 
                 if r.get('submitted_time'):
-                    # Extract payload for display
+                    # Extract payload for display (redact captured values when anonymizing)
                     payload_text = ""
+                    redact_payload = bool(gdpr_options and gdpr_options.get('anonymize_emails'))
                     if 'details' in r and isinstance(r['details'], str):
                         try:
                             details = json.loads(r['details'])
-                            payload_text = extract_payload_from_dict(details)
+                            payload_text = extract_payload_from_dict(details, redact=redact_payload)
                         except json.JSONDecodeError:
                             pass
-                    
+
                     if not payload_text and 'details' in r and isinstance(r['details'], dict):
-                        payload_text = extract_payload_from_dict(r['details'])
-                    
+                        payload_text = extract_payload_from_dict(r['details'], redact=redact_payload)
+
                     if not payload_text and 'browser' in r and isinstance(r['browser'], dict):
-                        payload_text = extract_payload_from_dict(r['browser'])
-                    
+                        payload_text = extract_payload_from_dict(r['browser'], redact=redact_payload)
+
                     if not payload_text and 'payload' in r and isinstance(r['payload'], dict):
                         for key, value in r['payload'].items():
-                            if isinstance(value, list) and value:
+                            if redact_payload:
+                                payload_text += f'{key}: "[REDACTED]"\n'
+                            elif isinstance(value, list) and value:
                                 payload_text += f"{key}: \"{value[0]}\"\n"
                             else:
                                 payload_text += f"{key}: \"{value}\"\n"
