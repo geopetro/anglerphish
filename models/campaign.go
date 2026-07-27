@@ -112,14 +112,20 @@ func (e *Event) BeforeSave() error {
 	return nil
 }
 
-// AfterFind decrypts sensitive Event fields after loading from database
+// AfterFind decrypts sensitive Event fields after loading from database.
+//
+// On failure the field is cleared rather than left as ciphertext. Details is
+// serialized to the admin UI as `details`, so returning the raw blob would put
+// stored ciphertext into API responses. Events are append-only — every save
+// builds a fresh Event, none writes back one that was loaded — so clearing
+// here cannot destroy the stored row.
 func (e *Event) AfterFind() error {
 	// Only decrypt Details if it's encrypted
 	if e.Details != "" && isFieldEncrypted(e.Details) {
 		decrypted, err := decryptField(e.Details)
 		if err != nil {
-			// Log but don't fail - return encrypted data
 			log.Warnf("Failed to decrypt event details: %v", err)
+			e.Details = ""
 		} else {
 			e.Details = decrypted
 		}
@@ -1409,18 +1415,13 @@ type ReplyRecord struct {
 func GetReplies(userId int64, campaignId int64, limit int) ([]ReplyRecord, error) {
 	replies := []ReplyRecord{}
 
-	type row struct {
-		Id           int64
-		CampaignId   int64
-		CampaignName string
-		Email        string
-		Time         time.Time
-		Details      string
-	}
-	rows := []row{}
-
+	// Load through the Event model rather than scanning into an anonymous
+	// struct. A raw Scan bypasses the AfterFind hook, which is what decrypts
+	// Details, and reimplementing that here would mean two decrypt paths to
+	// keep in agreement. Campaign names are resolved in a second query below.
+	events := []Event{}
 	query := db.Table("events").
-		Select("events.id, events.campaign_id, campaigns.name as campaign_name, events.email, events.time, events.details").
+		Select("events.*").
 		Joins("JOIN campaigns ON campaigns.id = events.campaign_id").
 		Where("campaigns.user_id = ? AND events.message = ?", userId, EventReplied)
 
@@ -1428,32 +1429,29 @@ func GetReplies(userId int64, campaignId int64, limit int) ([]ReplyRecord, error
 		query = query.Where("events.campaign_id = ?", campaignId)
 	}
 
-	err := query.Order("events.time DESC").Limit(limit).Scan(&rows).Error
+	err := query.Order("events.time DESC").Limit(limit).Find(&events).Error
 	if err != nil {
 		return replies, err
 	}
 
-	for _, r := range rows {
+	names, err := campaignNamesForEvents(events)
+	if err != nil {
+		return replies, err
+	}
+
+	for _, e := range events {
 		record := ReplyRecord{
-			EventId:      r.Id,
-			CampaignId:   r.CampaignId,
-			CampaignName: r.CampaignName,
-			Email:        r.Email,
-			Time:         r.Time,
+			EventId:      e.Id,
+			CampaignId:   e.CampaignId,
+			CampaignName: names[e.CampaignId],
+			Email:        e.Email,
+			Time:         e.Time,
 		}
-		// Raw scans bypass the AfterFind hook, so decrypt explicitly.
-		raw := r.Details
-		if isFieldEncrypted(raw) {
-			if decrypted, derr := decryptField(raw); derr == nil {
-				raw = decrypted
-			} else {
-				log.Warnf("Failed to decrypt reply event details: %v", derr)
-				raw = ""
-			}
-		}
-		if raw != "" {
+		// Details is already decrypted by AfterFind, and cleared by it if the
+		// value could not be read, so an unreadable row yields no message.
+		if e.Details != "" {
 			details := EventDetails{}
-			if jerr := json.Unmarshal([]byte(raw), &details); jerr == nil {
+			if jerr := json.Unmarshal([]byte(e.Details), &details); jerr == nil {
 				record.Message = details.Message
 			}
 		}
@@ -1461,4 +1459,33 @@ func GetReplies(userId int64, campaignId int64, limit int) ([]ReplyRecord, error
 	}
 
 	return replies, nil
+}
+
+// campaignNamesForEvents maps campaign id to name for the campaigns referenced
+// by the given events.
+func campaignNamesForEvents(events []Event) (map[int64]string, error) {
+	names := map[int64]string{}
+	ids := []int64{}
+	for _, e := range events {
+		if _, ok := names[e.CampaignId]; !ok {
+			names[e.CampaignId] = ""
+			ids = append(ids, e.CampaignId)
+		}
+	}
+	if len(ids) == 0 {
+		return names, nil
+	}
+
+	rows := []struct {
+		Id   int64
+		Name string
+	}{}
+	err := db.Table("campaigns").Select("id, name").Where("id IN (?)", ids).Scan(&rows).Error
+	if err != nil {
+		return names, err
+	}
+	for _, r := range rows {
+		names[r.Id] = r.Name
+	}
+	return names, nil
 }

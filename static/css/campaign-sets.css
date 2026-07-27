@@ -3,7 +3,11 @@
 /* Split View Layout */
 .split-view-container {
     display: flex;
-    min-height: 500px;
+    /* Fixed height so each panel scrolls on its own instead of growing the
+       modal. min-height keeps it usable on short viewports. */
+    height: calc(100vh - 320px);
+    min-height: 320px;
+    margin-top: 15px;
     margin-bottom: 20px;
 }
 
@@ -18,11 +22,27 @@
     min-width: 0; /* prevents flex overflow */
 }
 
+/* Each panel fills the container height; its heading stays put while the body
+   (campaign list on the left, details on the right) scrolls internally. */
+.split-view-left > .panel,
+.split-view-right > .panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    margin-bottom: 0;
+}
+
+.split-view-left > .panel > .panel-body,
+.split-view-right > .panel > .panel-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
 /* Campaign List */
 .campaign-list {
     margin-bottom: 0;
-    max-height: 500px;
-    overflow-y: auto;
+    /* The panel body scrolls now, so the list itself flows naturally. */
 }
 
 .campaign-list-item {

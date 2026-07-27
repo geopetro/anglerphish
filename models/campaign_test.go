@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gophish/gophish/crypto"
 	check "gopkg.in/check.v1"
 )
 
@@ -624,4 +625,45 @@ func (s *ModelsSuite) TestGetRepliesReturnsDecryptedMessage(c *check.C) {
 	c.Assert(replies[0].Message.Text, check.Equals, "I sent my password")
 	c.Assert(replies[0].Message.Headers, check.HasLen, 1)
 	c.Assert(replies[0].Message.Headers[0].Value, check.Equals, "<abc@corp.com>")
+}
+
+// Event.Details is serialized to the admin UI as `details`, so a blob that
+// cannot be decrypted must never survive the read as ciphertext. Failing open
+// would put ENC:v1: strings straight into campaign results.
+func (s *ModelsSuite) TestEventDetailsNeverExposesCiphertext(c *check.C) {
+	campaign := s.createCampaign(c)
+	c.Assert(AddEvent(&Event{Email: "test@example.com", Message: EventSent, Details: "{}"}, campaign.Id), check.Equals, nil)
+
+	// Simulate a row we cannot read back: wrong key, rotated key, corrupt value.
+	// Written via a raw update so BeforeSave does not normalize it.
+	err := db.Table("events").Where("campaign_id = ?", campaign.Id).
+		Update("details", crypto.EncryptedPrefix+"not-a-valid-payload").Error
+	c.Assert(err, check.Equals, nil)
+
+	events := []Event{}
+	c.Assert(db.Where("campaign_id = ?", campaign.Id).Find(&events).Error, check.Equals, nil)
+	c.Assert(len(events) > 0, check.Equals, true)
+	for _, e := range events {
+		c.Assert(strings.HasPrefix(e.Details, crypto.EncryptedPrefix), check.Equals, false)
+	}
+}
+
+// The same guarantee as above, held at the GetReplies boundary. This is the
+// path that actually reaches the Replies tab, and it reads events differently
+// from the rest of the codebase, so it is pinned separately.
+func (s *ModelsSuite) TestGetRepliesNeverExposesCiphertext(c *check.C) {
+	campaign := s.createCampaign(c)
+	result := campaign.Results[0]
+	details := EventDetails{Message: NewMessageContent("secret reply", "", nil)}
+	c.Assert(result.HandleEmailReply(details), check.Equals, nil)
+
+	err := db.Table("events").Where("campaign_id = ? AND message = ?", campaign.Id, EventReplied).
+		Update("details", crypto.EncryptedPrefix+"not-a-valid-payload").Error
+	c.Assert(err, check.Equals, nil)
+
+	replies, err := GetReplies(campaign.UserId, campaign.Id, 100)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(len(replies), check.Equals, 1)
+	// The row is still listed, but carries no unreadable content.
+	c.Assert(replies[0].Message, check.IsNil)
 }
