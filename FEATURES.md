@@ -10,7 +10,7 @@
 | **Dashboard Filtering** | Allows **filtering the campaign list** on the dashboard to show only **Email**, **SMS**, or **Generic** campaigns. | Improved management and viewing of campaigns on the main dashboard. |
 | **Generic Campaigns** | Run flexible campaigns not tied to email/SMS. Creates trackable links that can be distributed via any channel (QR codes, social media, flyers, etc.). | Ideal for scenarios where the phishing link is delivered outside of email/SMS, such as QR code posters, USB drops, or manual distribution. |
 | **QR Code Generator** | Built-in tool to **generate QR codes**. | Useful for Generic Campaigns and other phishing scenarios requiring QR code delivery. |
-| **Resend Failed Emails** | Re-queue **all failed/errored emails** in a campaign with one click, or resend to a **single recipient** directly from the results page. | Recovers from SMTP errors or transient delivery failures without restarting the campaign. |
+| **Resend Failed Messages** | Re-queue **all failed/errored emails or SMS messages** in a campaign with one click, or resend to a **single recipient** directly from the results page. | Recovers from SMTP/SMS errors or transient delivery failures without restarting the campaign. |
 
 ---
 
@@ -32,7 +32,7 @@
 | :--- | :--- | :--- |
 | **Reports Page** | New reporting feature to **export campaign results and metrics as Word or Excel files**, with **Privacy Options** to anonymize results. | Easier sharing and better presentation of results. |
 | **Reported Phishing Monitoring Enhancement** | Improved handling of reported phishing emails, now recognizing **all variations of URL parameters** across active campaigns. | More accurate tracking of reported phishing attempts, even if parameters are slightly modified. |
-| **IMAP Monitor** | Dedicated view for received emails in the IMAP inbox that are **unrelated to any Gophish campaign**. | An internal view of the IMAP server(s) monitored, for gophish and non-gophish emails that reach the inbox.  |
+| **IMAP Monitor** | Dedicated view for received emails in the IMAP inbox that are **unrelated to any Gophish campaign**. Reported emails can be **read in-app** in a sandboxed viewer, and a **Replies tab** lists captured replies to simulated emails. | An internal view of the IMAP server(s) monitored, for gophish and non-gophish emails that reach the inbox.  |
 | **X-Tracked Header Handling** | Supports custom **`POST` requests containing the header `X-Tracked`**. When posted, the system parses the URL parameters and generates a `.csv` log entry. | Tracking for scenarios like **macro-enabled `.doc`/`.xls` files** or custom POST requests from landing pages. |
 | **Multiple IMAP Configurations** | Supports adding and managing **multiple IMAP server profiles** (Email Replied and Email Reported types). | Supports more than one inbox, for different tracking needs. |
 
@@ -55,7 +55,7 @@
 
 | Feature | Description | Relevant Context / Use Case |
 | :--- | :--- | :--- |
-| **Dark Theme** | Provides a **dark mode option** for the entire UI. Can be enabled in **Settings → UI Settings**. | Reduces eye strain and provides a modern, sleek appearance for users who prefer dark interfaces. |
+| **Themes** | Multiple color themes for the entire UI, selectable in **Settings → Theme**. | Reduces eye strain and lets users pick a look that suits them — from clean light modes to sleek dark interfaces. |
 | **In-App API Documentation** | Built-in **API Documentation page** accessible from the UI, documenting all Anglerphish API endpoints including new ones for SMS, Campaign Sets, QR codes, and more. | Enables developers and integrators to quickly reference available APIs without leaving the application. |
 
 ---
@@ -65,7 +65,7 @@
 | Feature | Description | Relevant Context / Use Case |
 | :--- | :--- | :--- |
 | **Database Encryption** | Optional **AES-256-GCM encryption** for sensitive database fields (SMTP passwords, SMS provider credentials, IMAP passwords and Captured Data). Enabled via `ANGLERPHISH_ENCRYPTION_KEY` environment variable. | Protects sensitive credentials at rest. Includes CLI commands for key generation, migration to encrypted state, and reverse migration back to plaintext. Backward compatible—works with or without encryption enabled. |
-| **Admin SSO (OIDC)** | Optional **Keycloak OIDC login** for the admin UI only. Users in a configured Keycloak group are mapped to pre-provisioned local accounts. Password login is restricted to the `admin` break-glass account when SSO is enabled. | Restrict admin access via your identity provider without changing campaign or API authentication. |
+| **Admin SSO (OIDC)** | Optional **OIDC login** for the admin UI only, compatible with any standard provider (Keycloak, Microsoft Entra ID, and others). Users in a configured IdP group are mapped to pre-provisioned local accounts. Password login is restricted to the `admin` break-glass account when SSO is enabled. | Restrict admin access via your identity provider without changing campaign or API authentication. |
 
 ---
 

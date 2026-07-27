@@ -15,6 +15,7 @@ See also the Medium [article](https://medium.com/@gpetro/anglerphish-6dc3e552024
 - [Table of Contents](#table-of-contents)
 - [Features and Enhancements](#features-and-enhancements)
 - [Visual Previews](#visual-previews)
+- [Contributors](#contributors)
 - [A fork based on original Gophish v0.12.1:](#a-fork-based-on-original-gophish-v0121)
   - [Gophish: Open-Source Phishing Toolkit](#gophish-open-source-phishing-toolkit)
   - [Install](#install)
@@ -38,6 +39,12 @@ For the latest changes check out [CHANGELOG.md](CHANGELOG.md).
 ![2](static/images/2.gif)
 ![3](static/images/3.gif)
 ![4](static/images/4.gif)
+
+## Contributors
+
+[![Contributors](https://contrib.rocks/image?repo=geopetro/anglerphish)](https://github.com/geopetro/anglerphish/graphs/contributors)
+
+Includes everyone across the project's full history — the original Gophish authors inherited through the fork as well as Anglerphish contributors.
 
 ## A fork based on original Gophish v0.12.1:
 

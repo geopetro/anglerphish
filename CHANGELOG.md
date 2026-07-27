@@ -4,21 +4,28 @@ All notable changes to Anglerphish are documented here.
 
 ---
 
-## [Unreleased]
+## [1.3.0] - 2026-07-27
 
 ### Added
-- **Admin SSO (OIDC)** - Optional OIDC login for the admin UI. Users in a configured IdP group are mapped to pre-provisioned local accounts. The `admin` account retains password login as a break-glass fallback. *(contributed by [@audrey0042](https://github.com/audrey0042))*
+- **Admin SSO (OIDC)** - Optional OIDC login for the admin UI, compatible with any standard provider (Keycloak, Microsoft Entra ID, and others). Users in a configured IdP group are mapped to pre-provisioned local accounts. The `admin` account retains password login as a break-glass fallback. *(contributed by [@audrey0042](https://github.com/audrey0042))*
 - **Campaign Set Overview** - New Overview tab on launched campaign sets showing set-wide statistics rolled up two ways — cross-campaign totals and unique contacts — alongside a per-campaign breakdown that links to full results. Backed by a new `GET /api/campaign_sets/:id/summary` API endpoint.
-- **Message viewer in the IMAP Monitor** - Reported emails can be read in-app. Message bodies are not stored: they are fetched from the mailbox on demand by UID (with a Message-ID fallback) and rendered in a sandboxed iframe with an independent CSP, remote images off by default and links neutralized. Reports created before this release show a disabled View button.
-- **Replies tab in the IMAP Monitor** - Replies to simulated phishing emails are listed with their captured content, filterable by campaign. Capture is controlled per IMAP configuration by the new "Store Reply Content" setting (on by default, reply tracking only); body is capped at 256KB and headers at a separate 16KB, both encrypted at rest alongside the rest of the event details. Headers are captured at read time because reply events carry no IMAP identifier to re-fetch with, and the message may be deleted from the mailbox afterwards. Replies captured before this release have no headers stored.
+- **Bulk complete campaigns** - The Campaigns page gains a "Complete Selected" button alongside the existing "Delete Selected", so multiple in-progress campaigns can be marked complete at once from the checkbox selection. The button appears only on the Active Campaigns tab (already-completed campaigns live on the Archived tab), and completes each selected campaign independently, reporting how many succeeded.
+- **Message viewer in the IMAP Monitor** - Reported emails can be read in-app. Message bodies are not stored, they are fetched from the mailbox on demand by UID (with a Message-ID fallback) and rendered in a sandboxed iframe with an independent CSP, remote images off by default and links neutralized. Reports created before this release show a disabled View button.
+- **Replies tab in the IMAP Monitor** - Replies to simulated phishing emails are listed with their captured content, filterable by campaign. Capture is controlled per IMAP configuration by the new "Store Reply Content" setting (on by default, reply tracking only). Body is capped at 256KB and headers at a separate 16KB, both encrypted at rest alongside the rest of the event details. Headers are captured at read time because reply events carry no IMAP identifier to re-fetch with, and the message may be deleted from the mailbox afterwards. Replies captured before this release have no headers stored.
+- **New themes** 
+  - A fun visual update introducing four new themes — **two light** and **two dark**. All are available under **Settings → Theme**.
+    - **Goldphish theme** - A bright, warm light theme inspired by goldfish.
+    - **Lagocephalus theme** - A cool, marine-inspired dark theme with a metallic feel.
+    - **Sand theme (Light)** - A warm, earthy light theme built around soft natural tones.
+    - **Matrix theme (Dark)** - A green take on Dark Crimson, inspired by digital rain.
 
 ### Improved
-- Viewing a launched campaign set now loads statistics in a single request instead of one per campaign, and indexes `results` and `events` by campaign for faster stats on larger datasets.
+- **Campaign set performance:** viewing a launched campaign set now loads statistics in a single request instead of one per campaign, and indexes `results` and `events` by campaign for faster stats on larger datasets.
+- **Campaign set editor UI:** the Campaigns split view now has a fixed height with the campaign list and details panels scrolling independently, so adding campaigns no longer stretches the modal past the viewport.
 
 ### Fixed
+- Report anonymization no longer leaks submitted credentials. With "Anonymize emails" enabled, the captured payload (the email/password a target typed into the landing page) was still written into the Details column of the event tables in Excel and Word reports, defeating the masking applied to the Contact and IP columns. The captured values are now redacted (`field: "[REDACTED]"`) while the field names and IP/location context are preserved.
 - Selecting a campaign with a long name in a campaign set no longer causes a slight panel resize.
-- Replies with no plain-text part rendered the literal string `undefined` in the message viewer's Text tab.
-- The message viewer's stylesheet was never built into the served CSS bundle, so the HTML preview fell back to the browser default 300x150 iframe instead of filling the modal.
 - IMAP `RestrictDomain` never matched senders whose From header included a display name (`Jane Doe <jane@corp.com>`), silently discarding those reports and marking them read. Deployments using `RestrictDomain` will see report volume rise as a result. Mail discarded before this fix is unrecoverable, as it was already marked as seen.
 
 ---
@@ -46,6 +53,9 @@ All notable changes to Anglerphish are documented here.
 
 ### Improved
 - MFA injection cleanup, editor tips, and code length label improvements.
+
+### Removed
+- Removed GoPhish transparency handler, `X-Server`, `X-Mailer`, and `X-Contact` headers *(contributed by [@mrnfrancesco](https://github.com/mrnfrancesco))*
 
 ### Fixed
 - Linting and code quality improvements.
@@ -91,7 +101,6 @@ Initial Anglerphish release - a feature-rich fork of [Gophish v0.12.1](https://g
 - In-App API Documentation page
 
 **Stealth**
-- Removed GoPhish transparency handler, `X-Server`, `X-Mailer`, and `X-Contact` headers *(contributed by [@mrnfrancesco](https://github.com/mrnfrancesco))*
 - Default 404 landing page
 
 ---
