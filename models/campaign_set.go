@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"math/rand"
 	"time"
 
 	log "github.com/gophish/gophish/logger"
@@ -593,12 +594,12 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 		return err
 	}
 
-	// Insert all the results
+	// Collect all the unique targets across the campaign's groups. We
+	// deduplicate here so that the recipient index (and therefore the
+	// send date) is only assigned once per unique recipient.
 	resultMap := make(map[string]bool)
-	recipientIndex := 0
-
+	targets := []Target{}
 	for _, g := range c.Groups {
-		// Insert a result for each target in the group
 		for _, t := range g.Targets {
 			// Remove duplicate results - we should only
 			// send messages to unique addresses.
@@ -606,85 +607,99 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 				continue
 			}
 			resultMap[t.Email] = true
-			sendDate := c.generateSendDate(recipientIndex, totalRecipients)
-			r := &Result{
-				BaseRecipient: BaseRecipient{
-					Email:     t.Email,
-					Phone:     t.Phone,
-					Position:  t.Position,
-					FirstName: t.FirstName,
-					LastName:  t.LastName,
-					Custom:    t.Custom,
-				},
-				Status:       StatusScheduled,
-				CampaignId:   c.Id,
-				UserId:       c.UserId,
-				SendDate:     sendDate,
-				Reported:     false,
-				ModifiedDate: c.CreatedDate,
-				SMSTarget:    c.Type == "sms",
-			}
+			targets = append(targets, t)
+		}
+	}
 
-			// For SMS campaigns, ensure the Phone field is set
-			// since we're using the Email field to store the phone number
-			if c.Type == "sms" && r.Phone == "" {
-				r.Phone = r.Email
+	// If requested, randomize the order in which recipients are sent
+	// messages, rather than the default order derived from the groups.
+	if c.RandomizeSendOrder {
+		rand.Shuffle(len(targets), func(i, j int) {
+			targets[i], targets[j] = targets[j], targets[i]
+		})
+	}
+
+	// Insert all the results
+	recipientIndex := 0
+	for _, t := range targets {
+		sendDate := c.generateSendDate(recipientIndex, totalRecipients)
+		r := &Result{
+			BaseRecipient: BaseRecipient{
+				Email:     t.Email,
+				Phone:     t.Phone,
+				Position:  t.Position,
+				FirstName: t.FirstName,
+				LastName:  t.LastName,
+				Custom:    t.Custom,
+			},
+			Status:       StatusScheduled,
+			CampaignId:   c.Id,
+			UserId:       c.UserId,
+			SendDate:     sendDate,
+			Reported:     false,
+			ModifiedDate: c.CreatedDate,
+			SMSTarget:    c.Type == "sms",
+		}
+
+		// For SMS campaigns, ensure the Phone field is set
+		// since we're using the Email field to store the phone number
+		if c.Type == "sms" && r.Phone == "" {
+			r.Phone = r.Email
+		}
+		err = r.GenerateId(tx)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+		processing := false
+		if r.SendDate.Before(c.CreatedDate) || r.SendDate.Equal(c.CreatedDate) {
+			r.Status = StatusSending
+			processing = true
+		}
+		err = tx.Save(r).Error
+		if err != nil {
+			log.WithFields(logrus.Fields{
+				"email": t.Email,
+			}).Errorf("error creating result: %v", err)
+			return err
+		}
+		c.Results = append(c.Results, *r)
+
+		// Create the appropriate log entry based on campaign type
+		if c.Type == "sms" {
+			// Create SMS log entry
+			s := &SMSLog{
+				UserId:     c.UserId,
+				CampaignId: c.Id,
+				RId:        r.RId,
+				SendDate:   sendDate,
+				Processing: processing,
 			}
-			err = r.GenerateId(tx)
+			err = tx.Save(s).Error
 			if err != nil {
-				log.Error(err)
+				log.WithFields(logrus.Fields{
+					"phone": t.Email, // Phone number is stored in Email field
+				}).Errorf("error creating smslog entry: %v", err)
 				return err
 			}
-			processing := false
-			if r.SendDate.Before(c.CreatedDate) || r.SendDate.Equal(c.CreatedDate) {
-				r.Status = StatusSending
-				processing = true
+		} else {
+			// Create mail log entry
+			m := &MailLog{
+				UserId:     c.UserId,
+				CampaignId: c.Id,
+				RId:        r.RId,
+				SendDate:   sendDate,
+				Processing: processing,
 			}
-			err = tx.Save(r).Error
+			err = tx.Save(m).Error
 			if err != nil {
 				log.WithFields(logrus.Fields{
 					"email": t.Email,
-				}).Errorf("error creating result: %v", err)
+				}).Errorf("error creating maillog entry: %v", err)
 				return err
 			}
-			c.Results = append(c.Results, *r)
-
-			// Create the appropriate log entry based on campaign type
-			if c.Type == "sms" {
-				// Create SMS log entry
-				s := &SMSLog{
-					UserId:     c.UserId,
-					CampaignId: c.Id,
-					RId:        r.RId,
-					SendDate:   sendDate,
-					Processing: processing,
-				}
-				err = tx.Save(s).Error
-				if err != nil {
-					log.WithFields(logrus.Fields{
-						"phone": t.Email, // Phone number is stored in Email field
-					}).Errorf("error creating smslog entry: %v", err)
-					return err
-				}
-			} else {
-				// Create mail log entry
-				m := &MailLog{
-					UserId:     c.UserId,
-					CampaignId: c.Id,
-					RId:        r.RId,
-					SendDate:   sendDate,
-					Processing: processing,
-				}
-				err = tx.Save(m).Error
-				if err != nil {
-					log.WithFields(logrus.Fields{
-						"email": t.Email,
-					}).Errorf("error creating maillog entry: %v", err)
-					return err
-				}
-			}
-			recipientIndex++
 		}
+		recipientIndex++
 	}
 
 	return nil
