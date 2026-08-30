@@ -301,6 +301,11 @@ function generateCampaignSummary() {
     if ($('#basicauth').is(":checked")) {
         summary += "<strong>HTTP Basic Auth:</strong> Enabled<br>";
     }
+
+    // Add randomized send order if enabled
+    if ($('#randomize_send_order').is(":checked")) {
+        summary += "<strong>Randomize Send Order:</strong> Enabled<br>";
+    }
     
     // Add QR code size if specified
     var qrSize = $("#qrsize").val();
@@ -368,6 +373,7 @@ function launch() {
                     launch_date: moment($("#launch_date").val(), "MMMM Do YYYY, h:mm a").utc().format(),
                     send_by_date: send_by_date,
                     groups: groups,
+                    randomize_send_order: $('#randomize_send_order').is(":checked"),
                 }
                 
                 // Add type-specific properties
@@ -844,7 +850,8 @@ function copy(idx) {
             } else {
                 $("#basicauth").prop("checked", false);
             }
-            
+            $("#randomize_send_order").prop("checked", !!campaign.randomize_send_order);
+
             // Update URL length indicator
             updateURLLengthIndicator();
             
