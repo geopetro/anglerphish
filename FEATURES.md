@@ -11,6 +11,7 @@
 | **Generic Campaigns** | Run flexible campaigns not tied to email/SMS. Creates trackable links that can be distributed via any channel (QR codes, social media, flyers, etc.). | Ideal for scenarios where the phishing link is delivered outside of email/SMS, such as QR code posters, USB drops, or manual distribution. |
 | **QR Code Generator** | Built-in tool to **generate QR codes**. | Useful for Generic Campaigns and other phishing scenarios requiring QR code delivery. |
 | **Resend Failed Messages** | Re-queue **all failed/errored emails or SMS messages** in a campaign with one click, or resend to a **single recipient** directly from the results page. | Recovers from SMTP/SMS errors or transient delivery failures without restarting the campaign. |
+| **Randomize Send Order** | Optionally **shuffles the order recipients are scheduled in**, instead of following the order targets appear in their groups. Disabled by default, and available for both standalone campaigns and campaign sets. | Avoids a predictable send pattern, and stops the same people being hit first in every recurring assessment. |
 
 ---
 

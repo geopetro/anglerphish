@@ -4,6 +4,13 @@ All notable changes to Anglerphish are documented here.
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Randomize send order** - Optional per-campaign setting that shuffles the order recipients are scheduled in, instead of following the order targets appear in their groups. Disabled by default, so existing campaigns are unaffected. Applies to standalone campaigns and to campaigns created inside a campaign set. *(contributed by [@jona-schm-wd](https://github.com/jona-schm-wd))*
+
+---
+
 ## [1.3.0] - 2026-07-27
 
 ### Added
