@@ -316,6 +316,8 @@ function saveEmailTemplate(idx) {
         template.html = template.html.replace(/{{\.Tracker}}/, "")
     }
     template.text = $("#text_editor").val()
+    // Whether to inline remote images as CID attachments at send time
+    template.embed_remote_images = $("#embed_remote_images_checkbox").prop("checked")
     // Add the attachments
     $.each($("#attachmentsTable").DataTable().rows().data(), function (i, target) {
         template.attachments.push({
@@ -495,9 +497,11 @@ function editEmailTemplate(idx) {
         } else {
             $("#use_tracker_checkbox").prop("checked", false)
         }
+        $("#embed_remote_images_checkbox").prop("checked", template.embed_remote_images === true)
 
     } else {
         $("#templateModalLabel").text("New Email Template")
+        $("#embed_remote_images_checkbox").prop("checked", false)
     }
     // Handle Deletion
     $("#attachmentsTable").unbind('click').on("click", "span>i.fa-trash-o", function () {
@@ -560,6 +564,7 @@ function copy(idx) {
     } else {
         $("#use_tracker_checkbox").prop("checked", false)
     }
+    $("#embed_remote_images_checkbox").prop("checked", template.embed_remote_images === true)
 }
 
 function importEmail() {

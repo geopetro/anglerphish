@@ -48,6 +48,7 @@
 | **Preview Templates / Landing Pages** | Added the ability to **preview Email, SMS, and Landing Page Templates directly**—no need to open the editor. | Faster workflow and template QA. |
 | **Global Variables** | Define **system-wide variables** (e.g. company name, helpdesk URL) once and reuse them across email/SMS templates and landing pages. | Eliminates repetition and keeps campaigns consistent without editing each template individually. |
 | **Group Locking** | **Lock groups** to prevent accidental edits or deletions while they are in active use. | Protects target lists during live campaigns from being modified unintentionally. |
+| **Embed Remote Images Inline (CID)** | Optional per-template setting that **fetches remote images and embeds them inline** (Content-ID) at send time, so they display even when the recipient's mail client blocks remote content. The tracking pixel and same-host images stay remote so open tracking is unaffected. | Ensures email visuals render reliably in clients like Outlook that block external images by default. |
 | **Group Export** | Supports **exporting user groups to `.csv`** for easy backup and editing. | Simplifies group management and allows for external modifications. |
 
 ---

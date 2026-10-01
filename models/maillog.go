@@ -8,6 +8,7 @@ import (
 	"math"
 	"math/big"
 	"net/mail"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -245,6 +246,21 @@ func (m *MailLog) Generate(msg *gomail.Message) error {
 		html, err := ExecuteTemplate(c.Template.HTML, ptx)
 		if err != nil {
 			log.Warn(err)
+		}
+		// Optionally inline remote images as CID attachments so they render
+		// even when the recipient's mail client blocks remote content. The
+		// open-tracking pixel and other assets on the campaign's own host are
+		// deliberately left remote so that open tracking keeps working.
+		if c.Template.EmbedRemoteImages {
+			skipHost := ""
+			if u, perr := url.Parse(ptx.BaseURL); perr == nil {
+				skipHost = u.Host
+			}
+			var inlined []inlineImage
+			html, inlined = embedRemoteImages(html, skipHost, inlineImageHTTPClient())
+			for _, img := range inlined {
+				embedInlineImage(msg, img)
+			}
 		}
 		if c.Template.Text == "" {
 			msg.SetBody("text/html", html)

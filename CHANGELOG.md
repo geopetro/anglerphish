@@ -8,6 +8,7 @@ All notable changes to Anglerphish are documented here.
 
 ### Added
 - **Randomize send order** - Optional per-campaign setting that shuffles the order recipients are scheduled in, instead of following the order targets appear in their groups. Disabled by default, so existing campaigns are unaffected. Applies to standalone campaigns and to campaigns created inside a campaign set. *(contributed by [@jona-schm-wd](https://github.com/jona-schm-wd))*
+- **Embed remote images inline (CID)** - Optional per-template setting that fetches remote `<img>` images at send time and embeds them inline using Content-ID (`cid:`) references, so they render even when a recipient's mail client blocks remote content. The open-tracking pixel and any images on the campaign's own host are deliberately left remote so open tracking keeps working.
 
 ---
 
