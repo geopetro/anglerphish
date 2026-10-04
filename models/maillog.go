@@ -8,7 +8,6 @@ import (
 	"math"
 	"math/big"
 	"net/mail"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -248,16 +247,11 @@ func (m *MailLog) Generate(msg *gomail.Message) error {
 			log.Warn(err)
 		}
 		// Optionally inline remote images as CID attachments so they render
-		// even when the recipient's mail client blocks remote content. The
-		// open-tracking pixel and other assets on the campaign's own host are
-		// deliberately left remote so that open tracking keeps working.
+		// even when the recipient's mail client blocks remote content. Only the
+		// open-tracking pixel is left remote so that open tracking keeps working.
 		if c.Template.EmbedRemoteImages {
-			skipHost := ""
-			if u, perr := url.Parse(ptx.BaseURL); perr == nil {
-				skipHost = u.Host
-			}
 			var inlined []inlineImage
-			html, inlined = embedRemoteImages(html, skipHost, inlineImageHTTPClient())
+			html, inlined = embedRemoteImages(html, ptx.TrackingURL, inlineImageHTTPClient())
 			for _, img := range inlined {
 				embedInlineImage(msg, img)
 			}

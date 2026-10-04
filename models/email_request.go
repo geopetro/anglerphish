@@ -3,7 +3,6 @@ package models
 import (
 	"fmt"
 	"net/mail"
-	neturl "net/url"
 
 	"github.com/gophish/gomail"
 	log "github.com/gophish/gophish/logger"
@@ -161,15 +160,11 @@ func (s *EmailRequest) Generate(msg *gomail.Message) error {
 			log.Error(err)
 		}
 		// Inline remote images as CID attachments when enabled, mirroring the
-		// campaign send path so test emails render the same way. Images on the
-		// campaign's own host (e.g. the tracking pixel) are left remote.
+		// campaign send path so test emails render the same way. Only the
+		// open-tracking pixel is left remote.
 		if s.Template.EmbedRemoteImages {
-			skipHost := ""
-			if u, perr := neturl.Parse(ptx.BaseURL); perr == nil {
-				skipHost = u.Host
-			}
 			var inlined []inlineImage
-			html, inlined = embedRemoteImages(html, skipHost, inlineImageHTTPClient())
+			html, inlined = embedRemoteImages(html, ptx.TrackingURL, inlineImageHTTPClient())
 			for _, img := range inlined {
 				embedInlineImage(msg, img)
 			}

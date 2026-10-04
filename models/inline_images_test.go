@@ -22,7 +22,7 @@ func (s *ModelsSuite) TestEmbedRemoteImagesRewritesRemoteImage(c *check.C) {
 	defer srv.Close()
 
 	html := `<html><body><img src="` + srv.URL + `/logo.png"></body></html>`
-	out, images := embedRemoteImages(html, "phish.example.com", srv.Client())
+	out, images := embedRemoteImages(html, "http://phish.example.com/track?rid=x", srv.Client())
 
 	c.Assert(len(images), check.Equals, 1)
 	c.Assert(images[0].contentType, check.Equals, "image/png")
@@ -31,12 +31,38 @@ func (s *ModelsSuite) TestEmbedRemoteImagesRewritesRemoteImage(c *check.C) {
 	c.Assert(strings.Contains(out, srv.URL), check.Equals, false)
 }
 
-func (s *ModelsSuite) TestEmbedRemoteImagesSkipsTrackingHost(c *check.C) {
-	html := `<html><body><img alt='' style='display:none' src='http://phish.example.com/track?rid=abc'/></body></html>`
-	out, images := embedRemoteImages(html, "phish.example.com", http.DefaultClient)
+func (s *ModelsSuite) TestEmbedRemoteImagesSkipsTrackingPixelOnly(c *check.C) {
+	tracking := "http://phish.example.com/track?rid=abc"
+	html := `<html><body><img alt='' style='display:none' src='` + tracking + `'/></body></html>`
+	out, images := embedRemoteImages(html, tracking, http.DefaultClient)
 
 	c.Assert(len(images), check.Equals, 0)
 	c.Assert(out, check.Equals, html)
+}
+
+// Same-host content, including anything Gophish serves from static/endpoint,
+// must still be inlined. Only the tracking pixel is left remote.
+func (s *ModelsSuite) TestEmbedRemoteImagesInlinesSameHostButNotTracker(c *check.C) {
+	asset := []byte("static-asset-bytes")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/track") {
+			c.Fatalf("tracking pixel should not be fetched: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Write(asset)
+	}))
+	defer srv.Close()
+
+	tracking := srv.URL + "/track?rid=abc"
+	html := `<html><body>` +
+		`<img src="` + srv.URL + `/static/logo.png">` +
+		`<img alt='' style='display:none' src="` + tracking + `">` +
+		`</body></html>`
+	out, images := embedRemoteImages(html, tracking, srv.Client())
+
+	c.Assert(len(images), check.Equals, 1) // the static asset is inlined
+	c.Assert(strings.Contains(out, "cid:"+images[0].cid), check.Equals, true)
+	c.Assert(strings.Contains(out, tracking), check.Equals, true) // tracker stays remote
 }
 
 func (s *ModelsSuite) TestEmbedRemoteImagesLeavesFailedFetchRemote(c *check.C) {
@@ -46,7 +72,7 @@ func (s *ModelsSuite) TestEmbedRemoteImagesLeavesFailedFetchRemote(c *check.C) {
 	defer srv.Close()
 
 	html := `<html><body><img src="` + srv.URL + `/logo.png"></body></html>`
-	out, images := embedRemoteImages(html, "phish.example.com", srv.Client())
+	out, images := embedRemoteImages(html, "http://phish.example.com/track?rid=x", srv.Client())
 
 	c.Assert(len(images), check.Equals, 0)
 	c.Assert(out, check.Equals, html)
@@ -63,16 +89,38 @@ func (s *ModelsSuite) TestEmbedRemoteImagesDeduplicatesURLs(c *check.C) {
 
 	u := srv.URL + "/a.gif"
 	html := `<html><body><img src="` + u + `"><img src="` + u + `"></body></html>`
-	out, images := embedRemoteImages(html, "phish.example.com", srv.Client())
+	out, images := embedRemoteImages(html, "http://phish.example.com/track?rid=x", srv.Client())
 
 	c.Assert(len(images), check.Equals, 1)
 	c.Assert(atomic.LoadInt32(&hits), check.Equals, int32(1))
 	c.Assert(strings.Count(out, "cid:"+images[0].cid), check.Equals, 2)
 }
 
-func (s *ModelsSuite) TestEmbedRemoteImagesIgnoresDataURIs(c *check.C) {
-	html := `<html><body><img src="data:image/png;base64,AAAA"></body></html>`
-	out, images := embedRemoteImages(html, "phish.example.com", http.DefaultClient)
+func (s *ModelsSuite) TestEmbedRemoteImagesInlinesBase64Image(c *check.C) {
+	payload := base64.StdEncoding.EncodeToString([]byte("png-bytes"))
+	html := `<html><body><img src="data:image/png;base64,` + payload + `"></body></html>`
+	out, images := embedRemoteImages(html, "http://phish.example.com/track?rid=x", http.DefaultClient)
+
+	c.Assert(len(images), check.Equals, 1)
+	c.Assert(images[0].contentType, check.Equals, "image/png")
+	c.Assert(string(images[0].data), check.Equals, "png-bytes")
+	c.Assert(strings.Contains(out, "cid:"+images[0].cid), check.Equals, true)
+	c.Assert(strings.Contains(out, "data:image/png;base64,"), check.Equals, false)
+}
+
+func (s *ModelsSuite) TestEmbedRemoteImagesDeduplicatesBase64Images(c *check.C) {
+	payload := base64.StdEncoding.EncodeToString([]byte("same-bytes"))
+	uri := `data:image/gif;base64,` + payload
+	html := `<html><body><img src="` + uri + `"><img src="` + uri + `"></body></html>`
+	out, images := embedRemoteImages(html, "http://phish.example.com/track?rid=x", http.DefaultClient)
+
+	c.Assert(len(images), check.Equals, 1)
+	c.Assert(strings.Count(out, "cid:"+images[0].cid), check.Equals, 2)
+}
+
+func (s *ModelsSuite) TestEmbedRemoteImagesIgnoresNonImageDataURI(c *check.C) {
+	html := `<html><body><img src="data:text/plain;base64,aGVsbG8="></body></html>`
+	out, images := embedRemoteImages(html, "http://phish.example.com/track?rid=x", http.DefaultClient)
 
 	c.Assert(len(images), check.Equals, 0)
 	c.Assert(out, check.Equals, html)
@@ -86,7 +134,7 @@ func (s *ModelsSuite) TestEmbedRemoteImagesSkipsNonImageContentType(c *check.C) 
 	defer srv.Close()
 
 	html := `<html><body><img src="` + srv.URL + `/evil"></body></html>`
-	out, images := embedRemoteImages(html, "phish.example.com", srv.Client())
+	out, images := embedRemoteImages(html, "http://phish.example.com/track?rid=x", srv.Client())
 
 	c.Assert(len(images), check.Equals, 0)
 	c.Assert(out, check.Equals, html)

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -45,15 +46,26 @@ func inlineImageHTTPClient() *http.Client {
 
 // embedRemoteImages rewrites the <img> tags in html that reference remote
 // images, replacing their src with a cid: reference and returning the images
-// that must be embedded in the message. Images hosted on skipHost (the
-// campaign/tracking host) are left untouched so that open tracking keeps
-// working, as are non-http(s) srcs such as data: URIs. Any image that cannot
-// be fetched is left as a remote reference. If html cannot be parsed, or no
-// images are inlined, the original html is returned unchanged.
-func embedRemoteImages(html, skipHost string, client *http.Client) (string, []inlineImage) {
+// that must be embedded in the message. The only image left untouched is the
+// open-tracking pixel, identified by trackingURL (its host and path), so that
+// open tracking keeps working; everything else is inlined, including
+// same-domain images and assets Gophish serves from its static endpoint.
+// Base64 image data: URIs embedded directly in the HTML are also converted to
+// cid: attachments, so they render in clients that strip data: URIs. Any image
+// that cannot be fetched or decoded is left untouched. If html cannot be
+// parsed, or no images are inlined, the original html is returned unchanged.
+func embedRemoteImages(html, trackingURL string, client *http.Client) (string, []inlineImage) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 	if err != nil {
 		return html, nil
+	}
+
+	// Parse the tracking URL once so we can recognize (and skip) the tracking
+	// pixel by its host and path, ignoring the per-recipient rid query string.
+	var trackHost, trackPath string
+	if tu, terr := url.Parse(trackingURL); terr == nil {
+		trackHost = tu.Host
+		trackPath = tu.Path
 	}
 
 	seen := map[string]string{} // remote src -> generated cid
@@ -65,31 +77,49 @@ func embedRemoteImages(html, skipHost string, client *http.Client) (string, []in
 			return
 		}
 		src = strings.TrimSpace(src)
-		u, err := url.Parse(src)
-		if err != nil {
-			return
-		}
-		if u.Scheme != "http" && u.Scheme != "https" {
-			return
-		}
-		// Never inline images on the campaign's own host. This covers the
-		// open-tracking pixel (which must stay remote to record opens) and
-		// the phishing server's own assets.
-		if skipHost != "" && strings.EqualFold(u.Host, skipHost) {
+
+		// Reuse an already-embedded source (dedup), including repeated data URIs.
+		if cid, done := seen[src]; done {
+			sel.SetAttr("src", "cid:"+cid)
 			return
 		}
 
-		cid, done := seen[src]
-		if !done {
-			data, ctype, ferr := fetchInlineImage(src, client)
+		var data []byte
+		var ctype string
+		switch {
+		case strings.HasPrefix(strings.ToLower(src), "data:"):
+			// Base64 image data: URIs are decoded and embedded, so they render
+			// in clients (e.g. Outlook) that strip data: URIs from HTML email.
+			d, ct, dok := decodeImageDataURI(src)
+			if !dok {
+				return
+			}
+			data, ctype = d, ct
+		default:
+			u, err := url.Parse(src)
+			if err != nil {
+				return
+			}
+			if u.Scheme != "http" && u.Scheme != "https" {
+				return
+			}
+			// Never inline the open-tracking pixel: it must stay remote so that
+			// the recipient's client fetching it records an "Email Opened"
+			// event. Matched by host and path so a differing rid doesn't matter.
+			if trackHost != "" && strings.EqualFold(u.Host, trackHost) && u.Path == trackPath {
+				return
+			}
+			d, ct, ferr := fetchInlineImage(src, client)
 			if ferr != nil {
 				log.Warnf("unable to inline remote image %q: %v", src, ferr)
 				return
 			}
-			cid = fmt.Sprintf("inline-image-%d", len(images)+1)
-			seen[src] = cid
-			images = append(images, inlineImage{cid: cid, contentType: ctype, data: data})
+			data, ctype = d, ct
 		}
+
+		cid := fmt.Sprintf("inline-image-%d", len(images)+1)
+		seen[src] = cid
+		images = append(images, inlineImage{cid: cid, contentType: ctype, data: data})
 		sel.SetAttr("src", "cid:"+cid)
 	})
 
@@ -108,6 +138,41 @@ func embedRemoteImages(html, skipHost string, client *http.Client) (string, []in
 		return html, nil
 	}
 	return out, images
+}
+
+// decodeImageDataURI decodes a base64-encoded image data: URI (for example
+// "data:image/png;base64,iVBORw0K..."), returning the raw bytes and the media
+// type. It returns ok=false for non-image media types, non-base64 payloads, or
+// malformed input, so the caller leaves those srcs untouched.
+func decodeImageDataURI(src string) (data []byte, contentType string, ok bool) {
+	if len(src) < len("data:") || !strings.EqualFold(src[:len("data:")], "data:") {
+		return nil, "", false
+	}
+	meta, payload, found := strings.Cut(src[len("data:"):], ",")
+	if !found {
+		return nil, "", false
+	}
+
+	mediaType := meta
+	isBase64 := false
+	if i := strings.IndexByte(meta, ';'); i >= 0 {
+		mediaType = meta[:i]
+		for _, param := range strings.Split(meta[i+1:], ";") {
+			if strings.EqualFold(strings.TrimSpace(param), "base64") {
+				isBase64 = true
+			}
+		}
+	}
+	mediaType = strings.TrimSpace(mediaType)
+	if !isBase64 || !strings.HasPrefix(strings.ToLower(mediaType), "image/") {
+		return nil, "", false
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(payload))
+	if err != nil {
+		return nil, "", false
+	}
+	return decoded, mediaType, true
 }
 
 // fetchInlineImage retrieves a single remote image, returning its bytes and
