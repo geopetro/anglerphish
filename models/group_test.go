@@ -329,6 +329,113 @@ func (s *ModelsSuite) TestPostGroupWithAllFields(c *check.C) {
 	c.Assert(target.Custom, check.Equals, "Custom: All fields test")
 }
 
+func (s *ModelsSuite) TestDeleteGroupRemovesOrphanedTargets(c *check.C) {
+	// Add a group with a single target that belongs to no other group.
+	group := Group{Name: "Test Group"}
+	group.Targets = []Target{
+		Target{BaseRecipient: BaseRecipient{Email: "orphan@example.com"}},
+	}
+	group.UserId = 1
+	c.Assert(PostGroup(&group), check.Equals, nil)
+
+	c.Assert(DeleteGroup(&group), check.Equals, nil)
+
+	// The target should no longer exist in the database, not just
+	// unlinked from the group.
+	var target Target
+	err := db.Where("email=?", "orphan@example.com").Find(&target).Error
+	c.Assert(err, check.Equals, gorm.ErrRecordNotFound)
+}
+
+func (s *ModelsSuite) TestDeleteGroupKeepsTargetsStillInUse(c *check.C) {
+	// Two groups sharing the same target.
+	group1 := Group{Name: "Group One"}
+	group1.Targets = []Target{
+		Target{BaseRecipient: BaseRecipient{Email: "shared@example.com", FirstName: "Shared"}},
+	}
+	group1.UserId = 1
+	c.Assert(PostGroup(&group1), check.Equals, nil)
+
+	group2 := Group{Name: "Group Two"}
+	group2.Targets = []Target{
+		Target{BaseRecipient: BaseRecipient{Email: "shared@example.com", FirstName: "Shared"}},
+	}
+	group2.UserId = 1
+	c.Assert(PostGroup(&group2), check.Equals, nil)
+
+	// Deleting group1 must not remove the target, since group2 still uses it.
+	c.Assert(DeleteGroup(&group1), check.Equals, nil)
+
+	targets, err := GetTargets(group2.Id)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(len(targets), check.Equals, 1)
+	c.Assert(targets[0].Email, check.Equals, "shared@example.com")
+}
+
+func (s *ModelsSuite) TestPostGroupAfterDeleteUsesFreshTargetData(c *check.C) {
+	// Reproduces the reported scenario: a group is imported from a CSV,
+	// deleted, and then re-imported from an updated CSV with the same
+	// recipient email but changed details. The re-import must reflect the
+	// new data, not the stale data from before the deletion.
+	original := Group{Name: "Imported Group"}
+	original.Targets = []Target{
+		Target{BaseRecipient: BaseRecipient{
+			Email:     "recreate@example.com",
+			FirstName: "Old",
+			Position:  "Old Position",
+		}},
+	}
+	original.UserId = 1
+	c.Assert(PostGroup(&original), check.Equals, nil)
+	c.Assert(DeleteGroup(&original), check.Equals, nil)
+
+	reimported := Group{Name: "Imported Group"}
+	reimported.Targets = []Target{
+		Target{BaseRecipient: BaseRecipient{
+			Email:     "recreate@example.com",
+			FirstName: "New",
+			Position:  "New Position",
+		}},
+	}
+	reimported.UserId = 1
+	c.Assert(PostGroup(&reimported), check.Equals, nil)
+
+	targets, err := GetTargets(reimported.Id)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(len(targets), check.Equals, 1)
+	c.Assert(targets[0].Email, check.Equals, "recreate@example.com")
+	c.Assert(targets[0].FirstName, check.Equals, "New")
+	c.Assert(targets[0].Position, check.Equals, "New Position")
+}
+
+func (s *ModelsSuite) TestPostGroupDoesNotOverwriteSharedTarget(c *check.C) {
+	// Targets are global and a single row can be shared across groups. Adding
+	// a target to a second group with an email that already exists must reuse
+	// the existing row without overwriting the details the first group
+	// supplied, and without blanking fields the second group omitted.
+	group1 := Group{Name: "Group One"}
+	group1.Targets = []Target{
+		Target{BaseRecipient: BaseRecipient{Email: "shared-detail@example.com", FirstName: "Alice", Position: "CFO"}},
+	}
+	group1.UserId = 1
+	c.Assert(PostGroup(&group1), check.Equals, nil)
+
+	// Second group supplies a different first name and omits the position.
+	group2 := Group{Name: "Group Two"}
+	group2.Targets = []Target{
+		Target{BaseRecipient: BaseRecipient{Email: "shared-detail@example.com", FirstName: "Mallory"}},
+	}
+	group2.UserId = 1
+	c.Assert(PostGroup(&group2), check.Equals, nil)
+
+	// The original group's view of the shared target is unchanged.
+	targets, err := GetTargets(group1.Id)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(len(targets), check.Equals, 1)
+	c.Assert(targets[0].FirstName, check.Equals, "Alice")
+	c.Assert(targets[0].Position, check.Equals, "CFO")
+}
+
 func (s *ModelsSuite) TestToggleGroupLock(c *check.C) {
 	g := Group{Name: "Test Lock Group"}
 	g.Targets = []Target{Target{BaseRecipient: BaseRecipient{Email: "test@example.com"}}}

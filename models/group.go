@@ -443,19 +443,50 @@ func ToggleGroupLock(id int64, uid int64) (Group, error) {
 
 // DeleteGroup deletes a given group by group ID and user ID
 func DeleteGroup(g *Group) error {
-	// Delete all the group_targets entries for this group
-	err := db.Where("group_id=?", g.Id).Delete(&GroupTarget{}).Error
+	tx := db.Begin()
+
+	// Remember which targets were linked to this group so we can check
+	// whether they become orphaned once the links are removed.
+	var targetIds []int64
+	err := tx.Model(&GroupTarget{}).Where("group_id=?", g.Id).Pluck("target_id", &targetIds).Error
 	if err != nil {
 		log.Error(err)
+		tx.Rollback()
+		return err
+	}
+
+	// Delete all the group_targets entries for this group
+	err = tx.Where("group_id=?", g.Id).Delete(&GroupTarget{}).Error
+	if err != nil {
+		log.Error(err)
+		tx.Rollback()
 		return err
 	}
 	// Delete the group itself
-	err = db.Delete(g).Error
+	err = tx.Delete(g).Error
 	if err != nil {
 		log.Error(err)
+		tx.Rollback()
 		return err
 	}
-	return err
+
+	// Clean up targets that no longer belong to any group. Without this,
+	// deleted targets keep existing in the database and get silently
+	// reattached (with their old, stale data) the next time a target with
+	// the same email or phone is added to a new or re-imported group.
+	// A single statement removes every now-orphaned target in one query
+	// instead of running a COUNT per target.
+	if len(targetIds) > 0 {
+		err = tx.Where("id IN (?) AND id NOT IN (SELECT target_id FROM group_targets)", targetIds).
+			Delete(&Target{}).Error
+		if err != nil {
+			log.Error(err)
+			tx.Rollback()
+			return err
+		}
+	}
+
+	return tx.Commit().Error
 }
 
 // ErrNoContactInfoSpecified is thrown when neither email nor phone is provided for a target
@@ -544,7 +575,11 @@ func insertTargetIntoGroup(tx *gorm.DB, t Target, gid int64) error {
 		}).Error(err)
 		return err
 	} else {
-		// Target exists, use its ID
+		// Target exists. Reuse its ID. Targets are global and a single row
+		// can be shared by several groups (and users), so we must not refresh
+		// its details from the incoming data here: doing so would let one
+		// group overwrite another's values or blank out fields that the new
+		// import didn't supply.
 		t.Id = existingTarget.Id
 	}
 	// Check if the group-target relationship already exists
