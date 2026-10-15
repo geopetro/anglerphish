@@ -474,21 +474,15 @@ func DeleteGroup(g *Group) error {
 	// deleted targets keep existing in the database and get silently
 	// reattached (with their old, stale data) the next time a target with
 	// the same email or phone is added to a new or re-imported group.
-	for _, tid := range targetIds {
-		var count int
-		err = tx.Model(&GroupTarget{}).Where("target_id=?", tid).Count(&count).Error
+	// A single statement removes every now-orphaned target in one query
+	// instead of running a COUNT per target.
+	if len(targetIds) > 0 {
+		err = tx.Where("id IN (?) AND id NOT IN (SELECT target_id FROM group_targets)", targetIds).
+			Delete(&Target{}).Error
 		if err != nil {
 			log.Error(err)
 			tx.Rollback()
 			return err
-		}
-		if count == 0 {
-			err = tx.Where("id=?", tid).Delete(&Target{}).Error
-			if err != nil {
-				log.Error(err)
-				tx.Rollback()
-				return err
-			}
 		}
 	}
 
@@ -581,14 +575,12 @@ func insertTargetIntoGroup(tx *gorm.DB, t Target, gid int64) error {
 		}).Error(err)
 		return err
 	} else {
-		// Target exists. Reuse its ID, but refresh its details with the
-		// incoming data so re-adding a target (e.g. after its group was
-		// deleted and re-imported from an updated CSV) doesn't leave the
-		// old, stale values in place.
+		// Target exists. Reuse its ID. Targets are global and a single row
+		// can be shared by several groups (and users), so we must not refresh
+		// its details from the incoming data here: doing so would let one
+		// group overwrite another's values or blank out fields that the new
+		// import didn't supply.
 		t.Id = existingTarget.Id
-		if err := UpdateTarget(tx, t); err != nil {
-			return err
-		}
 	}
 	// Check if the group-target relationship already exists
 	var existingRelation GroupTarget

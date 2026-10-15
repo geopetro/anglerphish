@@ -408,29 +408,32 @@ func (s *ModelsSuite) TestPostGroupAfterDeleteUsesFreshTargetData(c *check.C) {
 	c.Assert(targets[0].Position, check.Equals, "New Position")
 }
 
-func (s *ModelsSuite) TestPostGroupRefreshesStaleTargetDataOnMatch(c *check.C) {
-	// Even without a delete in between, adding a target to a new group
-	// with an email that already exists must refresh that target's
-	// details rather than silently keeping the old ones.
+func (s *ModelsSuite) TestPostGroupDoesNotOverwriteSharedTarget(c *check.C) {
+	// Targets are global and a single row can be shared across groups. Adding
+	// a target to a second group with an email that already exists must reuse
+	// the existing row without overwriting the details the first group
+	// supplied, and without blanking fields the second group omitted.
 	group1 := Group{Name: "Group One"}
 	group1.Targets = []Target{
-		Target{BaseRecipient: BaseRecipient{Email: "refresh@example.com", FirstName: "Old", Custom: "OldCustom"}},
+		Target{BaseRecipient: BaseRecipient{Email: "shared-detail@example.com", FirstName: "Alice", Position: "CFO"}},
 	}
 	group1.UserId = 1
 	c.Assert(PostGroup(&group1), check.Equals, nil)
 
+	// Second group supplies a different first name and omits the position.
 	group2 := Group{Name: "Group Two"}
 	group2.Targets = []Target{
-		Target{BaseRecipient: BaseRecipient{Email: "refresh@example.com", FirstName: "New", Custom: "NewCustom"}},
+		Target{BaseRecipient: BaseRecipient{Email: "shared-detail@example.com", FirstName: "Mallory"}},
 	}
 	group2.UserId = 1
 	c.Assert(PostGroup(&group2), check.Equals, nil)
 
-	targets, err := GetTargets(group2.Id)
+	// The original group's view of the shared target is unchanged.
+	targets, err := GetTargets(group1.Id)
 	c.Assert(err, check.Equals, nil)
 	c.Assert(len(targets), check.Equals, 1)
-	c.Assert(targets[0].FirstName, check.Equals, "New")
-	c.Assert(targets[0].Custom, check.Equals, "NewCustom")
+	c.Assert(targets[0].FirstName, check.Equals, "Alice")
+	c.Assert(targets[0].Position, check.Equals, "CFO")
 }
 
 func (s *ModelsSuite) TestToggleGroupLock(c *check.C) {
