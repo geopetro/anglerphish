@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"fmt"
 	"net/mail"
 	"time"
 
@@ -19,6 +20,7 @@ type Template struct {
 	Text              string       `json:"text"`
 	HTML              string       `json:"html" gorm:"column:html"`
 	EmbedRemoteImages bool         `json:"embed_remote_images" gorm:"column:embed_remote_images"`
+	TrackAttachments  bool         `json:"track_attachments" gorm:"column:track_attachments"`
 	ModifiedDate      time.Time    `json:"modified_date"`
 	Attachments       []Attachment `json:"attachments"`
 }
@@ -50,7 +52,7 @@ func (t *Template) Validate() error {
 	}
 	for _, a := range t.Attachments {
 		if err := a.Validate(); err != nil {
-			return err
+			return fmt.Errorf("attachment %q: %w", a.Name, err)
 		}
 	}
 

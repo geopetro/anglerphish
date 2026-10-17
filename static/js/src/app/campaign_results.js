@@ -36,6 +36,18 @@ var statuses = {
         icon: "fa-envelope-open",
         point: "ct-point-opened"
     },
+    "Attachment Opened": {
+        color: "#f0ad4e",
+        label: "label-warning",
+        icon: "fa-paperclip",
+        point: "ct-point-attachment-opened"
+    },
+    "Macro Executed": {
+        color: "#c0392b",
+        label: "label-danger",
+        icon: "fa-file-code-o",
+        point: "ct-point-macro-executed"
+    },
     "Clicked Link": {
         color: "#F39C12",
         label: "label-clicked",
@@ -173,6 +185,8 @@ var statusMapping = {
     "Email Sent": "sent",
     "SMS Sent": "sent",
     "Email Opened": "opened",
+    "Attachment Opened": "attachment_opened",
+    "Macro Executed": "macro_executed",
     "Clicked Link": "clicked",
     "Submitted Data": "submitted_data",
     "Email Reported": "reported",
@@ -697,7 +711,7 @@ function renderTimeline(data) {
                 '    <span class="timeline-date">' + moment.utc(event.time).local().format('MMMM Do YYYY h:mm:ss a') + '</span>'
             if (event.details) {
                 details = JSON.parse(event.details)
-                if (event.message == "Clicked Link" || event.message == "Submitted Data") {
+                if (event.message == "Clicked Link" || event.message == "Submitted Data" || event.message == "Macro Executed") {
                     deviceView = renderDevice(details)
                     if (deviceView) {
                         results += deviceView
@@ -707,13 +721,18 @@ function renderTimeline(data) {
                     results += '<div class="timeline-replay-button"><button onclick="replay(' + i + ')" class="btn btn-success">'
                     results += '<i class="fa fa-refresh"></i> Replay Credentials</button></div>'
                     results += '<div class="timeline-event-details"><i class="fa fa-caret-right"></i> View Details</div>'
+                } else if (event.message == "Macro Executed") {
+                    // Macro Executed collects whatever the macro posts back (user,
+                    // host, etc.), shown the same way as submitted credentials.
+                    results += '<div class="timeline-event-details"><i class="fa fa-caret-right"></i> View Details</div>'
                 }
                 if (details.payload) {
                     results += '<div class="timeline-event-results">'
                     results += '    <table class="table table-condensed table-bordered table-striped">'
                     results += '        <thead><tr><th>Parameter</th><th>Value(s)</tr></thead><tbody>'
                     $.each(Object.keys(details.payload), function (i, param) {
-                        if (param == "rid") {
+                        // Hide the routing/marker params that aren't captured data.
+                        if (param == "rid" || param == "m" || param == "a") {
                             return true;
                         }
                         results += '    <tr>'
@@ -945,8 +964,8 @@ function processTimelineData(timeline, results) {
     var isSMSCampaign = results.every(r => r.sms_target);
     var relevantStatuses = isSMSCampaign
         ? ["SMS Sent", "Clicked Link", "Submitted Data"]
-        : ["Email Sent", "Email Opened", "Clicked Link", "Submitted Data", "Email Reported", "Email Replied"];
-        
+        : ["Email Sent", "Email Opened", "Attachment Opened", "Macro Executed", "Clicked Link", "Submitted Data", "Email Reported", "Email Replied"];
+
     relevantStatuses.forEach(function (k) {
         email_series_data[k] = 0;
     });
@@ -958,6 +977,8 @@ function processTimelineData(timeline, results) {
             processed_results[event.email] = {
                 "sent": false,
                 "opened": false,
+                "attachment_opened": false,
+                "macro_executed": false,
                 "clicked": false,
                 "submitted_data": false,
                 "replied": false,
@@ -970,6 +991,15 @@ function processTimelineData(timeline, results) {
                 processed_results[event.email]["sent"] = true;
                 break;
             case "Email Opened":
+                processed_results[event.email]["opened"] = true;
+                break;
+            case "Attachment Opened":
+                processed_results[event.email]["attachment_opened"] = true;
+                processed_results[event.email]["opened"] = true;
+                break;
+            case "Macro Executed":
+                processed_results[event.email]["macro_executed"] = true;
+                processed_results[event.email]["attachment_opened"] = true;
                 processed_results[event.email]["opened"] = true;
                 break;
             case "Clicked Link":
@@ -1007,6 +1037,12 @@ function processTimelineData(timeline, results) {
         }
         if (result.opened) {
             email_series_data["Email Opened"]++;
+        }
+        if (result.attachment_opened) {
+            email_series_data["Attachment Opened"]++;
+        }
+        if (result.macro_executed) {
+            email_series_data["Macro Executed"]++;
         }
         if (result.clicked) {
             email_series_data["Clicked Link"]++;
@@ -1455,8 +1491,8 @@ function load() {
                 const isSMSCampaign = campaign.results.every(r => r.sms_target);
                 const relevantStatuses = isSMSCampaign
                     ? ["SMS Sent", "Clicked Link", "Submitted Data"]
-                    : ["Email Sent", "Email Opened", "Clicked Link", "Submitted Data", "Email Reported", "Email Replied"];
-                    
+                    : ["Email Sent", "Email Opened", "Attachment Opened", "Macro Executed", "Clicked Link", "Submitted Data", "Email Reported", "Email Replied"];
+
                 relevantStatuses.forEach(function (status) {
                     const count = email_series_data[status] || 0;
 
@@ -1828,9 +1864,11 @@ function getBestStatus(result, timeline) {
     });
 
     const statusPriority = {
-        "Submitted Data": 6,
+        "Submitted Data": 7,
+        "Macro Executed": 6,
         "Clicked Link": 5,
         "Email Replied": 5,
+        "Attachment Opened": 4,
         "Email Opened": 3,
         "Email Sent": 2,
         "SMS Sent": 2,

@@ -30,6 +30,12 @@ var statuses = {
         icon: "fa-envelope",
         point: "ct-point-opened"
     },
+    "Attachment Opened": {
+        color: "#f0ad4e",
+        label: "label-warning",
+        icon: "fa-paperclip",
+        point: "ct-point-attachment-opened"
+    },
     "Email Reported": {
         color: "#45d6ef",
         label: "label-warning",
@@ -41,6 +47,12 @@ var statuses = {
         label: "label-info",
         icon: "fa-reply",
         point: "ct-point-replied"
+    },
+    "Macro Executed": {
+        color: "#c0392b",
+        label: "label-danger",
+        icon: "fa-file-code-o",
+        point: "ct-point-macro-executed"
     },
     "Clicked Link": {
         color: "#F39C12",
@@ -99,6 +111,8 @@ var statuses = {
 var statsMapping = {
     "sent": "Email Sent",
     "opened": "Email Opened",
+    "opened_attachment": "Attachment Opened",
+    "macro_executed": "Macro Executed",
     "email_reported": "Email Reported",
     "clicked": "Clicked Link",
     "submitted_data": "Submitted Data",
@@ -116,56 +130,61 @@ function deleteCampaign(idx) {
     }
 }
 
-/* Renders a pie chart using the provided chartops */
+/* Renders a donut ring for a stat card: the colour-filled arc plus the count
+   (large) and percentage (small) stacked in the centre. The stat name lives in
+   the card header, so the chart itself has no title. */
 function renderPieChart(chartopts) {
+    var count = chartopts['data'][0].count;
+    var pct = Math.round(chartopts['data'][0].y) + '%';
+    var color = chartopts['colors'][0];
+
+    function drawCenter(chart) {
+        var rend = chart.renderer,
+            pie = chart.series[0],
+            cx = chart.plotLeft + pie.center[0],
+            cy = chart.plotTop + pie.center[1];
+        chart.kpiCount = rend.text(count, cx, cy).attr({
+            'text-anchor': 'middle',
+            'font-size': '20px',
+            'font-weight': 'bold',
+            'fill': color,
+            'font-family': 'Helvetica,Arial,sans-serif'
+        }).add();
+        chart.kpiPct = rend.text(pct, cx, cy + 16).attr({
+            'text-anchor': 'middle',
+            'font-size': '12px',
+            'fill': color,
+            'font-family': 'Helvetica,Arial,sans-serif'
+        }).add();
+    }
+
     return Highcharts.chart(chartopts['elemId'], {
         chart: {
             type: 'pie',
+            backgroundColor: 'transparent',
+            margin: [0, 0, 0, 0],
+            spacing: [0, 0, 0, 0],
             events: {
-                load: function () {
-                    var chart = this,
-                        rend = chart.renderer,
-                        pie = chart.series[0],
-                        left = chart.plotLeft + pie.center[0],
-                        top = chart.plotTop + pie.center[1];
-                    this.innerText = rend.text(chartopts['data'][0].count, left, top).
-                    attr({
-                        'text-anchor': 'middle',
-                        'font-size': '16px',
-                        'font-weight': 'bold',
-                        'fill': chartopts['colors'][0],
-                        'font-family': 'Helvetica,Arial,sans-serif'
-                    }).add();
-                },
+                load: function () { drawCenter(this); },
                 render: function () {
-                    this.innerText.attr({
-                        text: chartopts['data'][0].count
-                    })
+                    if (this.kpiCount) { this.kpiCount.attr({ text: count }); }
+                    if (this.kpiPct) { this.kpiPct.attr({ text: pct }); }
                 }
             }
         },
-        title: {
-            text: chartopts['title']
-        },
+        title: { text: null },
         plotOptions: {
             pie: {
-                innerSize: '80%',
-                dataLabels: {
-                    enabled: false
-                }
+                innerSize: '78%',
+                borderWidth: 0,
+                dataLabels: { enabled: false },
+                states: { hover: { halo: { size: 0 } } }
             }
         },
-        credits: {
-            enabled: false
-        },
-        tooltip: {
-            formatter: function () {
-                if (this.key == undefined) {
-                    return false
-                }
-                return '<span style="color:' + this.color + '">\u25CF</span>' + this.point.name + ': <b>' + this.y + '%</b><br/>'
-            }
-        },
+        credits: { enabled: false },
+        // No tooltip: the card already shows the title, count, percent and
+        // "x of N", so there is nothing extra to reveal on hover.
+        tooltip: { enabled: false },
         series: [{
             data: chartopts['data'],
             colors: chartopts['colors'],
@@ -173,11 +192,21 @@ function renderPieChart(chartopts) {
     })
 }
 
-function generateStatsPieCharts(campaigns) {
+// The order stages are presented in (funnel and donut cards).
+const dashboardStatOrder = [
+    "sent", "sms_sent", "opened", "clicked", "submitted_data",
+    "opened_attachment", "macro_executed",
+    "replied", "email_reported"
+];
 
+// computeDashboardStats aggregates the per-campaign stats into the dashboard's
+// cross-campaign totals, returning one entry per stage with its count, the
+// percentage it represents, and its colour. This is the single source of truth
+// for BOTH the donut view and the funnel view, so the two can never disagree.
+function computeDashboardStats(campaigns) {
     const statusesToInclude = Object.keys(statsMapping);
 
-    const emailOnlyStats = ["sent", "opened", "replied", "email_reported"];
+    const emailOnlyStats = ["sent", "opened", "opened_attachment", "macro_executed", "replied", "email_reported"];
     const smsOnlyStats = ["sms_sent"];
     const globalStats = ["clicked", "submitted_data"];
 
@@ -224,51 +253,282 @@ function generateStatsPieCharts(campaigns) {
         }
     });
 
-    // Render donut charts
+    // Build an ordered list of stage results. The percent math below is
+    // identical to the original per-donut calculation, so the numbers shown are
+    // unchanged.
+    let items = [];
+    dashboardStatOrder.forEach(function (statusKey) {
+        if (!(statusKey in stats_series_data)) return;
+        const count = stats_series_data[statusKey];
+        const label = statsMapping[statusKey];
+
+        let denominator = 0;
+        if (globalStats.includes(statusKey)) {
+            denominator = totals.all;
+        } else if (emailOnlyStats.includes(statusKey)) {
+            denominator = totals.email;
+        } else if (smsOnlyStats.includes(statusKey)) {
+            denominator = totals.sms;
+        } else {
+            return;
+        }
+
+        // Real denominator for the "x of N" display; the percent uses a guarded
+        // denominator so a type with no campaigns shows 0% instead of dividing
+        // by zero.
+        var realDen = denominator;
+        if (denominator === 0) {
+            denominator = 1; // Use 1 to avoid division by zero, count is already 0
+        }
+
+        items.push({
+            key: statusKey,
+            label: label,
+            count: count,
+            den: realDen,
+            percent: (count / denominator) * 100,
+            color: (statuses[label] && statuses[label].color) || "#888"
+        });
+    });
+
+    return { totals: totals, items: items };
+}
+
+// Tracks rendered stats charts by container id so a re-render (e.g. toggling
+// views) destroys the previous instance instead of stacking a new chart on top
+// of it.
+var dashboardStatsCharts = {};
+
+function destroyStatsChart(elemId) {
+    if (dashboardStatsCharts[elemId]) {
+        try { dashboardStatsCharts[elemId].destroy(); } catch (e) { /* ignore */ }
+        delete dashboardStatsCharts[elemId];
+    }
+}
+
+function generateStatsPieCharts(campaigns) {
+    const result = computeDashboardStats(campaigns);
     // Only render if there's at least one campaign of any type
-    if (totals.all > 0) {
-        for (let statusKey in stats_series_data) {
-            const count = stats_series_data[statusKey];
-            const label = statsMapping[statusKey];
+    if (result.totals.all <= 0) {
+        return;
+    }
+    result.items.forEach(function (item) {
+        const elemId = item.key + '_chart';
+        const stats_data = [
+            { name: item.label, y: item.percent, count: item.count },
+            { name: '', y: 100 - item.percent }
+        ];
+        $("#" + item.key + "_frac").text(item.count + " of " + item.den);
+        try {
+            destroyStatsChart(elemId);
+            dashboardStatsCharts[elemId] = renderPieChart({
+                elemId: elemId,
+                name: item.key,
+                data: stats_data,
+                // Track colour is theme-neutral so the ring reads on light and dark.
+                colors: [item.color, "rgba(127,127,127,0.25)"]
+            });
+        } catch (e) {
+            console.error("Error rendering chart for", item.key, e);
+        }
+    });
+}
 
-            let denominator = 0;
-            if (globalStats.includes(statusKey)) {
-                denominator = totals.all;
-            } else if (emailOnlyStats.includes(statusKey)) {
-                denominator = totals.email;
-            } else if (smsOnlyStats.includes(statusKey)) {
-                denominator = totals.sms;
-            } else {
-                continue;
-            }
+// generateFunnelChart renders the same stage data as a single horizontal bar
+// chart, ordered as a funnel. Each bar is coloured by its stage and labelled
+// with the count and percentage.
+function generateFunnelChart(campaigns) {
+    const result = computeDashboardStats(campaigns);
+    if (result.totals.all <= 0) {
+        return;
+    }
+    const categories = result.items.map(function (i) { return i.label; });
+    const data = result.items.map(function (i) {
+        return {
+            y: i.count,
+            percent: i.percent,
+            color: i.color
+        };
+    });
+    // Read the active theme's colours off the page so all chart text (labels,
+    // title, and especially the data-label numbers) stays legible on both light
+    // and dark themes instead of Highcharts' fixed dark defaults.
+    var textColor = "#333";
+    var faintColor = "rgba(127,127,127,0.25)";
+    try {
+        var probed = window.getComputedStyle(document.body).color;
+        if (probed) { textColor = probed; }
+    } catch (e) { /* ignore, keep fallback */ }
 
-            // If there are no campaigns of this specific type, use a small denominator to show 0%
-            // This ensures the donut still renders at 0% rather than being hidden
-            if (denominator === 0) {
-                denominator = 1; // Use 1 to avoid division by zero, count is already 0
-            }
-
-            const percent = (count / denominator) * 100;
-            const chartElemId = statusKey + '_chart';
-
-            const stats_data = [
-                { name: label, y: percent, count: count },
-                { name: '', y: 100 - percent }
-            ];
-
-            try {
-                renderPieChart({
-                    elemId: chartElemId,
-                    title: label,
-                    name: statusKey,
-                    data: stats_data,
-                    colors: [statuses[label].color || "#888", "#dddddd"]
-                });
-            } catch (e) {
-                console.error("Error rendering chart for", statusKey, e);
-            }
+    // Background tint behind each bar, by severity: green (neutral) for sent/
+    // opened/attachment/reported, orange for clicked/replied, red for the
+    // compromises (submitted/macro). Coloured per stage (not merged), so the
+    // scheme holds regardless of order; adjacent same-colour bars read as one band.
+    var BAND_GREEN = "rgba(26,188,156,0.07)";
+    var BAND_ORANGE = "rgba(243,156,18,0.09)";
+    var BAND_RED = "rgba(192,57,43,0.08)";
+    var BAND_BLUE = "rgba(69,214,239,0.10)";
+    var bandColorOf = {
+        sent: BAND_GREEN, sms_sent: BAND_GREEN, opened: BAND_GREEN,
+        opened_attachment: BAND_GREEN,
+        clicked: BAND_ORANGE, replied: BAND_ORANGE,
+        submitted_data: BAND_RED, macro_executed: BAND_RED,
+        email_reported: BAND_BLUE
+    };
+    var plotBands = [];
+    for (var bi = 0; bi < result.items.length; bi++) {
+        var bc = bandColorOf[result.items[bi].key];
+        if (bc) {
+            plotBands.push({ from: bi - 0.5, to: bi + 0.5, color: bc });
         }
     }
+
+    // Icons next to each funnel stage, matching the campaign-set / donut-card
+    // glyphs. Keyed by stage so the axis label (the stage name) can look them up.
+    var statIcons = {
+        sent: "fa-envelope-o", sms_sent: "fa-comment", opened: "fa-envelope-open-o",
+        opened_attachment: "fa-paperclip", macro_executed: "fa-file-code-o",
+        clicked: "fa-mouse-pointer", submitted_data: "fa-exclamation-circle",
+        replied: "fa-reply", email_reported: "fa-bullhorn"
+    };
+    var labelMeta = {};
+    result.items.forEach(function (i) {
+        labelMeta[i.label] = { icon: statIcons[i.key], color: i.color };
+    });
+
+    try {
+        destroyStatsChart('funnel_chart');
+        dashboardStatsCharts['funnel_chart'] = Highcharts.chart('funnel_chart', {
+            chart: { type: 'bar', backgroundColor: 'transparent' },
+            title: { text: 'Engagement Funnel', style: { color: textColor } },
+            xAxis: {
+                categories: categories,
+                title: { text: null },
+                lineColor: faintColor,
+                tickColor: faintColor,
+                labels: {
+                    useHTML: true,
+                    style: { color: textColor },
+                    formatter: function () {
+                        var m = labelMeta[this.value] || {};
+                        var ic = m.icon
+                            ? '<i class="fa ' + m.icon + '" style="margin-right:6px;color:' + (m.color || textColor) + '"></i>'
+                            : '';
+                        return '<span style="color:' + textColor + '">' + ic + this.value + '</span>';
+                    }
+                },
+                plotBands: plotBands
+            },
+            yAxis: {
+                min: 0,
+                title: { text: 'Recipients', align: 'high', style: { color: textColor } },
+                allowDecimals: false,
+                gridLineColor: faintColor,
+                labels: { style: { color: textColor } }
+            },
+            legend: { enabled: false },
+            credits: { enabled: false },
+            tooltip: {
+                formatter: function () {
+                    return '<b>' + this.key + '</b><br/>' +
+                        this.y + ' (' + Math.round(this.point.percent) + '%)';
+                }
+            },
+            plotOptions: {
+                bar: {
+                    dataLabels: {
+                        enabled: true,
+                        inside: false,
+                        style: { color: textColor, textOutline: 'none', fontWeight: 'normal' },
+                        formatter: function () {
+                            return this.y + ' (' + Math.round(this.point.percent) + '%)';
+                        }
+                    }
+                }
+            },
+            series: [{
+                name: 'Recipients',
+                data: data,
+                colorByPoint: true
+            }]
+        });
+    } catch (e) {
+        console.error("Error rendering funnel chart", e);
+    }
+}
+
+// Dashboard stats view toggle (funnel vs donuts), remembered per browser.
+// Reading/writing localStorage is wrapped so a blocked or private store never
+// breaks the dashboard.
+var DASHBOARD_VIEW_KEY = 'gophish.dashboard.statsView';
+
+function getDashboardView() {
+    try {
+        var v = localStorage.getItem(DASHBOARD_VIEW_KEY);
+        if (v === 'donuts' || v === 'funnel') {
+            return v;
+        }
+    } catch (e) { /* ignore */ }
+    return 'funnel'; // default
+}
+
+function setDashboardView(view, campaigns) {
+    try {
+        localStorage.setItem(DASHBOARD_VIEW_KEY, view);
+    } catch (e) { /* ignore */ }
+
+    if (view === 'donuts') {
+        $("#funnel_view").hide();
+        $("#donuts_view").show();
+        $("#view-donuts").addClass('active').siblings().removeClass('active');
+        generateStatsPieCharts(campaigns);
+    } else {
+        $("#donuts_view").hide();
+        $("#funnel_view").show();
+        $("#view-funnel").addClass('active').siblings().removeClass('active');
+        generateFunnelChart(campaigns);
+    }
+    // Highcharts needs a reflow after its container becomes visible, otherwise
+    // it renders at the width it had while hidden (often zero).
+    setTimeout(function () {
+        $.each(Highcharts.charts, function (i, c) {
+            if (c) { c.reflow(); }
+        });
+    }, 0);
+}
+
+// generateKPIs fills the dashboard summary tiles. Rates use the total number of
+// recipients across all campaigns as the denominator (the standard phishing
+// metric), so each rate reads as "did X / everyone targeted".
+function generateKPIs(campaigns) {
+    var t = { total: 0, sent: 0, opened: 0, clicked: 0, submitted: 0, reported: 0, replied: 0, macro: 0 };
+    campaigns.forEach(function (c) {
+        var s = c.stats || {};
+        t.total += s.total || 0;
+        t.sent += s.sent || 0;
+        t.opened += s.opened || 0;
+        t.clicked += s.clicked || 0;
+        t.submitted += s.submitted_data || 0;
+        t.reported += s.email_reported || 0;
+        t.replied += s.replied || 0;
+        t.macro += s.macro_executed || 0;
+    });
+    var N = t.total || 0;
+    function pct(x) { return N > 0 ? Math.round((x / N) * 100) : 0; }
+    function frac(x) { return x + "/" + N; }
+
+    $("#kpi_delivered").text(t.sent);
+
+    $("#kpi_open_pct").text(pct(t.opened) + "%");
+    $("#kpi_open_frac").text(frac(t.opened));
+    $("#kpi_click_pct").text(pct(t.clicked) + "%");
+    $("#kpi_click_frac").text(frac(t.clicked));
+    $("#kpi_submit_pct").text(pct(t.submitted) + "%");
+    $("#kpi_submit_frac").text(frac(t.submitted));
+    $("#kpi_reply_pct").text(pct(t.replied) + "%");
+    $("#kpi_reply_frac").text(frac(t.replied));
+    $("#kpi_report_pct").text(pct(t.reported) + "%");
+    $("#kpi_report_frac").text(frac(t.reported));
 }
 
 function generateTimelineChart(campaigns) {
@@ -369,38 +629,22 @@ $(document).ready(function () {
                 // Create the overview chart data
                 campaignTable = $("#campaignTable").DataTable({
                     columnDefs: [{
-                            orderable: false,
-                            targets: "no-sort"
-                        },
-                        {
-                            className: "color-sent",
-                            targets: [2]
-                        },
-                        {
-                            className: "color-opened",
-                            targets: [3]
-                        },
-                        {
-                            className: "color-clicked",
-                            targets: [4]
-                        },
-                        {
-                            className: "color-success",
-                            targets: [5]
-                        },
-                        {
-                            className: "color-replied",
-                            targets: [6]
-                        },
-                        {
-                            className: "color-reported",
-                            targets: [7]
-                        }
-                    ],
+                        orderable: false,
+                        targets: "no-sort"
+                    }],
                     order: [
                         [1, "desc"]
                     ]
                 });
+
+                // DataTables keeps only the current page's rows in the DOM, so
+                // tooltips must be (re)initialised on every draw (pagination/sort/
+                // search) — otherwise later-page rows fall back to the native
+                // title tooltip. Idempotent: Bootstrap keeps existing instances.
+                campaignTable.on('draw', function () {
+                    $('#campaignTable').find('[data-toggle="tooltip"]').tooltip();
+                });
+
                 campaignRows = []
                 $.each(campaigns, function (i, campaign) {
                     var campaign_date = moment(campaign.created_date).format('MMMM Do YYYY, h:mm:ss a')
@@ -419,32 +663,15 @@ $(document).ready(function () {
                     } else {
                         launchDate = "Launch Date: " + moment(campaign.launch_date).format('MMMM Do YYYY, h:mm:ss a')
                         
+                        // Status tooltip is kept to schedule/size/delivery only;
+                        // the per-stage engagement counts live in the dots tooltip.
                         var quickStats;
                         if (isGenericCampaign) {
-                            // Generic campaign stats
-                            quickStats = launchDate + "\n" + 
-                                "Number of links: " + (campaign.stats.total || 0) + "\n" + 
-                                "Clicks: " + (campaign.stats.clicked || 0) + "\n" + 
-                                "Submitted Credentials: " + (campaign.stats.submitted_data || 0);
+                            quickStats = launchDate + "<br>" +
+                                "Number of links: " + (campaign.stats.total || 0);
                         } else {
-                            var sentLabel = isSMSCampaign ? "SMS sent: " : "Emails sent: ";
-                            
-                            quickStats = launchDate + "\n" + 
-                                "Number of recipients: " + (campaign.stats.total || 0) + "\n" + 
-                                sentLabel + (campaign.stats.sent || 0);
-
-                            // Email-only fields
-                            if (!isSMSCampaign) {
-                                quickStats += "\n" + 
-                                    "Emails opened: " + (campaign.stats.opened || 0) + "\n" + 
-                                    "Emails replied: " + (campaign.stats.replied || 0) + "\n" + 
-                                    "Reported: " + (campaign.stats.email_reported || 0);
-                            }
-
-                            // Shared fields (email + SMS)
-                            quickStats += "\n" + 
-                                "Clicks: " + (campaign.stats.clicked || 0) + "\n" + 
-                                "Submitted Credentials: " + (campaign.stats.submitted_data || 0) + "\n" + 
+                            quickStats = launchDate + "<br>" +
+                                "Number of recipients: " + (campaign.stats.total || 0) + "<br>" +
                                 "Errors: " + (campaign.stats.error || 0);
                         }
                     }
@@ -463,17 +690,49 @@ $(document).ready(function () {
                     var openedValue = (isGenericCampaign || isSMSCampaign) ? "-" : campaign.stats.opened;
                     var repliedValue = (isGenericCampaign || isSMSCampaign) ? "-" : (campaign.stats.replied || 0);
                     var reportedValue = (isGenericCampaign || isSMSCampaign) ? "-" : campaign.stats.email_reported;
-                    
+                    var attachmentValue = (isGenericCampaign || isSMSCampaign) ? "-" : (campaign.stats.opened_attachment || 0);
+                    var macroValue = (isGenericCampaign || isSMSCampaign) ? "-" : (campaign.stats.macro_executed || 0);
+
+                    // One dot per stage (order follows stageDefs below): filled +
+                    // coloured when the stage happened, hollow when not, dotted
+                    // when N/A for the campaign type. Exact counts are in the
+                    // cell's hover title.
+                    var stageDefs = [
+                        { v: sentValue, hex: "#1abc9c", label: "Sent" },
+                        { v: openedValue, hex: "#f9bf3b", label: "Opened" },
+                        { v: campaign.stats.clicked, hex: "#F39C12", label: "Clicked" },
+                        { v: campaign.stats.submitted_data, hex: "#f05b4f", label: "Submitted" },
+                        { v: attachmentValue, hex: "#f0ad4e", label: "Attachment Opened" },
+                        { v: macroValue, hex: "#c0392b", label: "Macro Executed" },
+                        { v: repliedValue, hex: "#E67E22", label: "Replied" },
+                        { v: reportedValue, hex: "#45d6ef", label: "Reported" }
+                    ];
+                    var dots = "", tip = [];
+                    $.each(stageDefs, function (di, s) {
+                        var dot;
+                        if (s.v === "-") {
+                            dot = '<span class="stage-dot stage-dot-na"></span>';
+                            tip.push(s.label + ": n/a");
+                        } else {
+                            var n = s.v || 0;
+                            if (n > 0) {
+                                dot = '<span class="stage-dot" style="background:' + s.hex + ';border-color:' + s.hex + '"></span>';
+                            } else {
+                                dot = '<span class="stage-dot stage-dot-empty"></span>';
+                            }
+                            tip.push(s.label + ": " + n);
+                        }
+                        // Each dot sits in a fixed-width cell so it lines up under
+                        // the matching header icon.
+                        dots += '<span class="stage-cell">' + dot + '</span>';
+                    });
+                    var stagesCell = '<span class="stage-dots" data-toggle="tooltip" data-html="true" data-placement="top" title="' + tip.join("<br>") + '">' + dots + '</span>';
+
                     // Add it to the list
                     campaignRows.push([
                         campaignTypeIcon + escapeHtml(campaign.name),
                         campaign_date,
-                        sentValue,
-                        openedValue,
-                        campaign.stats.clicked,
-                        campaign.stats.submitted_data,
-                        repliedValue,
-                        reportedValue,
+                        stagesCell,
                         "<span class=\"label " + label + "\" data-toggle=\"tooltip\" data-placement=\"right\" data-html=\"true\" title=\"" + quickStats + "\">" + campaign.status + "</span>",
                         "<div class='pull-right'><a class='btn btn-primary' href='/campaigns/" + campaign.id + "' data-toggle='tooltip' data-placement='left' title='View Results'>\
                     <i class='fa fa-bar-chart'></i>\
@@ -542,9 +801,19 @@ $(document).ready(function () {
                     campaignTable.draw();
                 });
                 
-                // Build the charts
-                generateStatsPieCharts(campaigns)
+                // Build the summary KPIs and charts. The stats charts are drawn
+                // by the view toggle below (it renders only the active view).
+                generateKPIs(campaigns)
                 generateTimelineChart(campaigns)
+
+                $("#view-funnel").on("click", function () {
+                    setDashboardView('funnel', campaigns);
+                });
+                $("#view-donuts").on("click", function () {
+                    setDashboardView('donuts', campaigns);
+                });
+                // Render the remembered (or default) view.
+                setDashboardView(getDashboardView(), campaigns);
             } else {
                 $("#emptyMessage").show()
             }

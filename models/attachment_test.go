@@ -62,6 +62,22 @@ func (s *ModelsSuite) TestAttachment(c *check.C) {
 	}
 }
 
+func (s *ModelsSuite) TestAttachmentValidateRejectsBadFilenameTemplate(c *check.C) {
+	a := Attachment{
+		Name:    "report_{{.FirstName}.txt", // malformed template action
+		Content: base64.StdEncoding.EncodeToString([]byte("no variables")),
+	}
+	c.Assert(a.Validate(), check.NotNil)
+}
+
+func (s *ModelsSuite) TestAttachmentValidateAcceptsFilenameTemplate(c *check.C) {
+	a := Attachment{
+		Name:    "report_{{.FirstName}}.txt",
+		Content: base64.StdEncoding.EncodeToString([]byte("no variables")),
+	}
+	c.Assert(a.Validate(), check.IsNil)
+}
+
 func readFile(fname string) string {
 	f, err := os.Open(fname)
 	if err != nil {

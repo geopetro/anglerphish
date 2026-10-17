@@ -26,6 +26,7 @@ type DraftCampaignSet struct {
 	UseSharedQRSize   bool            `json:"use_shared_qrsize" sql:"column:use_shared_qrsize"`
 	UseSharedHTTPAuth bool            `json:"use_shared_httpauth" sql:"column:use_shared_httpauth"`
 	UseSharedSchedule bool            `json:"use_shared_schedule" sql:"column:use_shared_schedule"`
+	SendOrder         string          `json:"send_order" sql:"column:send_order"`
 	PageId            int64           `json:"page_id"`
 	Page              Page            `json:"page" gorm:"-"`
 	SMTPId            int64           `json:"smtp_id"`
@@ -362,6 +363,7 @@ func UpdateDraftCampaignSet(dcs *DraftCampaignSet, uid int64) error {
 			"use_shared_qrsize":   dcs.UseSharedQRSize,
 			"use_shared_httpauth": dcs.UseSharedHTTPAuth,
 			"use_shared_schedule": dcs.UseSharedSchedule,
+			"send_order":          dcs.SendOrder,
 			"page_id":             dcs.PageId,
 			"smtp_id":             dcs.SMTPId,
 			"sms_id":              dcs.SMSId,
@@ -510,6 +512,7 @@ func LaunchDraftCampaignSet(id int64, uid int64) (CampaignSet, error) {
 		UseSharedQRSize:   dcs.UseSharedQRSize,
 		UseSharedHTTPAuth: dcs.UseSharedHTTPAuth,
 		UseSharedSchedule: dcs.UseSharedSchedule,
+		SendOrder:         dcs.SendOrder,
 	}
 
 	// Set default URL parameter to "rid" if it's empty
@@ -559,15 +562,16 @@ func LaunchDraftCampaignSet(id int64, uid int64) (CampaignSet, error) {
 	for i, dc := range dcs.DraftCampaigns {
 		// Create the basic campaign structure
 		campaign := Campaign{
-			UserId:     uid,
-			Name:       dc.Name,
-			LaunchDate: dc.LaunchDate,
-			URL:        dc.URL,
-			URLParam:   dc.URLParam,
-			QRSize:     dc.QRSize,
-			HTTPAuth:   dc.HTTPAuth,
-			Type:       dc.Type,
-			Groups:     dc.Groups,
+			UserId:             uid,
+			Name:               dc.Name,
+			LaunchDate:         dc.LaunchDate,
+			URL:                dc.URL,
+			URLParam:           dc.URLParam,
+			QRSize:             dc.QRSize,
+			HTTPAuth:           dc.HTTPAuth,
+			RandomizeSendOrder: dc.RandomizeSendOrder,
+			Type:               dc.Type,
+			Groups:             dc.Groups,
 		}
 
 		// Set default URL parameter to "rid" if it's empty

@@ -62,6 +62,7 @@ scripts = function () {
             app_directory + 'settings.js',
             app_directory + 'sms_templates.js',
             app_directory + 'templates.js',
+            app_directory + 'template_preview.js',
             app_directory + 'qr_code.js',
             app_directory + 'gophish.js',
             app_directory + 'users.js',

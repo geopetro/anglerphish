@@ -6,12 +6,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"html"
 	"html/template"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/NYTimes/gziphandler"
 	"github.com/gophish/gophish/config"
@@ -166,8 +167,17 @@ func (ps *PhishingServer) TrackHandler(w http.ResponseWriter, r *http.Request) {
 	d := ctx.Get(r, "details").(models.EventDetails)
 
 	// We can only track opens for email campaigns (via tracking pixels)
-	// SMS opens cannot be tracked, only clicks can be tracked
-	err = rs.HandleEmailOpened(d)
+	// SMS opens cannot be tracked, only clicks can be tracked.
+	// The "a=1" marker distinguishes an attachment-open beacon from the
+	// email-open pixel, and "m=1" a macro callback from an attachment.
+	switch {
+	case r.URL.Query().Get("m") == "1":
+		err = rs.HandleMacroExecuted(d)
+	case r.URL.Query().Get("a") == "1":
+		err = rs.HandleAttachmentOpened(d)
+	default:
+		err = rs.HandleEmailOpened(d)
+	}
 
 	if err != nil {
 		log.Error(err)
@@ -316,12 +326,12 @@ func (ps *PhishingServer) PhishHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		username, password, ok := r.BasicAuth()
-		if !ok && (username == "" || password == "") {
+		if !ok {
 			err = rs.HandleClickedLink(d)
 			if err != nil {
 				log.Error(err)
 			}
-		} else if ok && (username == "" || password == "") {
+		} else if username == "" || password == "" {
 			// If credentials are empty do nothing
 			// Don't keep recording them as clicks
 			// and don't allow proceeding to recording empty credentials
@@ -402,30 +412,13 @@ func (ps *PhishingServer) PhishHandler(w http.ResponseWriter, r *http.Request) {
 // Such cases can include requests made by .doc, .xls files with macros, or any type of malicious file that makes an HTTP request
 // from which we want to capture the users that interacted with it but we cannot have their Rid embedded
 func customTrackedPhishRequests(r *http.Request) {
-
-	data := strings.ReplaceAll(r.URL.String(), "/", "")
-	data = strings.ReplaceAll(data, "?", ",")
-	data = strings.ReplaceAll(data, "&", ",")
-
-	if err := appendToFile(data); err != nil {
-		fmt.Println("Error appending to file:", err)
-	}
-}
-
-// Used by customTrackedPhishRequests() to write data in a csv file.
-func appendToFile(data string) error {
-	// Open the file in append mode, create it if it doesn't exist
-	file, err := os.OpenFile("tracked-data.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return err
+		ip = r.RemoteAddr
 	}
-	defer file.Close()
-
-	// Append data to the file
-	if _, err := file.WriteString(data + "\n"); err != nil {
-		return err
+	if err := models.RecordTrackedRequest(r.Method, r.URL.Path, r.URL.RawQuery, ip, r.Header.Get("User-Agent")); err != nil {
+		log.Errorf("Error recording tracked request: %v", err)
 	}
-	return nil
 }
 
 // renderPhishResponse handles rendering the correct response to the phishing
@@ -475,11 +468,30 @@ func renderBasicAuth(w http.ResponseWriter, r *http.Request, ptx models.Phishing
 	}
 	// Otherwise, send a response containing the WWW-Authenticate header and
 	// render the template as string there
-	stp := bm.StripTagsPolicy()
-	w.Header().Add("WWW-Authenticate", fmt.Sprintf(`Basic realm="%s"`, stp.Sanitize(p.HTML)))
+	w.Header().Add("WWW-Authenticate", fmt.Sprintf(`Basic realm="%s"`, basicAuthRealm(p.HTML)))
 	w.WriteHeader(http.StatusUnauthorized)
 	w.Write([]byte(`{"message": "You are not authorized to view this page."}`))
-	// w.Write([]byte(`<h1>Unauthorized</h1><p>You are not authorized to view this page.</p>`))
+}
+
+// maxRealmLength caps the realm so a full landing page can't produce an
+// oversized header (reverse proxies reject large upstream headers).
+const maxRealmLength = 128
+
+// basicAuthRealm turns the landing page HTML into a realm value that is safe
+// to place inside the quoted-string of a WWW-Authenticate header.
+func basicAuthRealm(pageHTML string) string {
+	text := html.UnescapeString(bm.StripTagsPolicy().Sanitize(pageHTML))
+	text = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, text)
+	text = strings.Join(strings.Fields(text), " ")
+	if runes := []rune(text); len(runes) > maxRealmLength {
+		text = strings.TrimSpace(string(runes[:maxRealmLength]))
+	}
+	return strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(text)
 }
 
 // RobotsHandler prevents search engines, etc. from indexing phishing materials

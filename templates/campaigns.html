@@ -80,7 +80,7 @@
 </div>
 <!-- Modal -->
 <div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
-    <div class="modal-dialog" role="document">
+    <div class="modal-dialog cmp-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="dismiss()">
@@ -103,119 +103,226 @@
             </div>
             <div class="modal-body" id="modal_body">
                 <div class="row" id="modal.flashes"></div>
-                <div class="form-group">
-                    <label for="name">Name:</label>
-                    <input type="text" class="form-control" id="name" placeholder="Campaign name" autofocus>
-                    
-                    <input type="hidden" id="campaign_type" value="email">
-                    
-                    <!-- Email Template (shown for email campaigns) -->
-                    <div id="email_template_div">
-                        <label class="control-label" for="template">Email Template:</label>
-                        <select class="form-control" placeholder="Template Name" id="template" />
-                        <option></option>
-                        </select>
-                    </div>
-                    
-                    <!-- SMS Template (shown for SMS campaigns) -->
-                    <div id="sms_template_div" style="display:none;">
-                        <label class="control-label" for="sms_template">SMS Template:</label>
-                        <select class="form-control" placeholder="SMS Template Name" id="sms_template" />
-                        <option></option>
-                        </select>
-                    </div>
-                    
-                    <label class="control-label" for="page">Landing Page:</label>
-                    <select class="form-control" placeholder="Landing Page" id="page" />
-                    <option></option>
-                    </select>
-                    <input class="form-check-input" type="checkbox" id="basicauth">
-                    <label class="form-check-label" for="basicauth"> Use HTTP Basic Access Authentication
-                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Enables a landing page with HTTP Authentication"></i>
-                    </label><br>
-                    <label class="control-label" for="url">URL:
-                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Location of Gophish listener (must be reachable by targets!)"></i>
-                        <span id="urlLengthIndicator" style="margin-left: 10px; font-size: 12px;"></span>
-                    </label>
-                    <div class="input-group">
-                        <input type="text" class="form-control" placeholder="http://192.168.1.1" id="url" />
-                        <span class="input-group-btn">
-                            <button type="button" class="btn btn-default" id="urlTemplateBtn" data-toggle="tooltip" title="Use URL Template">
-                                <i class="fa fa-list"></i>
-                            </button>
-                        </span>
-                    </div>
-                    <label class="control-label" for="urlparam">URL Parameter:
-                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Sets the parameter used in the URL to track the target. It is recommended to change this parameter, to make Gophish stealthier. Leave blank to use default (rid)."></i>
-                    </label>
-                    <input type="text" class="form-control" placeholder="rid" id="urlparam" />
-                    <label class="control-label" for="qrsize">QR Code Size:
-                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Size of QR code images (integer is height & width). Leave blank to not include QR code images and use normal links."></i>
-                    </label>
-                    <input type="number" class="form-control" placeholder="256" id="qrsize" />
-                    <div class="row">
-                        <div class="col-md-6">
-                            <label class="control-label" for="url">Launch Date </label>
-                            <input type="text" class="form-control" id="launch_date" />
+                <input type="hidden" id="campaign_type" value="email">
+
+                <div class="cmp-layout">
+                    <!-- Left: the form -->
+                    <div class="cmp-form">
+                        <div class="form-group">
+                            <label class="control-label" for="name">Name <span class="cmp-req">*</span></label>
+                            <input type="text" class="form-control" id="name" placeholder="Campaign name" autofocus>
                         </div>
-                        <div class="col-md-6">
-                            <label class="control-label" for="delay">Send By (Optional)
-                                <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="If specified, Gophish will send messages evenly between the campaign launch and this date."></i>
-                            </label>
-                            <input type="text" class="form-control" id="send_by_date" autocomplete="random-data"/> <!--Chrome ignores autocomplete="off".-->
+
+                        <!-- Generic campaign info message -->
+                        <div id="generic_info_div" style="display:none;">
+                            <div class="alert alert-info">
+                                <i class="fa fa-info-circle"></i> <strong>Generic Campaign:</strong>
+                                No emails or SMS will be sent. After launching, you'll receive a tracking URL to distribute manually (e.g., via QR codes, USB drops, or other methods).
+                            </div>
                         </div>
-                    </div>
-                    
-                    <!-- Email Sending Profile (shown for email campaigns) -->
-                    <div id="email_profile_div">
-                        <label class="control-label" for="profile">Email Sending Profile:</label>
-                        <div class="input-group">
-                            <select class="form-control" placeholder="Sending Profile" id="profile" />
-                            <option></option>
-                            </select>
-                            <span class="input-group-btn">
-                                <button type="button" data-toggle="modal" data-backdrop="static" data-target="#sendTestEmailModal"
-                                    class="btn btn-primary button">
-                                    <i class="fa fa-envelope"></i> Send Test Email</button>
-                            </span>
+
+                        <!-- 1. Message (hidden for generic campaigns) -->
+                        <div class="panel panel-default cmp-section" id="message_card">
+                            <div class="panel-heading">
+                                <span class="cmp-step"></span> <strong>Message</strong>
+                                <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="What targets receive and who it comes from"></i>
+                            </div>
+                            <div class="panel-body">
+                                <div class="row">
+                                    <div class="col-sm-6">
+                                        <!-- Email Template (shown for email campaigns) -->
+                                        <div class="form-group" id="email_template_div">
+                                            <label class="control-label" for="template">Email Template <span class="cmp-req">*</span></label>
+                                            <div class="cmp-select-with-btn">
+                                                <select class="form-control" placeholder="Template Name" id="template">
+                                                    <option></option>
+                                                </select>
+                                                <button type="button" class="btn btn-default" id="previewTemplateBtn" data-toggle="tooltip" title="Preview Template" disabled>
+                                                    <i class="fa fa-eye"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <!-- SMS Template (shown for SMS campaigns) -->
+                                        <div class="form-group" id="sms_template_div" style="display:none;">
+                                            <label class="control-label" for="sms_template">SMS Template <span class="cmp-req">*</span></label>
+                                            <div class="cmp-select-with-btn">
+                                                <select class="form-control" placeholder="SMS Template Name" id="sms_template">
+                                                    <option></option>
+                                                </select>
+                                                <button type="button" class="btn btn-default" id="previewSMSTemplateBtn" data-toggle="tooltip" title="Preview Template" disabled>
+                                                    <i class="fa fa-eye"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <!-- Email Sending Profile (shown for email campaigns) -->
+                                        <div class="form-group" id="email_profile_div">
+                                            <label class="control-label" for="profile">Sending Profile <span class="cmp-req">*</span></label>
+                                            <select class="form-control" placeholder="Sending Profile" id="profile">
+                                                <option></option>
+                                            </select>
+                                        </div>
+                                        <!-- SMS Sending Profile (shown for SMS campaigns) -->
+                                        <div class="form-group" id="sms_profile_div" style="display:none;">
+                                            <label class="control-label" for="sms_profile">SMS Sending Profile <span class="cmp-req">*</span></label>
+                                            <select class="form-control" placeholder="SMS Sending Profile" id="sms_profile">
+                                                <option></option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <!-- SMS Sending Profile (shown for SMS campaigns) -->
-                    <div id="sms_profile_div" style="display:none;">
-                        <label class="control-label" for="sms_profile">SMS Sending Profile:</label>
-                        <select class="form-control" placeholder="SMS Sending Profile" id="sms_profile" />
-                        <option></option>
-                        </select>
-                    </div>
-                    
-                    <!-- Groups (hidden for generic campaigns) -->
-                    <div id="groups_div">
-                        <label class="control-label" for="users">Groups:</label>
-                        <select class="form-control" id="users" multiple="multiple"></select>
-                        <input class="form-check-input" type="checkbox" id="randomize_send_order">
-                        <label class="form-check-label" for="randomize_send_order"> Randomize send order
-                            <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Sends messages to recipients in a random order instead of the order they appear in the target groups"></i>
-                        </label><br>
+
+                        <!-- 2. Targets (hidden for generic campaigns) -->
+                        <div class="panel panel-default cmp-section" id="groups_div">
+                            <div class="panel-heading">
+                                <span class="cmp-step"></span> <strong>Targets</strong>
+                                <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Who receives it"></i>
+                            </div>
+                            <div class="panel-body">
+                                <div class="form-group">
+                                    <label class="control-label" for="users">Groups <span class="cmp-req">*</span></label>
+                                    <select class="form-control" id="users" multiple="multiple"></select>
+                                </div>
+                                <input class="form-check-input" type="checkbox" id="randomize_send_order">
+                                <label class="form-check-label" for="randomize_send_order"> Randomize send order <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Sends messages to recipients in a random order instead of the order they appear in the target groups"></i></label>
+                            </div>
+                        </div>
+
+                        <!-- 3. Landing Page & Link -->
+                        <div class="panel panel-default cmp-section" id="landing_card">
+                            <div class="panel-heading">
+                                <span class="cmp-step"></span> <strong>Landing Page &amp; Link</strong>
+                                <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Where clicks go"></i>
+                            </div>
+                            <div class="panel-body">
+                                <div class="row">
+                                    <div class="col-sm-6">
+                                        <div class="form-group">
+                                            <label class="control-label" for="page">Landing Page <span class="cmp-req">*</span></label>
+                                            <div class="cmp-select-with-btn">
+                                                <select class="form-control" placeholder="Landing Page" id="page">
+                                                    <option></option>
+                                                </select>
+                                                <button type="button" class="btn btn-default" id="previewPageBtn" data-toggle="tooltip" title="Preview Landing Page" disabled>
+                                                    <i class="fa fa-eye"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="form-group">
+                                            <label class="control-label" for="url">URL <span class="cmp-req">*</span> <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Location of Gophish listener (must be reachable by targets!)"></i></label>
+                                            <div class="input-group">
+                                                <input type="text" class="form-control" placeholder="http://192.168.1.1" id="url" />
+                                                <span class="input-group-btn">
+                                                    <button type="button" class="btn btn-default" id="urlTemplateBtn" data-toggle="tooltip" title="Use URL Template">
+                                                        <i class="fa fa-list"></i>
+                                                    </button>
+                                                </span>
+                                            </div>
+                                            <span class="help-block cmp-help">
+                                                <span id="urlLengthIndicator"></span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <a href="#cmp_advanced" class="cmp-advanced-toggle collapsed" data-toggle="collapse" aria-expanded="false" aria-controls="cmp_advanced">
+                                    <i class="fa fa-caret-right"></i> Advanced link options <span class="text-muted" id="cmp_advanced_summary"></span>
+                                </a>
+                                <div class="collapse" id="cmp_advanced">
+                                    <div class="row cmp-advanced-body">
+                                        <div class="col-sm-6">
+                                            <div class="form-group">
+                                                <label class="control-label" for="urlparam">URL Parameter <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Sets the parameter used in the URL to track the target. It is recommended to change this parameter, to make Gophish stealthier. Leave blank to use default (rid)."></i></label>
+                                                <input type="text" class="form-control" placeholder="rid" id="urlparam" />
+                                            </div>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <div class="form-group">
+                                                <label class="control-label" for="qrsize">QR Code Size (px) <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Size of QR code images (integer is height &amp; width). Leave blank to not include QR code images and use normal links."></i></label>
+                                                <input type="number" class="form-control" placeholder="256" id="qrsize" />
+                                            </div>
+                                        </div>
+                                        <div class="col-sm-12">
+                                            <input class="form-check-input" type="checkbox" id="basicauth">
+                                            <label class="form-check-label" for="basicauth"> Use HTTP Basic Access Authentication <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Enables a landing page with HTTP Authentication"></i></label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. Schedule -->
+                        <div class="panel panel-default cmp-section" id="schedule_card">
+                            <div class="panel-heading">
+                                <span class="cmp-step"></span> <strong>Schedule</strong>
+                                <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="When it starts"></i>
+                            </div>
+                            <div class="panel-body">
+                                <div class="row">
+                                    <div class="col-sm-6">
+                                        <div class="form-group">
+                                            <label class="control-label" for="launch_date">Launch Date <span class="cmp-req">*</span></label>
+                                            <input type="text" class="form-control" id="launch_date" />
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6" id="send_by_group">
+                                        <div class="form-group">
+                                            <label class="control-label" for="send_by_date">Send All By <span class="text-muted">(Optional)</span> <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="If specified, Gophish will send messages evenly between the campaign launch and this date."></i></label>
+                                            <input type="text" class="form-control" id="send_by_date" autocomplete="random-data"/> <!--Chrome ignores autocomplete="off".-->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Generic campaign info message -->
-                    <div id="generic_info_div" style="display:none;">
-                        <div class="alert alert-info" style="margin-top: 15px;">
-                            <i class="fa fa-info-circle"></i> <strong>Generic Campaign:</strong>
-                            No emails or SMS will be sent. After launching, you'll receive a tracking URL to distribute manually (e.g., via QR codes, USB drops, or other methods).
+                    <!-- Right: live summary -->
+                    <div class="cmp-side">
+                        <div class="cmp-side-inner">
+                            <div class="panel panel-default">
+                                <div class="panel-heading"><strong>Ready to launch?</strong></div>
+                                <ul class="list-unstyled panel-body cmp-checklist" id="cmp_checklist"></ul>
+                            </div>
+                            <div class="panel panel-default">
+                                <div class="panel-heading"><strong>Summary</strong></div>
+                                <div class="panel-body">
+                                    <dl class="cmp-summary" id="cmp_summary"></dl>
+                                </div>
+                            </div>
+                            <div class="panel panel-default">
+                                <div class="panel-heading"><strong>Sample tracking link</strong> <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="left" title="Your URL with each target&#39;s ID added"></i></div>
+                                <div class="panel-body">
+                                    <div class="cmp-sample-link" id="cmp_sample_link"></div>
+                                </div>
+                            </div>
+                            <div class="panel panel-default" id="cmp_preview_panel">
+                                <div class="panel-heading"><strong>Message preview</strong></div>
+                                <div class="panel-body">
+                                    <div class="cmp-preview" id="cmp_preview"></div>
+                                    <button type="button" id="cmp_send_test_btn" data-toggle="modal" data-backdrop="static" data-target="#sendTestEmailModal"
+                                        class="btn btn-default btn-sm btn-block">
+                                        <i class="fa fa-envelope"></i> Send Test Email</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal" onclick="dismiss()">Close</button>
+            <div class="modal-footer cmp-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal" onclick="dismiss()">Cancel</button>
                 <button type="button" id="launchButton" class="btn btn-primary" onclick="launch()">
                     <i class="fa fa-rocket"></i> Launch Campaign</button>
             </div>
         </div>
     </div>
 </div>
+{{template "template_preview"}}
+{{template "page_preview"}}
+
 <!-- URL Template Modal -->
 <div class="modal fade" id="urlTemplateModal" tabindex="-1" role="dialog" aria-labelledby="urlTemplateModalLabel">
     <div class="modal-dialog" role="document" style="width: 600px;">
@@ -301,5 +408,7 @@
     </div>
 </div>
 {{end}} {{define "scripts"}}
+<link href="/css/campaigns.css" rel="stylesheet" type="text/css">
+<script src="/js/dist/app/template_preview.min.js"></script>
 <script src="/js/dist/app/campaigns.min.js"></script>
 {{end}}

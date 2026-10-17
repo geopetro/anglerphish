@@ -441,6 +441,10 @@ func ToggleGroupLock(id int64, uid int64) (Group, error) {
 	return g, err
 }
 
+// targetDeleteBatchSize caps how many target IDs go into a single DELETE.
+// Older SQLite builds allow at most 999 bound variables per statement.
+const targetDeleteBatchSize = 500
+
 // DeleteGroup deletes a given group by group ID and user ID
 func DeleteGroup(g *Group) error {
 	tx := db.Begin()
@@ -474,10 +478,14 @@ func DeleteGroup(g *Group) error {
 	// deleted targets keep existing in the database and get silently
 	// reattached (with their old, stale data) the next time a target with
 	// the same email or phone is added to a new or re-imported group.
-	// A single statement removes every now-orphaned target in one query
-	// instead of running a COUNT per target.
-	if len(targetIds) > 0 {
-		err = tx.Where("id IN (?) AND id NOT IN (SELECT target_id FROM group_targets)", targetIds).
+	// Orphans are removed in batches so each statement stays under SQLite's
+	// bound-variable limit, instead of running a COUNT per target.
+	for start := 0; start < len(targetIds); start += targetDeleteBatchSize {
+		end := start + targetDeleteBatchSize
+		if end > len(targetIds) {
+			end = len(targetIds)
+		}
+		err = tx.Where("id IN (?) AND id NOT IN (SELECT target_id FROM group_targets)", targetIds[start:end]).
 			Delete(&Target{}).Error
 		if err != nil {
 			log.Error(err)

@@ -319,6 +319,12 @@ function generateCampaignSummary() {
 
 // Launch attempts to POST to /campaigns/
 function launch() {
+    // Check the fields directly rather than trusting the last panel refresh
+    var missing = campaignChecklist().filter(function (item) { return !item.ok; });
+    if (missing.length) {
+        highlightMissingFields(missing);
+        return;
+    }
     // Generate campaign summary
     var campaignSummary = generateCampaignSummary();
     
@@ -526,6 +532,18 @@ function dismiss() {
     $("#profile").val("").change();
     $("#sms_profile").val("").change();
     $("#users").val("").change();
+    // Clear the advanced options too, since they are hidden while collapsed
+    $("#urlparam").val("");
+    $("#qrsize").val("");
+    $("#basicauth").prop("checked", false);
+    $("#randomize_send_order").prop("checked", false);
+    var sendByPicker = $("#send_by_date").data("DateTimePicker");
+    if (sendByPicker) {
+        sendByPicker.clear();
+    }
+    $("#cmp_advanced").collapse("hide");
+    $("#modal .has-error").removeClass("has-error");
+    updateCampaignPanel();
     $("#modal").modal('hide');
 }
 
@@ -652,6 +670,8 @@ function setupOptions() {
             // Error will be shown when switching to SMS campaign type
             if (templates.length > 0) {
                 var template_s2 = $.map(templates, function (obj) {
+                    // select2 uses "text" as the label, so keep the SMS body separately
+                    obj.message_text = obj.text
                     obj.text = obj.name
                     return obj
                 });
@@ -861,6 +881,7 @@ function copy(idx) {
                 $("#users").val(groupIds);
                 $("#users").trigger("change.select2");
             }
+            updateCampaignPanel();
         })
         .error(function (data) {
             $("#modal\\.flashes").empty().append("<div style=\"text-align:center\" class=\"alert alert-danger\">\
@@ -1058,6 +1079,202 @@ function updateURLLengthIndicator() {
     );
 }
 
+// Returns the select2 data object for the selected option, or null.
+// Safe to call before select2 has been initialized on the element.
+function selectedItem(selector) {
+    var $el = $(selector);
+    if (!$el.val() || !$el.hasClass("select2-hidden-accessible")) {
+        return null;
+    }
+    return $el.select2("data")[0] || null;
+}
+
+function selectedGroups() {
+    var $el = $("#users");
+    if (!$el.hasClass("select2-hidden-accessible")) {
+        return [];
+    }
+    return $el.select2("data");
+}
+
+function selectedTargetCount() {
+    var total = 0;
+    selectedGroups().forEach(function (group) {
+        if (group.num_targets !== undefined) {
+            total += group.num_targets;
+        } else {
+            var match = group.title && group.title.match(/(\d+) targets/);
+            if (match) {
+                total += parseInt(match[1]);
+            }
+        }
+    });
+    return total;
+}
+
+// Required fields for the selected campaign type, in form order
+function campaignChecklist() {
+    var type = $("#campaign_type").val();
+    var items = [{ label: "Name", ok: $.trim($("#name").val()) !== "", field: "#name" }];
+    if (type === "email") {
+        items.push({ label: "Email template", ok: !!selectedItem("#template"), field: "#template" });
+        items.push({ label: "Sending profile", ok: !!selectedItem("#profile"), field: "#profile" });
+    } else if (type === "sms") {
+        items.push({ label: "SMS template", ok: !!selectedItem("#sms_template"), field: "#sms_template" });
+        items.push({ label: "SMS sending profile", ok: !!selectedItem("#sms_profile"), field: "#sms_profile" });
+    }
+    if (type !== "generic") {
+        var count = selectedTargetCount();
+        var groupsLabel = selectedGroups().length ? "Groups (" + count + " targets)" : "Groups";
+        items.push({ label: groupsLabel, ok: selectedGroups().length > 0, field: "#users" });
+    }
+    items.push({ label: "Landing page", ok: !!selectedItem("#page"), field: "#page" });
+    items.push({ label: "URL", ok: $.trim($("#url").val()) !== "", field: "#url" });
+    items.push({ label: "Launch date", ok: $("#launch_date").val() !== "", field: "#launch_date" });
+    return items;
+}
+
+function formatPanelDate(value) {
+    var m = moment(value, "MMMM Do YYYY, h:mm a");
+    if (!m.isValid()) {
+        return value;
+    }
+    return m.format("MMM D, YYYY h:mm a");
+}
+
+// Refreshes the summary panel on the right of the New Campaign modal
+function updateCampaignPanel() {
+    var type = $("#campaign_type").val();
+    var isGeneric = type === "generic";
+
+    $("#message_card").toggle(!isGeneric);
+    $("#send_by_group").toggle(!isGeneric);
+    $("#previewTemplateBtn").prop("disabled", !selectedItem("#template"));
+    $("#previewSMSTemplateBtn").prop("disabled", !selectedItem("#sms_template"));
+    $("#previewPageBtn").prop("disabled", !selectedItem("#page"));
+
+    // Checklist
+    var items = campaignChecklist();
+    var ready = true;
+    var $list = $("#cmp_checklist").empty();
+    items.forEach(function (item) {
+        ready = ready && item.ok;
+        $("<li>")
+            .addClass(item.ok ? "cmp-done" : "cmp-todo")
+            .attr("data-field", item.field)
+            .append($("<i>").addClass(item.ok ? "fa fa-check text-success" : "fa fa-circle-o text-muted"))
+            .append(document.createTextNode(" " + item.label))
+            .appendTo($list);
+        if (item.ok) {
+            $(item.field).closest(".form-group").removeClass("has-error");
+        }
+    });
+    $("#launchButton").toggleClass("cmp-not-ready", !ready)
+        .attr("title", ready ? "" : "Fill in the required fields first");
+    if (ready) {
+        $(".cmp-missing-flash").remove();
+    }
+
+    // Summary
+    var rows = [["Type", isGeneric ? "Generic" : (type === "sms" ? "SMS" : "Email")]];
+    if (!isGeneric) {
+        rows.push(["Targets", selectedGroups().length ? selectedTargetCount().toString() : "—"]);
+    }
+    var launchDate = $("#launch_date").val();
+    var launchMoment = moment(launchDate, "MMMM Do YYYY, h:mm a");
+    if (!launchDate) {
+        rows.push(["Launches", "—"]);
+    } else if (launchMoment.isValid() && launchMoment.isBefore(moment().add(1, "minute"))) {
+        rows.push(["Launches", "Immediately"]);
+    } else {
+        rows.push(["Launches", formatPanelDate(launchDate)]);
+    }
+    if (!isGeneric) {
+        var sendBy = $("#send_by_date").val();
+        rows.push(["Delivery", sendBy ? "Spread until " + formatPanelDate(sendBy) : "All at launch"]);
+        if ($("#randomize_send_order").is(":checked")) {
+            rows.push(["Send order", "Random"]);
+        }
+    }
+    var qrsize = $("#qrsize").val();
+    rows.push(["QR code", qrsize ? qrsize + " px" : "No"]);
+    if ($("#basicauth").is(":checked")) {
+        rows.push(["HTTP auth", "On"]);
+    }
+    var $summary = $("#cmp_summary").empty();
+    rows.forEach(function (row) {
+        $summary.append($("<dt>").text(row[0])).append($("<dd>").text(row[1]));
+    });
+
+    // Sample tracking link
+    var url = $.trim($("#url").val());
+    var param = $.trim($("#urlparam").val()) || "rid";
+    var $link = $("#cmp_sample_link").empty();
+    if (url) {
+        $link.append(document.createTextNode(url + (url.indexOf("?") !== -1 ? "&" : "?")))
+            .append($("<span class='cmp-param'>").text(param))
+            .append(document.createTextNode("=aB3dE7x"));
+    } else {
+        $link.append($("<span class='text-muted'>").text("Enter a URL to see the link."));
+    }
+
+    // Advanced options summary, so values hidden in the collapsed section stay visible
+    var advanced = [];
+    if ($.trim($("#urlparam").val()) && $.trim($("#urlparam").val()) !== "rid") {
+        advanced.push("parameter: " + $.trim($("#urlparam").val()));
+    }
+    if (qrsize) {
+        advanced.push("QR " + qrsize + " px");
+    }
+    if ($("#basicauth").is(":checked")) {
+        advanced.push("Basic Auth");
+    }
+    $("#cmp_advanced_summary").text(advanced.length ? "(" + advanced.join(", ") + ")" : "");
+
+    // Message preview
+    $("#cmp_preview_panel").toggle(!isGeneric);
+    $("#cmp_send_test_btn").toggle(type === "email");
+    var $preview = $("#cmp_preview").empty();
+    var template, profile, from;
+    if (type === "email") {
+        template = selectedItem("#template");
+        profile = selectedItem("#profile");
+        if (!template && !profile) {
+            $preview.append($("<span class='text-muted'>").text("Pick a template and sending profile to preview."));
+        } else {
+            from = (template && template.envelope_sender) || (profile && profile.from_address) || "—";
+            $preview.append($("<div>").append($("<strong>").text("From: ")).append(document.createTextNode(from)));
+            $preview.append($("<div>").append($("<strong>").text("Subject: ")).append(document.createTextNode((template && template.subject) || "—")));
+        }
+    } else if (type === "sms") {
+        template = selectedItem("#sms_template");
+        profile = selectedItem("#sms_profile");
+        if (!template && !profile) {
+            $preview.append($("<span class='text-muted'>").text("Pick an SMS template and sending profile to preview."));
+        } else {
+            from = (template && template.from) || (profile && profile.from) || "—";
+            $preview.append($("<div>").append($("<strong>").text("From: ")).append(document.createTextNode(from)));
+            if (template && template.message_text) {
+                $preview.append($("<div class='cmp-preview-text'>").text(template.message_text));
+            }
+        }
+    }
+}
+
+// Marks the required fields that are still empty and scrolls to the first one
+function highlightMissingFields(missing) {
+    updateCampaignPanel();
+    missing.forEach(function (item) {
+        $(item.field).closest(".form-group").addClass("has-error");
+    });
+    modalError("Fill in the highlighted fields before launching.");
+    $("#modal\\.flashes .alert").addClass("cmp-missing-flash");
+    var group = $(missing[0].field).closest(".form-group")[0];
+    if (group) {
+        group.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+}
+
 $(document).ready(function () {
     // URL length indicator updates
     $("#url").on('input', updateURLLengthIndicator);
@@ -1203,7 +1420,57 @@ $(document).ready(function () {
             // Clear any previous error messages
             $("#modal\\.flashes").empty();
         }
+        $("#modal .has-error").removeClass("has-error");
+        updateCampaignPanel();
     });
+
+    // Keep the summary panel in sync with the form. Binding "change.select2"
+    // also catches the programmatic select2 updates made by setupOptions/copy.
+    $("#modal").on("input change.select2 dp.change", "input, select", updateCampaignPanel);
+    $("#modal").on("show.bs.modal", function (e) {
+        if (e.target === this) {
+            updateCampaignPanel();
+        }
+    });
+
+    // Clicking a checklist item jumps to its field
+    $("#cmp_checklist").on("click", "li", function () {
+        var field = $(this).data("field");
+        var group = $(field).closest(".form-group")[0];
+        if (group) {
+            group.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        if ($(field).hasClass("select2-hidden-accessible")) {
+            $(field).select2("open");
+        } else {
+            $(field).focus();
+        }
+    });
+
+    // Preview the selected template, using the same modals as the Templates page
+    $("#previewTemplateBtn").on("click", function () {
+        var template = selectedItem("#template");
+        if (template) {
+            $(this).tooltip("hide");
+            showEmailTemplatePreview(template);
+        }
+    });
+    $("#previewSMSTemplateBtn").on("click", function () {
+        var template = selectedItem("#sms_template");
+        if (template) {
+            $(this).tooltip("hide");
+            showSMSTemplatePreview($.extend({}, template, { text: template.message_text }));
+        }
+    });
+    $("#previewPageBtn").on("click", function () {
+        var page = selectedItem("#page");
+        if (page) {
+            $(this).tooltip("hide");
+            showPagePreview(page);
+        }
+    });
+
+    updateCampaignPanel();
     // Setup multiple modals
     // Code based on http://miles-by-motorcycle.com/static/bootstrap-modal/index.html
     $('.modal').on('hidden.bs.modal', function (event) {
@@ -1242,24 +1509,39 @@ $(document).ready(function () {
                 $("#campaignTable").show()
                 $("#campaignTableArchive").show()
 
-                activeCampaignsTable = $("#campaignTable").DataTable({
+                // The Created Date cell is orthogonal data: show the friendly
+                // string, sort by the raw timestamp. Default order is newest
+                // first (column 2 descending).
+                var campaignTableOpts = {
                     columnDefs: [{
                         orderable: false,
                         targets: "no-sort"
+                    }, {
+                        targets: 2,
+                        render: function (data, type) {
+                            if (data && typeof data === "object") {
+                                return (type === "sort" || type === "type") ? data.timestamp : data.display;
+                            }
+                            return data;
+                        }
                     }],
                     order: [
-                        [1, "desc"]
+                        [2, "desc"]
                     ]
-                });
-                archivedCampaignsTable = $("#campaignTableArchive").DataTable({
-                    columnDefs: [{
-                        orderable: false,
-                        targets: "no-sort"
-                    }],
-                    order: [
-                        [1, "desc"]
-                    ]
-                });
+                };
+                activeCampaignsTable = $("#campaignTable").DataTable(campaignTableOpts);
+                archivedCampaignsTable = $("#campaignTableArchive").DataTable(campaignTableOpts);
+
+                // DataTables keeps only the current page's rows in the DOM, so
+                // tooltips must be (re)initialised on every draw — pagination,
+                // sort and search swap in row nodes that were never initialised,
+                // which otherwise fall back to the native title tooltip and show
+                // raw <br> markup. Idempotent: Bootstrap keeps existing instances.
+                function initCampaignTooltips() {
+                    $('#campaignTable, #campaignTableArchive').find('[data-toggle="tooltip"]').tooltip();
+                }
+                activeCampaignsTable.on('draw', initCampaignTooltips);
+                archivedCampaignsTable.on('draw', initCampaignTooltips);
                 rows = {
                     'active': [],
                     'archived': []
@@ -1333,7 +1615,7 @@ $(document).ready(function () {
                     var row = [
                         "<input type='checkbox' class='campaign-checkbox' data-id='" + campaign.id + "' data-type='" + tableType + "'>",
                         typeIcon + escapeHtml(campaign.name),
-                        moment(campaign.created_date).format('MMMM Do YYYY, h:mm:ss a'),
+                        { display: moment(campaign.created_date).format('MMMM Do YYYY, h:mm:ss a'), timestamp: moment(campaign.created_date).valueOf() },
                         "<span class=\"label " + label + "\" data-toggle=\"tooltip\" data-placement=\"right\" data-html=\"true\" title=\"" + quickStats + "\">" + campaign.status + "</span>",
                         "<div class='pull-right'>" + resendBtn + "\
                     <a class='btn btn-primary' href='/campaigns/" + campaign.id + "' data-toggle='tooltip' data-placement='left' title='View Results'>\

@@ -11,9 +11,6 @@ files
 temp_qr_codes
 __pycache__
 
-# Tracking CSV
-tracked-data.csv
-
 # Node Modules
 node_modules
 

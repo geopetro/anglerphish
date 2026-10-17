@@ -1,0 +1,256 @@
+/*
+ * New Campaign modal: sectioned form with a live summary panel.
+ * Colors stay neutral (inherit / translucent) so every theme can restyle
+ * the panels and form controls it already handles.
+ */
+
+@media (min-width: 768px) {
+    .cmp-dialog {
+        width: 92%;
+        max-width: 1200px;
+    }
+}
+
+.cmp-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.cmp-form {
+    flex: 1;
+    min-width: 0;
+    counter-reset: cmp-step;
+}
+
+.cmp-side {
+    width: 290px;
+    flex-shrink: 0;
+    align-self: stretch;
+}
+
+/* Sticks to the top of the scrolling modal while the form scrolls */
+.cmp-side-inner {
+    position: sticky;
+    top: 10px;
+}
+
+@media (max-width: 991px) {
+    .cmp-layout {
+        display: block;
+    }
+    .cmp-side {
+        width: auto;
+    }
+    .cmp-side-inner {
+        position: static;
+    }
+}
+
+/* Slightly smaller text across the modal (Bootstrap default is 14px) */
+.cmp-dialog .modal-body,
+.cmp-dialog .modal-body .form-control,
+.cmp-dialog .modal-body .select2-container {
+    font-size: 13px;
+}
+
+/* Compact cards so more of the form fits without scrolling */
+.cmp-section {
+    margin-bottom: 10px;
+}
+
+.cmp-section > .panel-heading {
+    padding: 6px 12px;
+}
+
+.cmp-section > .panel-body {
+    padding: 10px 12px;
+}
+
+.cmp-section .form-group {
+    margin-bottom: 8px;
+}
+
+.cmp-form .select2-container {
+    width: 100% !important;
+}
+
+/* A select2 dropdown with a small button attached on its right */
+.cmp-select-with-btn {
+    display: flex;
+}
+
+.cmp-select-with-btn .select2-container {
+    flex: 1 1 auto;
+    width: auto !important;
+    min-width: 0;
+}
+
+.cmp-select-with-btn > .btn {
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+
+.cmp-req {
+    color: #d9534f;
+}
+
+.cmp-help {
+    font-size: 12px;
+    margin-bottom: 0;
+}
+
+.cmp-section > .panel-heading small {
+    margin-left: 6px;
+    font-weight: normal;
+}
+
+.cmp-section .form-group:last-child {
+    margin-bottom: 0;
+}
+
+/* Sections are numbered by CSS so hidden ones (generic campaigns) are skipped */
+.cmp-step {
+    counter-increment: cmp-step;
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    line-height: 18px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    margin-right: 4px;
+}
+
+.cmp-step::before {
+    content: counter(cmp-step);
+}
+
+.cmp-advanced-toggle {
+    display: inline-block;
+    margin-top: 4px;
+    font-weight: 600;
+}
+
+.cmp-advanced-toggle .fa {
+    width: 10px;
+    transition: transform .15s;
+}
+
+.cmp-advanced-toggle:not(.collapsed) .fa {
+    transform: rotate(90deg);
+}
+
+.cmp-advanced-toggle:hover,
+.cmp-advanced-toggle:focus {
+    text-decoration: none;
+}
+
+.cmp-advanced-body {
+    margin-top: 10px;
+}
+
+/* Side panel */
+.cmp-side .panel {
+    margin-bottom: 12px;
+}
+
+.cmp-side .panel-heading {
+    padding: 8px 12px;
+}
+
+.cmp-side .panel-body {
+    padding: 10px 12px;
+}
+
+.cmp-checklist {
+    margin: 0;
+}
+
+.cmp-checklist li {
+    padding: 3px 0;
+    cursor: pointer;
+}
+
+.cmp-checklist li .fa {
+    width: 16px;
+}
+
+.cmp-checklist li.cmp-todo {
+    opacity: .75;
+}
+
+.cmp-summary {
+    margin: 0;
+}
+
+.cmp-summary dt,
+.cmp-summary dd {
+    display: inline-block;
+    padding: 3px 0;
+    margin: 0;
+}
+
+.cmp-summary dt {
+    width: 42%;
+    font-weight: normal;
+    opacity: .75;
+}
+
+.cmp-summary dd {
+    width: 57%;
+    text-align: right;
+    word-break: break-word;
+}
+
+.cmp-sample-link {
+    font-family: Consolas, Menlo, monospace;
+    font-size: 11.5px;
+    word-break: break-all;
+    background: rgba(127, 127, 127, .12);
+    padding: 6px 8px;
+    border-radius: 4px;
+}
+
+.cmp-sample-link .cmp-param {
+    font-weight: 700;
+    color: #f0ad4e;
+}
+
+.cmp-preview {
+    font-size: 12px;
+    margin-bottom: 8px;
+    word-break: break-word;
+}
+
+.cmp-preview .cmp-preview-text {
+    margin-top: 6px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    background: rgba(127, 127, 127, .12);
+    white-space: pre-wrap;
+}
+
+/* Default light theme: brand navy text instead of black */
+body:not(.dark-theme):not(.crimson-theme):not(.goldphish-theme):not(.lagocephalus-theme):not(.light-sand-theme):not(.matrix-theme) #modal .modal-content,
+body:not(.dark-theme):not(.crimson-theme):not(.goldphish-theme):not(.lagocephalus-theme):not(.light-sand-theme):not(.matrix-theme) #modal .modal-title,
+body:not(.dark-theme):not(.crimson-theme):not(.goldphish-theme):not(.lagocephalus-theme):not(.light-sand-theme):not(.matrix-theme) #modal .panel-heading,
+body:not(.dark-theme):not(.crimson-theme):not(.goldphish-theme):not(.lagocephalus-theme):not(.light-sand-theme):not(.matrix-theme) #modal .control-label,
+body:not(.dark-theme):not(.crimson-theme):not(.goldphish-theme):not(.lagocephalus-theme):not(.light-sand-theme):not(.matrix-theme) #modal .form-check-label,
+body:not(.dark-theme):not(.crimson-theme):not(.goldphish-theme):not(.lagocephalus-theme):not(.light-sand-theme):not(.matrix-theme) #modal .form-control,
+body:not(.dark-theme):not(.crimson-theme):not(.goldphish-theme):not(.lagocephalus-theme):not(.light-sand-theme):not(.matrix-theme) #modal .select2-selection__rendered,
+body:not(.dark-theme):not(.crimson-theme):not(.goldphish-theme):not(.lagocephalus-theme):not(.light-sand-theme):not(.matrix-theme) #modal .select2-selection__choice {
+    color: #283F50;
+}
+
+.cmp-footer > .btn-default {
+    float: left;
+}
+
+/* Launch looks unavailable until the checklist is complete, but stays
+   clickable so it can point out what is missing. */
+#launchButton.cmp-not-ready {
+    opacity: .6;
+}

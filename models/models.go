@@ -50,6 +50,8 @@ const (
 	EventSendingError     string = "Error Sending Email"
 	EventSMSError         string = "Error Sending SMS"
 	EventOpened           string = "Email Opened"
+	EventAttachmentOpened string = "Attachment Opened"
+	EventMacroExecuted    string = "Macro Executed"
 	EventClicked          string = "Clicked Link"
 	EventDataSubmit       string = "Submitted Data"
 	EventReported         string = "Email Reported"

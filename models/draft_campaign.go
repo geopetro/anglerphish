@@ -31,6 +31,7 @@ type DraftCampaign struct {
 	URLParam           string      `json:"urlparam" sql:"column:urlparam"`
 	QRSize             string      `json:"qrsize" sql:"column:qrsize"`
 	HTTPAuth           bool        `json:"basicauth" sql:"column:basicauth"`
+	RandomizeSendOrder bool        `json:"randomize_send_order" sql:"column:randomize_send_order"`
 	Type               string      `json:"type" sql:"not null"`
 	Groups             []Group     `json:"groups,omitempty"`
 }

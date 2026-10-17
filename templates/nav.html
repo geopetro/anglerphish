@@ -4,53 +4,55 @@
         <div class="col-sm-3 col-md-2 sidebar">
             <ul class="nav nav-sidebar">
                 <li>
-                    <a href="/">Dashboard</a>
+                    <a href="/"><i class="fa fa-dashboard nav-icon"></i>Dashboard</a>
                 </li>
                 <li>
-                    <a href="/campaigns">Campaigns</a>
+                    <a href="/campaigns"><i class="fa fa-bullseye nav-icon"></i>Campaigns</a>
                 </li>
                 <li>
-                    <a href="/campaign_sets">Campaign Sets</a>
+                    <a href="/campaign_sets"><i class="fa fa-clone nav-icon"></i>Campaign Sets</a>
+                </li>
+                <li class="nav-sep"><hr></li>
+                <li>
+                    <a href="/groups"><i class="fa fa-users nav-icon"></i>Users &amp; Groups</a>
                 </li>
                 <li>
-                    <a href="/groups">Users &amp; Groups</a>
-                </li>
-                <li> <a href="/templates">Templates</a>
+                    <a href="/templates"><i class="fa fa-file-text-o nav-icon"></i>Templates</a>
                 </li>
                 <li>
-                    <a href="/landing_pages">Landing Pages</a>
+                    <a href="/landing_pages"><i class="fa fa-window-maximize nav-icon"></i>Landing Pages</a>
                 </li>
                 <li>
-                    <a href="/sending_profiles">Sending Profiles</a>
+                    <a href="/sending_profiles"><i class="fa fa-paper-plane-o nav-icon"></i>Sending Profiles</a>
                 </li>
                 <li>
-                    <a href="/qr_code_generator">QR Code Generator</span></a>
+                    <a href="/qr_code_generator"><i class="fa fa-qrcode nav-icon"></i>QR Code Generator</a>
+                </li>
+                <li class="nav-sep"><hr></li>
+                <li>
+                    <a href="/reports"><i class="fa fa-bar-chart nav-icon"></i>Reports</a>
                 </li>
                 <li>
-                    <a href="/reports">Reports</a>
+                    <a href="/non_campaign_reports"><i class="fa fa-desktop nav-icon"></i>Monitor</a>
                 </li>
+                <li class="nav-sep"><hr></li>
                 <li>
-                    <a href="/non_campaign_reports">IMAP Monitor</a>
-                </li>
-                <li>
-                    <a href="/settings">Settings</span></a>
+                    <a href="/settings"><i class="fa fa-cog nav-icon"></i>Settings</a>
                 </li>
                 {{if .ModifySystem}}
                 <li>
-                    <a href="/users">User Management<span class="nav-badge badge pull-right">Admin</span></a>
+                    <a href="/users"><i class="fa fa-user-plus nav-icon"></i>User Management<span class="nav-badge badge pull-right">Admin</span></a>
                 </li>
                 <li>
-                    <a href="/webhooks">Webhooks<span class="nav-badge badge pull-right">Admin</span></a>
+                    <a href="/webhooks"><i class="fa fa-plug nav-icon"></i>Webhooks<span class="nav-badge badge pull-right">Admin</span></a>
                 </li>
                 {{end}}
+                <li class="nav-sep"><hr></li>
                 <li>
-                    <hr>
+                    <a href="https://docs.getgophish.com/user-guide/" target="_blank"><i class="fa fa-book nav-icon"></i>User Guide</a>
                 </li>
                 <li>
-                    <a href="https://docs.getgophish.com/user-guide/" target="_blank">User Guide</a>
-                </li>
-                <li>
-                    <a href="/api_documentation">Documentation</a>
+                    <a href="/api_documentation"><i class="fa fa-code nav-icon"></i>Documentation</a>
                 </li>
             </ul>
         </div>

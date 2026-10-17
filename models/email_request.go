@@ -113,6 +113,7 @@ func (s *EmailRequest) Generate(msg *gomail.Message) error {
 	if err != nil {
 		return err
 	}
+	ptx.TrackAttachments = s.Template.TrackAttachments
 
 	url, err := ExecuteTemplate(s.URL, ptx)
 	if err != nil {
@@ -177,8 +178,8 @@ func (s *EmailRequest) Generate(msg *gomail.Message) error {
 	}
 
 	// Attach the files
-	for _, a := range s.Template.Attachments {
-		addAttachment(msg, a, ptx)
+	for i := range s.Template.Attachments {
+		addAttachment(msg, &s.Template.Attachments[i], ptx)
 	}
 
 	return nil

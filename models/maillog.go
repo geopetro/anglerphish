@@ -198,6 +198,7 @@ func (m *MailLog) Generate(msg *gomail.Message) error {
 	if err != nil {
 		return err
 	}
+	ptx.TrackAttachments = c.Template.TrackAttachments
 
 	// Add Message-Id header as described in RFC 2822.
 	messageID, err := m.generateMessageID()
@@ -263,8 +264,8 @@ func (m *MailLog) Generate(msg *gomail.Message) error {
 		}
 	}
 	// Attach the files
-	for _, a := range c.Template.Attachments {
-		addAttachment(msg, a, ptx)
+	for i := range c.Template.Attachments {
+		addAttachment(msg, &c.Template.Attachments[i], ptx)
 	}
 	// Attach QR code file if size was specified
 	if c.QRSize != "" {
@@ -274,7 +275,7 @@ func (m *MailLog) Generate(msg *gomail.Message) error {
 			Type:        "image/png",
 			vanillaFile: true,
 		}
-		addAttachment(msg, attachment, ptx)
+		addAttachment(msg, &attachment, ptx)
 	}
 
 	return nil
@@ -347,6 +348,32 @@ func (m *MailLog) generateMessageID() (string, error) {
 	return msgid, nil
 }
 
+// sanitizeAttachmentFilename replaces characters that are illegal or
+// problematic in filenames across common operating systems (path separators,
+// Windows-reserved characters, and control characters) with underscores. This
+// matters because a templated filename can embed recipient data that ends up
+// written to the recipient's disk. Path separators are replaced too, which
+// neutralizes directory-traversal sequences like "../". Dots are preserved so
+// the file extension stays intact. If nothing usable remains, a default name
+// is returned.
+func sanitizeAttachmentFilename(name string) string {
+	sanitized := strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return '_'
+		}
+		switch r {
+		case '/', '\\', ':', '*', '?', '"', '<', '>', '|':
+			return '_'
+		}
+		return r
+	}, name)
+	sanitized = strings.TrimSpace(sanitized)
+	if sanitized == "" {
+		return "attachment"
+	}
+	return sanitized
+}
+
 // Check if an attachment should have inline disposition based on
 // its file extension.
 func shouldEmbedAttachment(name string) bool {
@@ -361,21 +388,36 @@ func shouldEmbedAttachment(name string) bool {
 
 // Add an attachment to a gomail message, with the Content-Disposition
 // header set to inline or attachment depending on its file extension.
-func addAttachment(msg *gomail.Message, a Attachment, ptx PhishingTemplateContext) {
-	copyFunc := gomail.SetCopyFunc(func(c Attachment) func(w io.Writer) error {
-		return func(w io.Writer) error {
-			reader, err := a.ApplyTemplate(ptx)
-			if err != nil {
-				return err
-			}
-			_, err = io.Copy(w, reader)
+//
+// The attachment is passed by pointer so that the "vanillaFile" classification
+// determined in ApplyTemplate persists back to the caller's Attachment. This
+// lets repeated sends in the same campaign batch skip reprocessing a file that
+// contains no template variables, rather than unzipping/re-templating it once
+// per recipient.
+func addAttachment(msg *gomail.Message, a *Attachment, ptx PhishingTemplateContext) {
+	// The displayed filename itself supports template variables, e.g.
+	// "Invoice_{{.LastName}}.pdf". The file content is still classified using
+	// the original name's extension inside ApplyTemplate.
+	filename := a.Name
+	if rendered, err := ExecuteTemplate(a.Name, ptx); err == nil {
+		filename = rendered
+	}
+	// Strip any illegal filename characters the template may have produced
+	// (e.g. path separators from recipient data) before it reaches the
+	// recipient's disk.
+	filename = sanitizeAttachmentFilename(filename)
+	copyFunc := gomail.SetCopyFunc(func(w io.Writer) error {
+		reader, err := a.ApplyTemplate(ptx)
+		if err != nil {
 			return err
 		}
-	}(a))
-	if shouldEmbedAttachment(a.Name) {
-		msg.Embed(a.Name, copyFunc)
+		_, err = io.Copy(w, reader)
+		return err
+	})
+	if shouldEmbedAttachment(filename) {
+		msg.Embed(filename, copyFunc)
 	} else {
-		msg.Attach(a.Name, copyFunc)
+		msg.Attach(filename, copyFunc)
 	}
 }
 

@@ -118,181 +118,6 @@ var icons = {
     "application/x-msdownload": "fa-file-o"
 }
 
-// Preview state for email templates
-var currentEmailPreviewTemplate = null;
-var currentEmailPreviewDevice = 'desktop';
-var loadEmailImages = false;
-
-// Set device preview mode for email template
-function setEmailPreviewDevice(device) {
-    currentEmailPreviewDevice = device;
-    var iframe = document.getElementById('preview_email_iframe');
-    
-    // Update button states
-    $('#previewDesktopBtn, #previewTabletBtn, #previewMobileBtn').removeClass('active');
-    
-    switch(device) {
-        case 'mobile':
-            iframe.style.width = '375px';
-            iframe.style.height = '667px';
-            $('#previewMobileBtn').addClass('active');
-            break;
-        case 'tablet':
-            iframe.style.width = '768px';
-            iframe.style.height = '500px';
-            $('#previewTabletBtn').addClass('active');
-            break;
-        case 'desktop':
-        default:
-            iframe.style.width = '100%';
-            iframe.style.height = '400px';
-            $('#previewDesktopBtn').addClass('active');
-            break;
-    }
-}
-window.setEmailPreviewDevice = setEmailPreviewDevice;
-
-// Toggle image loading in email preview
-function toggleEmailImages() {
-    loadEmailImages = $('#loadImagesToggle').is(':checked');
-    if (currentEmailPreviewTemplate !== null) {
-        renderEmailPreview(currentEmailPreviewTemplate);
-    }
-}
-window.toggleEmailImages = toggleEmailImages;
-
-// Render the email preview content
-function renderEmailPreview(template) {
-    var html = template.html || "";
-    
-    // Create sample data for the preview
-    var now = new Date();
-    var sampleData = {
-        // Recipient fields
-        FirstName: "John",
-        LastName: "Doe",
-        Email: "john.doe@example.com",
-        Position: "IT Manager",
-        Phone: "+15551234567",
-        
-        // Context fields
-        From: "Phishing Team",
-        URL: "https://example.com?rid=abc12345",
-        TrackingURL: "https://example.com/track?rid=abc12345",
-        Tracker: "[TRACKING IMAGE]",
-        RId: "abc12345",
-        BaseURL: "https://example.com",
-        QR: "[QR CODE IMAGE]",
-        
-        // DateTime fields (dynamic)
-        CurrentDateTime: now.toLocaleString('en-US', {month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true}),
-        CurrentDate: now.toLocaleString('en-US', {month: 'long', day: 'numeric', year: 'numeric'}),
-        CurrentTime: now.toLocaleString('en-US', {hour: 'numeric', minute: '2-digit', hour12: true}),
-        CurrentTime24: now.toLocaleString('en-GB', {hour: '2-digit', minute: '2-digit', hour12: false})
-    };
-    
-    // Replace template variables with sample data
-    for (var key in sampleData) {
-        var regex = new RegExp('{{\\.' + key + '}}', 'g');
-        html = html.replace(regex, sampleData[key]);
-    }
-    
-    // Apply security sanitization - remove scripts and event handlers
-    html = sanitizeHTML(html);
-    
-    // Handle images based on toggle state
-    if (!loadEmailImages) {
-        html = disableExternalResources(html);
-    } else {
-        // Still disable links for security, but keep images
-        html = disableLinksOnly(html);
-    }
-    
-    // Get the iframe
-    var iframe = document.getElementById('preview_email_iframe');
-    if (!iframe) {
-        return;
-    }
-    
-    // Write the content to the iframe
-    var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-    iframeDoc.open();
-    iframeDoc.write(html);
-    iframeDoc.close();
-}
-
-// Disable only links (keep images)
-function disableLinksOnly(html) {
-    var parser = new DOMParser();
-    var doc = parser.parseFromString(html, 'text/html');
-    
-    // Handle links - disable them
-    var links = doc.getElementsByTagName('a');
-    for(var i = 0; i < links.length; i++) {
-        links[i].setAttribute('data-original-href', links[i].href);
-        links[i].href = 'javascript:void(0)';
-        links[i].target = '';
-    }
-    
-    return doc.documentElement.outerHTML;
-}
-
-// Security functions for template preview
-function sanitizeHTML(html) {
-    // Create a new DOMParser
-    var parser = new DOMParser();
-    var doc = parser.parseFromString(html, 'text/html');
-    
-    // Remove all script tags
-    var scripts = doc.getElementsByTagName('script');
-    while(scripts.length > 0) {
-        scripts[0].parentNode.removeChild(scripts[0]);
-    }
-    
-    // Remove on* attributes (onclick, onload, etc.)
-    var allElements = doc.getElementsByTagName('*');
-    for(var i = 0; i < allElements.length; i++) {
-        var attributes = allElements[i].attributes;
-        var attributesToRemove = [];
-        for(var j = 0; j < attributes.length; j++) {
-            var attrName = attributes[j].name;
-            if(attrName.indexOf('on') === 0) {
-                attributesToRemove.push(attrName);
-            }
-        }
-        // Remove the identified attributes
-        for(var j = 0; j < attributesToRemove.length; j++) {
-            allElements[i].removeAttribute(attributesToRemove[j]);
-        }
-    }
-    
-    return doc.documentElement.outerHTML;
-}
-
-function disableExternalResources(html) {
-    // Create a new DOMParser
-    var parser = new DOMParser();
-    var doc = parser.parseFromString(html, 'text/html');
-    
-    // Handle images - replace src with data-src
-    var images = doc.getElementsByTagName('img');
-    for(var i = 0; i < images.length; i++) {
-        if(images[i].src) {
-            images[i].setAttribute('data-original-src', images[i].src);
-            images[i].src = 'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22100%22%20height%3D%22100%22%3E%3Crect%20fill%3D%22%23eee%22%20width%3D%22100%22%20height%3D%22100%22%2F%3E%3C%2Fsvg%3E';
-        }
-    }
-    
-    // Handle links - disable them
-    var links = doc.getElementsByTagName('a');
-    for(var i = 0; i < links.length; i++) {
-        links[i].setAttribute('data-original-href', links[i].href);
-        links[i].href = 'javascript:void(0)';
-        links[i].target = '';
-    }
-    
-    return doc.documentElement.outerHTML;
-}
 
 // Save attempts to POST to /templates/
 function saveEmailTemplate(idx) {
@@ -318,6 +143,7 @@ function saveEmailTemplate(idx) {
     template.text = $("#text_editor").val()
     // Whether to inline remote images as CID attachments at send time
     template.embed_remote_images = $("#embed_remote_images_checkbox").prop("checked")
+    template.track_attachments = $("#track_attachments_checkbox").prop("checked")
     // Add the attachments
     $.each($("#attachmentsTable").DataTable().rows().data(), function (i, target) {
         template.attachments.push({
@@ -498,10 +324,12 @@ function editEmailTemplate(idx) {
             $("#use_tracker_checkbox").prop("checked", false)
         }
         $("#embed_remote_images_checkbox").prop("checked", template.embed_remote_images === true)
+        $("#track_attachments_checkbox").prop("checked", template.track_attachments === true)
 
     } else {
         $("#templateModalLabel").text("New Email Template")
         $("#embed_remote_images_checkbox").prop("checked", false)
+        $("#track_attachments_checkbox").prop("checked", false)
     }
     // Handle Deletion
     $("#attachmentsTable").unbind('click').on("click", "span>i.fa-trash-o", function () {
@@ -565,6 +393,7 @@ function copy(idx) {
         $("#use_tracker_checkbox").prop("checked", false)
     }
     $("#embed_remote_images_checkbox").prop("checked", template.embed_remote_images === true)
+    $("#track_attachments_checkbox").prop("checked", template.track_attachments === true)
 }
 
 function importEmail() {
@@ -596,89 +425,9 @@ function importEmail() {
 
 // Preview an email template with sample data
 function previewEmailTemplate(idx) {
-    var template = emailTemplates[idx];
-    
-    // Store current template for re-rendering
-    currentEmailPreviewTemplate = template;
-    
-    // Set the modal title to include the template name
-    $("#previewEmailModalLabel").text("Email Template Preview - " + template.name);
-    
     // Force any existing modals to close
     $('.modal').modal('hide');
-    
-    // Reset preview state - images loaded by default
-    loadEmailImages = true;
-    $('#loadImagesToggle').prop('checked', true);
-    currentEmailPreviewDevice = 'desktop';
-    
-    // Display subject line with variable replacement
-    var now = new Date();
-    var sampleData = {
-        FirstName: "John",
-        LastName: "Doe",
-        Email: "john.doe@example.com",
-        Position: "IT Manager",
-        Phone: "+15551234567",
-        From: "Phishing Team",
-        URL: "https://example.com?rid=abc12345",
-        TrackingURL: "https://example.com/track?rid=abc12345",
-        RId: "abc12345",
-        BaseURL: "https://example.com",
-        CurrentDateTime: now.toLocaleString('en-US', {month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true}),
-        CurrentDate: now.toLocaleString('en-US', {month: 'long', day: 'numeric', year: 'numeric'}),
-        CurrentTime: now.toLocaleString('en-US', {hour: 'numeric', minute: '2-digit', hour12: true}),
-        CurrentTime24: now.toLocaleString('en-GB', {hour: '2-digit', minute: '2-digit', hour12: false})
-    };
-    
-    // Process and display subject line
-    var subject = template.subject || "(No Subject)";
-    for (var key in sampleData) {
-        var regex = new RegExp('{{\\.' + key + '}}', 'g');
-        subject = subject.replace(regex, sampleData[key]);
-    }
-    $('#preview_email_subject').text(subject);
-    
-    // Display attachments if any
-    var attachmentsContainer = $('#preview_email_attachments_container');
-    var attachmentsList = $('#preview_email_attachments');
-    attachmentsList.empty();
-    
-    if (template.attachments && template.attachments.length > 0) {
-        attachmentsContainer.show();
-        $.each(template.attachments, function(i, attachment) {
-            var icon = icons[attachment.type] || 'fa-file-o';
-            var attachmentHtml = '<span style="display: inline-block; margin-right: 15px; margin-bottom: 5px; padding: 5px 10px; background: #fff; border: 1px solid #ddd; border-radius: 3px;">' +
-                '<i class="fa ' + icon + '" style="margin-right: 5px; color: #666;"></i>' +
-                escapeHtml(attachment.name) +
-                '</span>';
-            attachmentsList.append(attachmentHtml);
-        });
-    } else {
-        attachmentsContainer.hide();
-    }
-    
-    // Render the email preview
-    renderEmailPreview(template);
-    
-    // Reset device to desktop
-    setEmailPreviewDevice('desktop');
-    
-    // Show the modal with a slight delay to ensure everything is ready
-    setTimeout(function() {
-        $("#previewEmailModal").modal({
-            backdrop: 'static',
-            keyboard: false,
-            show: true
-        });
-        
-        // Ensure the preview modal appears in front by manually setting a high z-index
-        $("#previewEmailModal").css('z-index', 1060);
-        $('.modal-backdrop').last().css('z-index', 1050);
-        
-        // Make sure the navbar stays behind modals
-        $('.navbar-fixed-top').css('z-index', 1020);
-    }, 100);
+    showEmailTemplatePreview(emailTemplates[idx]);
 }
 
 function loadEmailTemplates() {

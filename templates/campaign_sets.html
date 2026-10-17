@@ -254,11 +254,20 @@
                                         </label>
                                         <input type="text" class="form-control" id="launch_date" />
                                     </div>
-                                    <div class="form-group" style="margin-bottom:0;">
+                                    <div class="form-group" style="margin-bottom:8px;">
                                         <label class="control-label" for="send_by_date" style="font-weight:normal;">Send Emails By <span class="text-muted">(Optional)</span>:
                                             <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="If specified, Gophish will send messages evenly between the launch date and this date."></i>
                                         </label>
                                         <input type="text" class="form-control" id="send_by_date" />
+                                    </div>
+                                    <div class="form-group" style="margin-bottom:0;">
+                                        <label class="control-label" for="send_order" style="font-weight:normal;">Send Order:
+                                            <i class="fa fa-question-circle" data-toggle="tooltip" data-html="true" data-placement="right" title="How the set's campaigns share the send window.<br>Sequential: all of A, then B, then C.<br>Interleaved: A, B, C, A, B, C… (in parallel)."></i>
+                                        </label>
+                                        <select class="form-control" id="send_order">
+                                            <option value="sequential">Sequential (one campaign at a time)</option>
+                                            <option value="interleaved">Interleaved (campaigns in parallel)</option>
+                                        </select>
                                     </div>
                                 </div>
                                 <div class="inline-setting-toggle-col">

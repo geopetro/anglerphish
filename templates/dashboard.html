@@ -13,19 +13,115 @@
         </div>
     </div>
     <div id="dashboard" style="display:none;">
+        <div class="kpi-section">
+            <div class="kpi-row">
+                <div class="kpi-tile">
+                    <div class="kpi-label">Delivered</div>
+                    <div class="kpi-value kpi-sent"><span id="kpi_delivered">0</span></div>
+                </div>
+                <div class="kpi-tile">
+                    <div class="kpi-label">Open rate</div>
+                    <div class="kpi-value kpi-opened"><span id="kpi_open_pct">0%</span> <small class="kpi-frac" id="kpi_open_frac">0/0</small></div>
+                </div>
+                <div class="kpi-tile">
+                    <div class="kpi-label">Click rate</div>
+                    <div class="kpi-value kpi-clicked"><span id="kpi_click_pct">0%</span> <small class="kpi-frac" id="kpi_click_frac">0/0</small></div>
+                </div>
+                <div class="kpi-tile">
+                    <div class="kpi-label">Submitted</div>
+                    <div class="kpi-value kpi-submitted"><span id="kpi_submit_pct">0%</span> <small class="kpi-frac" id="kpi_submit_frac">0/0</small></div>
+                </div>
+                <div class="kpi-tile">
+                    <div class="kpi-label">Replied</div>
+                    <div class="kpi-value kpi-replied"><span id="kpi_reply_pct">0%</span> <small class="kpi-frac" id="kpi_reply_frac">0/0</small></div>
+                </div>
+                <div class="kpi-tile">
+                    <div class="kpi-label">Reported</div>
+                    <div class="kpi-value kpi-reported"><span id="kpi_report_pct">0%</span> <small class="kpi-frac" id="kpi_report_frac">0/0</small></div>
+                </div>
+            </div>
+        </div>
         <div class="row">
             <div id="overview_chart" style="height:200px;" class="col-lg-12 col-md-12 col-sm-12 col-xs-12"></div>
         </div>
-        <div class="row">
-            <div id="sent_chart" style="height:200px;" class="col-lg-3 col-md-3"></div>
-            <div id="sms_sent_chart" style="height:200px;" class="col-lg-3 col-md-3"></div>
-            <div id="opened_chart" style="height:200px;" class="col-lg-3 col-md-3"></div>
-            <div id="clicked_chart" style="height:200px;" class="col-lg-3 col-md-3"></div>
+        <div class="row" style="margin-bottom: 15px;">
+            <div class="col-md-12 text-right">
+                <div class="btn-group" role="group" aria-label="Stats View">
+                    <button type="button" class="btn btn-default" id="view-funnel" title="Funnel view">
+                        <i class="fa fa-filter"></i> Funnel
+                    </button>
+                    <button type="button" class="btn btn-default" id="view-donuts" title="Donut view">
+                        <i class="fa fa-pie-chart"></i> Donuts
+                    </button>
+                </div>
+            </div>
         </div>
-        <div class="row">
-            <div id="submitted_data_chart" style="height:200px;" class="col-lg-4 col-md-4"></div>
-            <div id="replied_chart" style="height:200px;" class="col-lg-4 col-md-4"></div>
-            <div id="email_reported_chart" style="height:200px;" class="col-lg-4 col-md-4"></div>
+        <div id="funnel_view" style="display:none;">
+            <div class="row">
+                <div id="funnel_chart" class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="height:380px;"></div>
+            </div>
+        </div>
+        <div id="donuts_view" style="display:none;">
+            <div class="row">
+                <div class="col-lg-4 col-md-6">
+                    <div class="stat-card stat-sent">
+                        <div class="stat-info"><i class="fa fa-envelope-o stat-icon"></i><span class="stat-title">Email Sent</span></div>
+                        <div class="stat-chart"><div id="sent_chart" class="stat-donut"></div><div class="stat-frac" id="sent_frac"></div></div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="stat-card stat-sent">
+                        <div class="stat-info"><i class="fa fa-comment stat-icon"></i><span class="stat-title">SMS Sent</span></div>
+                        <div class="stat-chart"><div id="sms_sent_chart" class="stat-donut"></div><div class="stat-frac" id="sms_sent_frac"></div></div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="stat-card stat-opened">
+                        <div class="stat-info"><i class="fa fa-envelope-open-o stat-icon"></i><span class="stat-title">Email Opened</span></div>
+                        <div class="stat-chart"><div id="opened_chart" class="stat-donut"></div><div class="stat-frac" id="opened_frac"></div></div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-lg-4 col-md-6">
+                    <div class="stat-card stat-attachment">
+                        <div class="stat-info"><i class="fa fa-paperclip stat-icon"></i><span class="stat-title">Attachment Opened</span></div>
+                        <div class="stat-chart"><div id="opened_attachment_chart" class="stat-donut"></div><div class="stat-frac" id="opened_attachment_frac"></div></div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="stat-card stat-macro">
+                        <div class="stat-info"><i class="fa fa-file-code-o stat-icon"></i><span class="stat-title">Macro Executed</span></div>
+                        <div class="stat-chart"><div id="macro_executed_chart" class="stat-donut"></div><div class="stat-frac" id="macro_executed_frac"></div></div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="stat-card stat-clicked">
+                        <div class="stat-info"><i class="fa fa-mouse-pointer stat-icon"></i><span class="stat-title">Clicked Link</span></div>
+                        <div class="stat-chart"><div id="clicked_chart" class="stat-donut"></div><div class="stat-frac" id="clicked_frac"></div></div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-lg-4 col-md-6">
+                    <div class="stat-card stat-submitted">
+                        <div class="stat-info"><i class="fa fa-exclamation-circle stat-icon"></i><span class="stat-title">Submitted Data</span></div>
+                        <div class="stat-chart"><div id="submitted_data_chart" class="stat-donut"></div><div class="stat-frac" id="submitted_data_frac"></div></div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="stat-card stat-replied">
+                        <div class="stat-info"><i class="fa fa-reply stat-icon"></i><span class="stat-title">Email Replied</span></div>
+                        <div class="stat-chart"><div id="replied_chart" class="stat-donut"></div><div class="stat-frac" id="replied_frac"></div></div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="stat-card stat-reported">
+                        <div class="stat-info"><i class="fa fa-bullhorn stat-icon"></i><span class="stat-title">Email Reported</span></div>
+                        <div class="stat-chart"><div id="email_reported_chart" class="stat-donut"></div><div class="stat-frac" id="email_reported_frac"></div></div>
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="row">
             <h2>Recent Campaigns</h2>
@@ -52,23 +148,17 @@
                     <tr>
                         <th class="col-md-2 col-sm-2">Name</th>
                         <th class="col-md-2 col-sm-2">Created Date</th>
-                        <th class="col-md-1 col-sm-1">
-                            <i class="fa fa-envelope-o"></i>
-                        </th>
-                        <th class="col-md-1 col-sm-1">
-                            <i class="fa fa-envelope-open-o"></i>
-                        </th>
-                        <th class="col-md-1 col-sm-1">
-                            <i class="fa fa-mouse-pointer"></i>
-                        </th>
-                        <th class="col-md-1 col-sm-1">
-                            <i class="fa fa-exclamation-circle"></i>
-                        </th>
-                        <th class="col-md-1 col-sm-1">
-                            <i class="fa fa-reply"></i>
-                        </th>
-                        <th class="col-md-1 col-sm-1">
-                            <i class="fa fa-bullhorn"></i>
+                        <th class="col-md-3 col-sm-3 no-sort">
+                            <span class="stage-legend">
+                                <span class="stage-cell"><i class="fa fa-envelope-o" title="Sent"></i></span>
+                                <span class="stage-cell"><i class="fa fa-envelope-open-o" title="Opened"></i></span>
+                                <span class="stage-cell"><i class="fa fa-mouse-pointer" title="Clicked"></i></span>
+                                <span class="stage-cell"><i class="fa fa-exclamation-circle" title="Submitted"></i></span>
+                                <span class="stage-cell"><i class="fa fa-paperclip" title="Attachment Opened"></i></span>
+                                <span class="stage-cell"><i class="fa fa-file-code-o" title="Macro Executed"></i></span>
+                                <span class="stage-cell"><i class="fa fa-reply" title="Replied"></i></span>
+                                <span class="stage-cell"><i class="fa fa-bullhorn" title="Reported"></i></span>
+                            </span>
                         </th>
                         <th class="col-md-1 col-sm-1">Status</th>
                         <th class="col-md-2 col-sm-2 no-sort"></th>

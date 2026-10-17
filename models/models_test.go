@@ -47,6 +47,7 @@ func (s *ModelsSuite) TearDownTest(c *check.C) {
 	db.Delete(Template{})
 	db.Delete(Event{})
 	db.Delete(Webhook{})
+	db.Delete(TrackedRequest{})
 
 	// Reset users table to default state.
 	db.Not("id", 1).Delete(User{})

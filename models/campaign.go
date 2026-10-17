@@ -78,14 +78,16 @@ type CampaignSummary struct {
 
 // CampaignStats is a struct representing the statistics for a single campaign
 type CampaignStats struct {
-	Total         int64 `json:"total"`
-	EmailsSent    int64 `json:"sent"`
-	OpenedEmail   int64 `json:"opened"`
-	ClickedLink   int64 `json:"clicked"`
-	SubmittedData int64 `json:"submitted_data"`
-	Replied       int64 `json:"replied"`
-	EmailReported int64 `json:"email_reported"`
-	Error         int64 `json:"error"`
+	Total            int64 `json:"total"`
+	EmailsSent       int64 `json:"sent"`
+	OpenedEmail      int64 `json:"opened"`
+	OpenedAttachment int64 `json:"opened_attachment"`
+	ClickedLink      int64 `json:"clicked"`
+	MacroExecuted    int64 `json:"macro_executed"`
+	SubmittedData    int64 `json:"submitted_data"`
+	Replied          int64 `json:"replied"`
+	EmailReported    int64 `json:"email_reported"`
+	Error            int64 `json:"error"`
 }
 
 // Event contains the fields for an event
@@ -489,13 +491,15 @@ type recipientFlags map[string]bool
 // newRecipientFlags returns a zeroed flag set for one recipient.
 func newRecipientFlags() recipientFlags {
 	return recipientFlags{
-		"sent":           false,
-		"opened":         false,
-		"clicked":        false,
-		"submitted_data": false,
-		"replied":        false,
-		"reported":       false,
-		"error":          false,
+		"sent":              false,
+		"opened":            false,
+		"attachment_opened": false,
+		"clicked":           false,
+		"macro_executed":    false,
+		"submitted_data":    false,
+		"replied":           false,
+		"reported":          false,
+		"error":             false,
 	}
 }
 
@@ -564,6 +568,11 @@ func buildRecipientStats(cid int64) (map[string]recipientFlags, int64, error) {
 			recipientStats[email]["sent"] = true
 		case EventOpened:
 			recipientStats[email]["opened"] = true
+		case EventAttachmentOpened:
+			recipientStats[email]["attachment_opened"] = true
+			recipientStats[email]["opened"] = true
+		case EventMacroExecuted:
+			recipientStats[email]["macro_executed"] = true
 		case EventClicked:
 			recipientStats[email]["clicked"] = true
 		case EventDataSubmit:
@@ -586,6 +595,12 @@ func buildRecipientStats(cid int64) (map[string]recipientFlags, int64, error) {
 		if stats["replied"] {
 			stats["opened"] = true
 		}
+		if stats["macro_executed"] {
+			stats["attachment_opened"] = true
+		}
+		if stats["attachment_opened"] {
+			stats["opened"] = true
+		}
 		// Note: "reported" remains standalone - no implications
 	}
 
@@ -606,8 +621,14 @@ func collapseRecipientStats(recipientStats map[string]recipientFlags) CampaignSt
 		if stats["opened"] {
 			s.OpenedEmail++
 		}
+		if stats["attachment_opened"] {
+			s.OpenedAttachment++
+		}
 		if stats["clicked"] {
 			s.ClickedLink++
+		}
+		if stats["macro_executed"] {
+			s.MacroExecuted++
 		}
 		if stats["submitted_data"] {
 			s.SubmittedData++

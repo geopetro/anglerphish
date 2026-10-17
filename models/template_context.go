@@ -21,22 +21,24 @@ type TemplateContext interface {
 // PhishingTemplateContext is the context that is sent to any template, such
 // as the email or landing page content.
 type PhishingTemplateContext struct {
-	From            string
-	URL             string
-	Tracker         string
-	TrackingURL     string
-	RId             string
-	BaseURL         string
-	QRBase64        string
-	QRName          string
-	QR              string
-	QRSize          string // QR code size in pixels
-	QRImageData     []byte // Raw PNG data for Office document embedding
-	QRFallbackText  string // URL text for fallbacks in Office documents
-	CurrentDateTime string // Current date and time - e.g. "Nov 23, 2025 7:39 PM"
-	CurrentDate     string // Current date only - e.g. "November 23, 2025"
-	CurrentTime     string // Current time (12-hour) - e.g. "7:39 PM"
-	CurrentTime24   string // Current time (24-hour) - e.g. "19:39"
+	From                  string
+	URL                   string
+	Tracker               string
+	TrackingURL           string
+	RId                   string
+	BaseURL               string
+	QRBase64              string
+	QRName                string
+	QR                    string
+	QRSize                string // QR code size in pixels
+	QRImageData           []byte // Raw PNG data for Office document embedding
+	QRFallbackText        string // URL text for fallbacks in Office documents
+	CurrentDateTime       string // Current date and time - e.g. "Nov 23, 2025 7:39 PM"
+	CurrentDate           string // Current date only - e.g. "November 23, 2025"
+	CurrentTime           string // Current time (12-hour) - e.g. "7:39 PM"
+	CurrentTime24         string // Current time (24-hour) - e.g. "19:39"
+	AttachmentTrackingURL string // Tracking URL with attachment marker (a=1)
+	TrackAttachments      bool   // Whether to inject attachment-open beacons
 	BaseRecipient
 }
 
@@ -102,27 +104,36 @@ func NewPhishingTemplateContext(ctx TemplateContext, r BaseRecipient, rid string
 		}
 	}
 
+	// Build the attachment tracking URL: the tracking URL plus an "a=1"
+	// marker so the /track handler can distinguish an attachment-open beacon
+	// hit from a normal email-open pixel hit.
+	attachmentTrackingURL := *trackingURL
+	atQuery := attachmentTrackingURL.Query()
+	atQuery.Set("a", "1")
+	attachmentTrackingURL.RawQuery = atQuery.Encode()
+
 	// Get current time for template variables
 	now := time.Now()
 
 	return PhishingTemplateContext{
-		BaseRecipient:   r,
-		BaseURL:         baseURL.String(),
-		URL:             phishURL.String(),
-		TrackingURL:     trackingURL.String(),
-		Tracker:         "<img alt='' style='display: none' src='" + trackingURL.String() + "'/>",
-		From:            fn,
-		RId:             rid,
-		QRBase64:        qrBase64,
-		QRName:          qrName,
-		QR:              qr,
-		QRSize:          qrSize,
-		QRImageData:     qrImageData,
-		QRFallbackText:  qrFallbackText,
-		CurrentDateTime: now.Format("Jan 2, 2006 3:04 PM"),
-		CurrentDate:     now.Format("January 2, 2006"),
-		CurrentTime:     now.Format("3:04 PM"),
-		CurrentTime24:   now.Format("15:04"),
+		BaseRecipient:         r,
+		BaseURL:               baseURL.String(),
+		URL:                   phishURL.String(),
+		TrackingURL:           trackingURL.String(),
+		Tracker:               "<img alt='' style='display: none' src='" + trackingURL.String() + "'/>",
+		From:                  fn,
+		RId:                   rid,
+		QRBase64:              qrBase64,
+		QRName:                qrName,
+		QR:                    qr,
+		QRSize:                qrSize,
+		QRImageData:           qrImageData,
+		QRFallbackText:        qrFallbackText,
+		CurrentDateTime:       now.Format("Jan 2, 2006 3:04 PM"),
+		CurrentDate:           now.Format("January 2, 2006"),
+		CurrentTime:           now.Format("3:04 PM"),
+		CurrentTime24:         now.Format("15:04"),
+		AttachmentTrackingURL: attachmentTrackingURL.String(),
 	}, nil
 }
 

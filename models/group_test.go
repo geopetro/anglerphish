@@ -372,6 +372,37 @@ func (s *ModelsSuite) TestDeleteGroupKeepsTargetsStillInUse(c *check.C) {
 	c.Assert(targets[0].Email, check.Equals, "shared@example.com")
 }
 
+func (s *ModelsSuite) TestDeleteGroupWithManyTargets(c *check.C) {
+	// A group larger than SQLite's limit on bound variables (999 in older
+	// builds) must still delete, and orphan cleanup must cover every target.
+	big := Group{Name: "Big Group"}
+	for i := 0; i < 1200; i++ {
+		big.Targets = append(big.Targets, Target{BaseRecipient: BaseRecipient{Email: fmt.Sprintf("bulk%d@example.com", i)}})
+	}
+	big.UserId = 1
+	c.Assert(PostGroup(&big), check.Equals, nil)
+
+	// Targets shared with another group, spread across the list.
+	keep := Group{Name: "Keep Group"}
+	keep.Targets = []Target{
+		Target{BaseRecipient: BaseRecipient{Email: "bulk0@example.com"}},
+		Target{BaseRecipient: BaseRecipient{Email: "bulk600@example.com"}},
+		Target{BaseRecipient: BaseRecipient{Email: "bulk1199@example.com"}},
+	}
+	keep.UserId = 1
+	c.Assert(PostGroup(&keep), check.Equals, nil)
+
+	c.Assert(DeleteGroup(&big), check.Equals, nil)
+
+	var count int
+	c.Assert(db.Model(&Target{}).Count(&count).Error, check.Equals, nil)
+	c.Assert(count, check.Equals, 3)
+
+	targets, err := GetTargets(keep.Id)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(len(targets), check.Equals, 3)
+}
+
 func (s *ModelsSuite) TestPostGroupAfterDeleteUsesFreshTargetData(c *check.C) {
 	// Reproduces the reported scenario: a group is imported from a CSV,
 	// deleted, and then re-imported from an updated CSV with the same

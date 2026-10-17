@@ -587,6 +587,37 @@ func BenchmarkGetCampaign10000(b *testing.B) {
 	tearDownBenchmark(b)
 }
 
+// TestCampaignStatsCountsAttachmentOpened pins that an Attachment Opened event
+// is counted in OpenedAttachment and implies OpenedEmail.
+func (s *ModelsSuite) TestCampaignStatsCountsAttachmentOpened(c *check.C) {
+	campaign := s.createCampaign(c)
+	result := campaign.Results[0]
+	err := AddEvent(&Event{Email: result.Email, Message: EventAttachmentOpened}, campaign.Id)
+	c.Assert(err, check.Equals, nil)
+
+	stats, err := getCampaignStats(campaign.Id)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(stats.OpenedAttachment, check.Equals, int64(1))
+	c.Assert(stats.OpenedEmail, check.Equals, int64(1)) // implies opened
+}
+
+// TestCampaignStatsCountsMacroExecuted pins that a Macro Executed event is
+// counted in MacroExecuted and implies both an attachment open and an email
+// open, but not a click.
+func (s *ModelsSuite) TestCampaignStatsCountsMacroExecuted(c *check.C) {
+	campaign := s.createCampaign(c)
+	result := campaign.Results[0]
+	err := AddEvent(&Event{Email: result.Email, Message: EventMacroExecuted}, campaign.Id)
+	c.Assert(err, check.Equals, nil)
+
+	stats, err := getCampaignStats(campaign.Id)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(stats.MacroExecuted, check.Equals, int64(1))
+	c.Assert(stats.OpenedAttachment, check.Equals, int64(1))
+	c.Assert(stats.OpenedEmail, check.Equals, int64(1))
+	c.Assert(stats.ClickedLink, check.Equals, int64(0))
+}
+
 // TestGetCampaignStatsRegression pins the behavior of getCampaignStats so the
 // refactor that extracts buildRecipientStats cannot silently change it.
 func (s *ModelsSuite) TestGetCampaignStatsRegression(c *check.C) {

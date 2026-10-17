@@ -669,7 +669,7 @@ func (as *AdminServer) ResetPassword(w http.ResponseWriter, r *http.Request) {
 // TODO: Make this execute the template, too
 func getTemplate(_ http.ResponseWriter, tmpl string) *template.Template {
 	templates := template.New("template")
-	_, err := templates.ParseFiles("templates/base.html", "templates/nav.html", "templates/"+tmpl+".html", "templates/flashes.html")
+	_, err := templates.ParseFiles("templates/base.html", "templates/nav.html", "templates/"+tmpl+".html", "templates/flashes.html", "templates/template_preview.html")
 	if err != nil {
 		log.Error(err)
 	}

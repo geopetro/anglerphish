@@ -868,6 +868,62 @@ Response: 200 OK
 }</code></pre>
                 </div>
             </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/tracked_requests</strong>
+                <p>Returns X-Tracked requests that could not be matched to a campaign recipient, most recent first. <a class="example-toggle" data-toggle="collapse" data-target="#trackedGetExample"><small>[Show Example]</small></a></p>
+                <div id="trackedGetExample" class="collapse">
+                <pre><code>Query Parameters (optional):
+?limit=500  - Maximum number of requests to return
+
+Response: 200 OK
+[
+  {
+    "id": 1,
+    "created_at": "2024-01-15T10:30:00Z",
+    "source_ip": "203.0.113.5",
+    "method": "GET",
+    "path": "/callback",
+    "raw_query": "user=jdoe&host=PC01",
+    "user_agent": "Office/16.0"
+  }
+]</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/tracked_requests/export</strong>
+                <p>Downloads all tracked requests as a CSV file (<code>text/csv</code>).</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-danger">DELETE</span> /api/tracked_requests</strong>
+                <p>Clears all tracked requests. <a class="example-toggle" data-toggle="collapse" data-target="#trackedDeleteExample"><small>[Show Example]</small></a></p>
+                <div id="trackedDeleteExample" class="collapse">
+                <pre><code>Response: 200 OK
+{
+  "success": true,
+  "message": "Tracked requests cleared successfully"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/tracked_requests</strong>
+                <p>Bulk delete selected tracked requests by IDs. <a class="example-toggle" data-toggle="collapse" data-target="#trackedBulkDeleteExample"><small>[Show Example]</small></a></p>
+                <div id="trackedBulkDeleteExample" class="collapse">
+                <pre><code>Request Body:
+{
+  "ids": [1, 2, 3]
+}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Selected tracked requests deleted successfully"
+}</code></pre>
+                </div>
+            </div>
             </div>
         </div>
     </div>

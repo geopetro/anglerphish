@@ -268,6 +268,213 @@ p {
     fill: #f9bf3b !important;
 }
 
+.ct-point-attachment-opened {
+    fill: #f0ad4e !important;
+}
+
+.ct-point-macro-executed {
+    fill: #c0392b !important;
+}
+
+/* Dashboard KPI summary tiles. Borders/labels are theme-neutral; the values
+   carry the same semantic colours as the charts. */
+.kpi-section {
+    margin-bottom: 20px;
+}
+
+.kpi-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.kpi-tile {
+    flex: 1 1 140px;
+    border: 1px solid rgba(127, 127, 127, 0.25);
+    border-radius: 6px;
+    padding: 12px 14px;
+}
+
+.kpi-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #95a5a6;
+    margin-bottom: 6px;
+}
+
+.kpi-value {
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.1;
+}
+
+.kpi-frac {
+    font-size: 13px;
+    font-weight: 400;
+    color: #95a5a6;
+    margin-left: 4px;
+}
+
+.kpi-sent { color: #1abc9c; }
+.kpi-opened { color: #f9bf3b; }
+.kpi-clicked { color: #F39C12; }
+.kpi-submitted { color: #f05b4f; }
+.kpi-replied { color: #E67E22; }
+.kpi-reported { color: #45d6ef; }
+
+/* Dashboard donut stat cards: a titled card with an icon, a coloured accent
+   bar (left border) and a ring showing count + percent, with "x of N" beneath.
+   Border/label colours are theme-neutral. */
+.stat-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(127, 127, 127, 0.25);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 14px;
+    min-height: 96px;
+}
+
+/* Coloured accent bar at the card's left edge. Drawn as a background on a
+   pseudo-element (not a border) so theme stylesheets that override border
+   colours can't recolour it. */
+.stat-card::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: rgba(127, 127, 127, 0.4);
+}
+
+.stat-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.stat-icon {
+    font-size: 18px;
+    opacity: 0.85;
+    flex: 0 0 auto;
+}
+
+.stat-title {
+    font-weight: 700;
+    font-size: 15px;
+}
+
+.stat-chart {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 0 0 auto;
+}
+
+.stat-donut {
+    width: 92px;
+    height: 92px;
+}
+
+.stat-frac {
+    font-size: 12px;
+    color: #95a5a6;
+    margin-top: 2px;
+}
+
+/* Vertically centre a Bootstrap 3 modal in the viewport (BS3 pins modals near
+   the top by default). The :before strut + inline-block dialog centre it
+   without breaking the show/hide toggle. */
+.modal.modal-vcenter {
+    text-align: center;
+}
+
+.modal.modal-vcenter:before {
+    content: "";
+    display: inline-block;
+    height: 100%;
+    vertical-align: middle;
+    margin-right: -4px;
+}
+
+.modal.modal-vcenter .modal-dialog {
+    display: inline-block;
+    text-align: left;
+    vertical-align: middle;
+}
+
+/* Recent-campaigns stage dots: one dot per funnel stage, filled + coloured when
+   the stage happened, hollow when not, dotted when N/A for the campaign type.
+   Each stage occupies a fixed-width cell in both the header and the rows, so the
+   dots line up directly under their header icons. */
+.stage-legend,
+.stage-dots {
+    display: inline-flex;
+    align-items: center;
+}
+
+.stage-cell {
+    width: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Vertical separators between the header icons (lines sit on the cell
+   boundaries, so they don't shift the icons out of line with the dots). */
+.stage-legend .stage-cell + .stage-cell {
+    border-left: 1px solid rgba(127, 127, 127, 0.3);
+}
+
+.stage-legend i {
+    opacity: 0.7;
+}
+
+.stage-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    border: 1.5px solid transparent;
+    background: transparent;
+}
+
+.stage-dot-empty {
+    border-color: rgba(127, 127, 127, 0.4);
+}
+
+.stage-dot-na {
+    border: 1.5px dotted rgba(127, 127, 127, 0.4);
+    opacity: 0.5;
+}
+
+.stat-sent::before       { background: #1abc9c; }
+.stat-opened::before     { background: #f9bf3b; }
+.stat-attachment::before { background: #f0ad4e; }
+.stat-macro::before      { background: #c0392b; }
+.stat-clicked::before    { background: #F39C12; }
+.stat-submitted::before  { background: #f05b4f; }
+.stat-replied::before    { background: #E67E22; }
+.stat-reported::before   { background: #45d6ef; }
+
+.stat-sent .stat-icon       { color: #1abc9c; }
+.stat-opened .stat-icon     { color: #f9bf3b; }
+.stat-attachment .stat-icon { color: #f0ad4e; }
+.stat-macro .stat-icon      { color: #c0392b; }
+.stat-clicked .stat-icon    { color: #F39C12; }
+.stat-submitted .stat-icon  { color: #f05b4f; }
+.stat-replied .stat-icon    { color: #E67E22; }
+.stat-reported .stat-icon   { color: #45d6ef; }
+
 .ct-point-sent {
     fill: #1abc9c !important;
 }
@@ -729,6 +936,30 @@ table.dataTable {
 
 .nav-badge {
     margin-top: 5px;
+}
+
+/* Sidebar icons: fixed width so the labels line up regardless of glyph width. */
+.nav-sidebar .nav-icon {
+    width: 18px;
+    text-align: center;
+    margin-right: 10px;
+    opacity: 0.85;
+}
+
+/* Thin group separators between logical sidebar sections. */
+.nav-sidebar .nav-sep {
+    margin: 0;
+}
+
+.nav-sidebar .nav-sep hr {
+    margin: 7px 16px;
+    border: 0;
+    border-top: 1px solid rgba(127, 127, 127, 0.2);
+}
+
+.nav-sidebar .nav-sep > a,
+.nav-sidebar .nav-sep:hover {
+    background: transparent;
 }
 
 #resultsMapContainer {

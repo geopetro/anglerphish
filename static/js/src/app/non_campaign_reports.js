@@ -492,3 +492,216 @@ $(document).ready(function() {
         });
     });
 });
+
+var trackedTable = null;
+// Last-loaded tracked requests, cached so Export CSV can build the file from
+// data already in the page (the same approach the results/groups exports use).
+var trackedRequestsData = [];
+
+// The fields below come from untrusted phishing-server requests, so every value
+// is escaped before it reaches the DOM.
+function loadTrackedRequests() {
+    $.ajax({
+        url: "/api/tracked_requests",
+        method: "GET",
+        dataType: "json",
+        beforeSend: function(xhr) {
+            xhr.setRequestHeader('Authorization', 'Bearer ' + user.api_key);
+        }
+    })
+    .done(function(requests) {
+        requests = requests || [];
+        trackedRequestsData = requests;
+        if (requests.length === 0) {
+            $("#no_tracked_message").show();
+            $("#tracked_table").hide();
+            if (trackedTable) {
+                trackedTable.clear().draw();
+            }
+            return;
+        }
+        $("#no_tracked_message").hide();
+        $("#tracked_table").show();
+
+        trackedTable = $("#tracked_table").DataTable({
+            destroy: true,
+            columnDefs: [{ orderable: false, targets: "no-sort" }],
+            order: [[1, "desc"]],
+            data: requests,
+            columns: [{
+                title: "",
+                className: "no-sort",
+                orderable: false,
+                data: function(row) {
+                    return '<button class="btn btn-xs btn-danger tracked-delete-btn" data-id="' +
+                           row.id + '"><i class="fa fa-trash"></i></button>';
+                }
+            }, {
+                title: "Received At",
+                data: function(row) {
+                    return moment(row.created_at).format('MMMM Do YYYY, h:mm:ss a');
+                }
+            }, {
+                title: "Source IP",
+                data: function(row) { return escapeHtml(row.source_ip); }
+            }, {
+                title: "Method",
+                data: function(row) { return escapeHtml(row.method); }
+            }, {
+                title: "Path",
+                data: function(row) { return escapeHtml(row.path); }
+            }, {
+                title: "Query",
+                data: function(row) {
+                    var q = row.raw_query || "";
+                    if (!q) { return ""; }
+                    var parts = q.split("&").filter(Boolean);
+                    // With several parameters, show a compact count + a View
+                    // button that opens the parsed key/value table in a popup.
+                    if (parts.length > 1) {
+                        return '<span class="text-muted">' + parts.length + ' params</span> ' +
+                            '<button class="btn btn-xs btn-default tracked-view-btn" data-id="' + row.id +
+                            '"><i class="fa fa-list"></i> View</button>';
+                    }
+                    return escapeHtml(q);
+                }
+            }, {
+                title: "User Agent",
+                data: function(row) { return escapeHtml(row.user_agent); }
+            }]
+        });
+    })
+    .fail(function(xhr, status, error) {
+        errorFlash("Error loading tracked requests: " + error);
+    });
+}
+
+// csvField quotes a value for CSV and neutralises spreadsheet formula injection
+// (leading =, +, -, @) since these values come from untrusted requests.
+function csvField(value) {
+    var s = (value === null || value === undefined) ? "" : String(value);
+    if (/^[=+\-@\t\r]/.test(s)) {
+        s = "'" + s;
+    }
+    if (/[",\n\r]/.test(s)) {
+        s = '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+}
+
+// exportTrackedRequestsCSV builds the CSV in the browser from the rows already
+// loaded into the table and triggers a download. This mirrors the results and
+// groups exports and avoids an authenticated binary request.
+function exportTrackedRequestsCSV() {
+    var rows = trackedRequestsData || [];
+    if (rows.length === 0) {
+        errorFlash("No tracked requests to export");
+        return;
+    }
+    var header = ["created_at", "source_ip", "method", "path", "raw_query", "user_agent"];
+    var lines = [header.join(",")];
+    rows.forEach(function(r) {
+        lines.push([
+            csvField(r.created_at),
+            csvField(r.source_ip),
+            csvField(r.method),
+            csvField(r.path),
+            csvField(r.raw_query),
+            csvField(r.user_agent)
+        ].join(","));
+    });
+    var blob = new Blob([lines.join("\r\n")], { type: 'text/csv;charset=utf-8;' });
+    var filename = "tracked-requests.csv";
+    if (navigator.msSaveBlob) {
+        navigator.msSaveBlob(blob, filename);
+        return;
+    }
+    var url = window.URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.setAttribute('download', filename);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+
+$(document).ready(function() {
+    $('#monitorTabs a[href="#trackedPane"]').on('shown.bs.tab', function() {
+        loadTrackedRequests();
+    });
+
+    $("#tracked_export_btn").on('click', function() {
+        exportTrackedRequestsCSV();
+    });
+
+    $("#tracked_clear_btn").on('click', function() {
+        Swal.fire({
+            title: "Are you sure?",
+            text: "This permanently deletes all tracked requests.",
+            type: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Delete all",
+            confirmButtonColor: "#d9534f",
+            reverseButtons: true
+        }).then(function(result) {
+            if (!result.value) { return; }
+            $.ajax({
+                url: "/api/tracked_requests",
+                method: "DELETE",
+                beforeSend: function(xhr) {
+                    xhr.setRequestHeader('Authorization', 'Bearer ' + user.api_key);
+                }
+            }).done(function() {
+                successFlash("Tracked requests cleared");
+                loadTrackedRequests();
+            }).fail(function(xhr, status, error) {
+                errorFlash("Error clearing tracked requests: " + error);
+            });
+        });
+    });
+
+    $(document).on('click', '.tracked-delete-btn', function() {
+        var id = $(this).data('id');
+        $.ajax({
+            url: "/api/tracked_requests",
+            method: "POST",
+            dataType: "json",
+            contentType: "application/json",
+            data: JSON.stringify({ ids: [id] }),
+            beforeSend: function(xhr) {
+                xhr.setRequestHeader('Authorization', 'Bearer ' + user.api_key);
+            }
+        }).done(function() {
+            loadTrackedRequests();
+        }).fail(function(xhr, status, error) {
+            errorFlash("Error deleting tracked request: " + error);
+        });
+    });
+
+    // Show a request's query parameters in a popup, parsed and URL-decoded.
+    $(document).on('click', '.tracked-view-btn', function() {
+        var id = $(this).data('id');
+        var row = null;
+        var rows = trackedRequestsData || [];
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].id === id) { row = rows[i]; break; }
+        }
+        if (!row) { return; }
+
+        var decode = function(s) {
+            try { return decodeURIComponent((s || "").replace(/\+/g, ' ')); }
+            catch (e) { return s; }
+        };
+
+        var $body = $("#trackedQueryModalBody").empty();
+        var parts = (row.raw_query || "").split("&").filter(Boolean);
+        $.each(parts, function(i, p) {
+            var eq = p.indexOf("=");
+            var k = eq >= 0 ? p.slice(0, eq) : p;
+            var v = eq >= 0 ? p.slice(eq + 1) : "";
+            $body.append('<tr><td>' + escapeHtml(decode(k)) + '</td><td>' + escapeHtml(decode(v)) + '</td></tr>');
+        });
+        $("#trackedQueryModal").modal('show');
+    });
+});

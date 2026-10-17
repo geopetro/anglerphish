@@ -2,8 +2,10 @@ package models
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"net/textproto"
 	"testing"
@@ -361,6 +363,84 @@ func (s *ModelsSuite) TestEmbedAttachment(ch *check.C) {
 	// the text file was added as an attachment.
 	ch.Assert(got.Attachments, check.HasLen, 1)
 	ch.Assert(got.Attachments[0].Filename, check.Equals, "test.txt")
+}
+
+func (s *ModelsSuite) TestTemplatedAttachmentFilename(ch *check.C) {
+	campaign := s.createCampaignDependencies(ch)
+	campaign.Template.Attachments = []Attachment{
+		{
+			Name:    "report_{{.RId}}.txt",
+			Type:    "text/plain",
+			Content: "VGVzdCB0ZXh0IGZpbGU=",
+		},
+	}
+	PutTemplate(&campaign.Template)
+	ch.Assert(PostCampaign(&campaign, campaign.UserId), check.Equals, nil)
+	result := campaign.Results[0]
+	got := s.emailFromFirstMailLog(campaign, ch)
+
+	ch.Assert(got.Attachments, check.HasLen, 1)
+	ch.Assert(got.Attachments[0].Filename, check.Equals, "report_"+result.RId+".txt")
+}
+
+func (s *ModelsSuite) TestSanitizeAttachmentFilename(ch *check.C) {
+	cases := []struct {
+		in  string
+		out string
+	}{
+		{"report.pdf", "report.pdf"},                       // normal name untouched
+		{"re/port.txt", "re_port.txt"},                     // forward slash
+		{"a\\b.txt", "a_b.txt"},                            // backslash
+		{"../../etc/passwd", ".._.._etc_passwd"},           // path traversal neutralized
+		{"bad:*?\"<>|.txt", "bad_______.txt"},              // reserved characters
+		{"with\ttab\nnewline.txt", "with_tab_newline.txt"}, // control characters
+		{"  spaced.txt  ", "spaced.txt"},                   // trimmed ends, inner space kept
+		{".pdf", ".pdf"},                                   // extension/dot preserved
+		{"", "attachment"},                                 // empty falls back
+		{"   ", "attachment"},                              // whitespace-only falls back
+	}
+	for _, c := range cases {
+		ch.Assert(sanitizeAttachmentFilename(c.in), check.Equals, c.out)
+	}
+}
+
+func (s *ModelsSuite) TestAttachmentFilenameSanitizedInMessage(ch *check.C) {
+	campaign := s.createCampaignDependencies(ch)
+	campaign.Template.Attachments = []Attachment{
+		{
+			Name:    "re/port.txt",
+			Type:    "text/plain",
+			Content: "VGVzdCB0ZXh0IGZpbGU=",
+		},
+	}
+	PutTemplate(&campaign.Template)
+	ch.Assert(PostCampaign(&campaign, campaign.UserId), check.Equals, nil)
+	got := s.emailFromFirstMailLog(campaign, ch)
+
+	ch.Assert(got.Attachments, check.HasLen, 1)
+	ch.Assert(got.Attachments[0].Filename, check.Equals, "re_port.txt")
+}
+
+func (s *ModelsSuite) TestAttachmentVanillaClassificationPersists(ch *check.C) {
+	// A file with no template variables should be classified as "vanilla" so
+	// that repeated sends to multiple recipients skip reprocessing. The
+	// classification must persist on the caller's Attachment, which requires
+	// addAttachment to operate on a pointer.
+	a := &Attachment{
+		Name:    "plain.txt",
+		Type:    "text/plain",
+		Content: base64.StdEncoding.EncodeToString([]byte("no variables here")),
+	}
+	ch.Assert(a.vanillaFile, check.Equals, false)
+
+	msg := gomail.NewMessage()
+	addAttachment(msg, a, PhishingTemplateContext{})
+	// Writing the message forces gomail to invoke the attachment copy func,
+	// which runs ApplyTemplate and classifies the file.
+	_, err := msg.WriteTo(ioutil.Discard)
+	ch.Assert(err, check.Equals, nil)
+
+	ch.Assert(a.vanillaFile, check.Equals, true)
 }
 
 func (s *ModelsSuite) TestResendFailedEmailsInCampaign(c *check.C) {

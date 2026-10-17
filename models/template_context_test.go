@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"strings"
 
 	check "gopkg.in/check.v1"
 )
@@ -56,6 +57,17 @@ func (s *ModelsSuite) TestNewTemplateContext(c *check.C) {
 	c.Assert(got.CurrentDate, check.Not(check.Equals), "")
 	c.Assert(got.CurrentTime, check.Not(check.Equals), "")
 	c.Assert(got.CurrentTime24, check.Not(check.Equals), "")
+}
+
+func (s *ModelsSuite) TestAttachmentTrackingURLHasMarker(c *check.C) {
+	ctx := mockTemplateContext{
+		URL:         "http://example.com",
+		FromAddress: "From Address <from@example.com>",
+	}
+	ptx, err := NewPhishingTemplateContext(ctx, BaseRecipient{Email: "a@b.com"}, "rid123")
+	c.Assert(err, check.Equals, nil)
+	c.Assert(strings.Contains(ptx.AttachmentTrackingURL, "a=1"), check.Equals, true)
+	c.Assert(strings.Contains(ptx.AttachmentTrackingURL, "rid123"), check.Equals, true)
 }
 
 func (s *ModelsSuite) TestTemplateExecutionWithPhone(c *check.C) {

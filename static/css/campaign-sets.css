@@ -497,6 +497,8 @@
 .cs-stat-total     { color: #95a5a6; }
 .cs-stat-sent      { color: #1abc9c; }
 .cs-stat-opened    { color: #f9bf3b; }
+.cs-stat-attachment-opened { color: #f0ad4e; }
+.cs-stat-macro-executed { color: #c0392b; }
 .cs-stat-clicked   { color: #F39C12; }
 .cs-stat-replied   { color: #E67E22; }
 .cs-stat-submitted { color: #f05b4f; }

@@ -31,6 +31,7 @@ type CampaignSet struct {
 	UseSharedQRSize   bool       `json:"use_shared_qrsize" sql:"column:use_shared_qrsize"`
 	UseSharedHTTPAuth bool       `json:"use_shared_httpauth" sql:"column:use_shared_httpauth"`
 	UseSharedSchedule bool       `json:"use_shared_schedule" sql:"column:use_shared_schedule"`
+	SendOrder         string     `json:"send_order" sql:"column:send_order"`
 	PageId            int64      `json:"-"`
 	Page              Page       `json:"page"`
 	SMTPId            int64      `json:"-"`
@@ -65,6 +66,18 @@ type CampaignSetSummaries struct {
 	Total        int64                `json:"total"`
 	CampaignSets []CampaignSetSummary `json:"campaign_sets"`
 }
+
+// Campaign set send-order modes control how a shared send window staggers the
+// recipients of the campaigns in the set.
+const (
+	// SendOrderSequential schedules one campaign's recipients fully before the
+	// next campaign's, so a recipient listed in several campaigns receives
+	// those emails spaced far apart across the window. This is the default.
+	SendOrderSequential = "sequential"
+	// SendOrderInterleaved weaves the campaigns together round-robin so they
+	// all progress in parallel across the window.
+	SendOrderInterleaved = "interleaved"
+)
 
 // ErrCampaignSetNameNotSpecified indicates there was no name given by the user
 var ErrCampaignSetNameNotSpecified = errors.New("Campaign set name not specified")
@@ -267,6 +280,8 @@ func loadCampaignSetCampaigns(css *CampaignSetSummary) error {
 		totals.Total += stats.Total
 		totals.EmailsSent += stats.EmailsSent
 		totals.OpenedEmail += stats.OpenedEmail
+		totals.OpenedAttachment += stats.OpenedAttachment
+		totals.MacroExecuted += stats.MacroExecuted
 		totals.ClickedLink += stats.ClickedLink
 		totals.SubmittedData += stats.SubmittedData
 		totals.Replied += stats.Replied
@@ -382,29 +397,167 @@ func PostCampaignSet(cs *CampaignSet, uid int64) error {
 	}
 	log.Infof("Campaign set saved successfully with ID: %d", cs.Id)
 
-	// Create each campaign in the set
-	for i := range cs.Campaigns {
-		// Set the campaign set ID
-		cs.Campaigns[i].CampaignSetId = cs.Id
-		log.Infof("Creating campaign %d of %d: %s with campaign_set_id: %d", i+1, len(cs.Campaigns), cs.Campaigns[i].Name, cs.Id)
-
-		// Create the campaign
-		err = PostCampaignTx(&cs.Campaigns[i], uid, tx)
-		if err != nil {
-			tx.Rollback()
-			log.Errorf("Error creating campaign %s: %v", cs.Campaigns[i].Name, err)
+	// Create each campaign in the set.
+	//
+	// When the set uses a shared send window, schedule every recipient across
+	// the whole set as a single staggered stream. Otherwise each campaign keeps
+	// its own independent schedule.
+	if cs.UseSharedSettings || cs.UseSharedSchedule {
+		if err = postCampaignSetShared(cs, uid, tx); err != nil {
 			return err
 		}
-		log.Infof("Campaign %s created successfully with ID: %d", cs.Campaigns[i].Name, cs.Campaigns[i].Id)
+	} else {
+		for i := range cs.Campaigns {
+			cs.Campaigns[i].CampaignSetId = cs.Id
+			log.Infof("Creating campaign %d of %d: %s with campaign_set_id: %d", i+1, len(cs.Campaigns), cs.Campaigns[i].Name, cs.Id)
+
+			if err = PostCampaignTx(&cs.Campaigns[i], uid, tx); err != nil {
+				tx.Rollback()
+				log.Errorf("Error creating campaign %s: %v", cs.Campaigns[i].Name, err)
+				return err
+			}
+			log.Infof("Campaign %s created successfully with ID: %d", cs.Campaigns[i].Name, cs.Campaigns[i].Id)
+		}
 	}
 
 	// Commit the transaction
 	return tx.Commit().Error
 }
 
-// PostCampaignTx creates a campaign within a transaction
-// This is a modified version of PostCampaign that works within a transaction
+// postCampaignSetShared creates every campaign in a set that shares one send
+// window, scheduling all recipients as a single stream so the campaigns do not
+// each independently spread their own recipients over the whole window (which
+// would synchronize their sends into per-minute bursts). It rolls the
+// transaction back on error.
+func postCampaignSetShared(cs *CampaignSet, uid int64, tx *gorm.DB) error {
+	// First pass: resolve and save each campaign, collecting its ordered
+	// recipients, so the set-wide total is known before any send date is
+	// assigned.
+	preparedTargets := make([][]Target, len(cs.Campaigns))
+	total := 0
+	for i := range cs.Campaigns {
+		cs.Campaigns[i].CampaignSetId = cs.Id
+		log.Infof("Creating campaign %d of %d: %s with campaign_set_id: %d", i+1, len(cs.Campaigns), cs.Campaigns[i].Name, cs.Id)
+
+		targets, err := prepareCampaignTx(&cs.Campaigns[i], uid, tx)
+		if err != nil {
+			tx.Rollback()
+			log.Errorf("Error creating campaign %s: %v", cs.Campaigns[i].Name, err)
+			return err
+		}
+		preparedTargets[i] = targets
+		total += len(targets)
+	}
+
+	// Assign every recipient a slot in the single set-wide stream according to
+	// the set's send order, then write each campaign against those slots.
+	slots := assignSetSendSlots(cs.SendOrder, preparedTargets)
+	for i := range cs.Campaigns {
+		c := &cs.Campaigns[i]
+		campaignSlots := slots[i]
+		err := writeCampaignRecipientsTx(c, tx, preparedTargets[i], func(localIdx int) time.Time {
+			return c.generateSendDate(campaignSlots[localIdx], total)
+		})
+		if err != nil {
+			tx.Rollback()
+			log.Errorf("Error scheduling campaign %s: %v", c.Name, err)
+			return err
+		}
+		log.Infof("Campaign %s created successfully with ID: %d", c.Name, c.Id)
+	}
+	return nil
+}
+
+// assignSetSendSlots maps each recipient of a shared-window set to a global
+// slot in [0, total) that determines its send time. slots[i][j] is the slot for
+// campaign i's j-th recipient.
+//
+// Sequential order (the default) fills one campaign's block before the next.
+// Interleaved order weaves the campaigns together round-robin so they progress
+// in parallel; where a recipient appears in more than one campaign, its sends
+// are kept at least len(targets) slots apart where possible, so a person in
+// several scenarios is not emailed several times in a row. The declustering is
+// best-effort: it never leaves a slot empty.
+func assignSetSendSlots(order string, targets [][]Target) [][]int {
+	slots := make([][]int, len(targets))
+	for i := range targets {
+		slots[i] = make([]int, len(targets[i]))
+	}
+
+	if order != SendOrderInterleaved {
+		slot := 0
+		for i := range targets {
+			for j := range targets[i] {
+				slots[i][j] = slot
+				slot++
+			}
+		}
+		return slots
+	}
+
+	// Build the round-robin base order: one recipient from each campaign per
+	// round, skipping campaigns that have already been exhausted.
+	type ref struct{ i, j int }
+	remaining := []ref{}
+	for round := 0; ; round++ {
+		progressed := false
+		for i := range targets {
+			if round < len(targets[i]) {
+				remaining = append(remaining, ref{i, round})
+				progressed = true
+			}
+		}
+		if !progressed {
+			break
+		}
+	}
+
+	// Greedily place recipients into slots, preferring one whose email has not
+	// been sent within the last minGap slots. If none qualifies, place the next
+	// in line anyway so the stream stays dense.
+	minGap := len(targets)
+	lastSlot := make(map[string]int)
+	for slot := 0; len(remaining) > 0; slot++ {
+		pick := 0
+		for k := range remaining {
+			email := targets[remaining[k].i][remaining[k].j].Email
+			if last, ok := lastSlot[email]; !ok || slot-last >= minGap {
+				pick = k
+				break
+			}
+		}
+		r := remaining[pick]
+		slots[r.i][r.j] = slot
+		lastSlot[targets[r.i][r.j].Email] = slot
+		remaining = append(remaining[:pick], remaining[pick+1:]...)
+	}
+
+	return slots
+}
+
+// PostCampaignTx creates a campaign within a transaction.
+// This is a modified version of PostCampaign that works within a transaction.
+// Each campaign is scheduled over its own send window.
 func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
+	targets, err := prepareCampaignTx(c, uid, tx)
+	if err != nil {
+		return err
+	}
+	total := len(targets)
+	return writeCampaignRecipientsTx(c, tx, targets, func(localIdx int) time.Time {
+		return c.generateSendDate(localIdx, total)
+	})
+}
+
+// prepareCampaignTx resolves a campaign's dependencies (groups and their
+// targets, landing page, template/SMTP or SMS profile), validates it, saves the
+// campaign row and its "Campaign Created" event within the transaction, and
+// returns the ordered, deduplicated list of recipients to be scheduled.
+//
+// It does not write any Result or log rows; writeCampaignRecipientsTx does that
+// once the caller has decided how to stagger the sends. Splitting the two lets
+// a campaign set schedule every campaign's recipients as a single stream.
+func prepareCampaignTx(c *Campaign, uid int64, tx *gorm.DB) ([]Target, error) {
 	var err error
 
 	// Set the campaign type if not specified
@@ -437,11 +590,6 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 		c.Status = CampaignInProgress
 	}
 
-	// Check to make sure all the groups already exist
-	// Also, later we'll need to know the total number of recipients (counting
-	// duplicates is ok for now), so we'll do that here to save a loop.
-	totalRecipients := 0
-
 	// Create a new slice to hold the resolved groups
 	resolvedGroups := make([]Group, 0, len(c.Groups))
 
@@ -455,10 +603,10 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 			log.WithFields(logrus.Fields{
 				"group": g.Name,
 			}).Error("Group does not exist")
-			return ErrGroupNotFound
+			return nil, ErrGroupNotFound
 		} else if err != nil {
 			log.Error(err)
-			return err
+			return nil, err
 		}
 
 		log.Infof("Found group %s with ID: %d", group.Name, group.Id)
@@ -473,7 +621,7 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 			Scan(&targets).Error
 		if err != nil {
 			log.Errorf("Error getting targets for group %s: %v", group.Name, err)
-			return err
+			return nil, err
 		}
 
 		log.Infof("Found %d targets for group %s", len(targets), group.Name)
@@ -483,7 +631,6 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 
 		// Add the group to our resolved groups
 		resolvedGroups = append(resolvedGroups, group)
-		totalRecipients += len(targets)
 	}
 
 	// Replace the original groups with the resolved ones
@@ -493,7 +640,7 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 	// validate the campaign to ensure targets match the campaign type
 	err = c.Validate()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Check to make sure the page exists
@@ -503,10 +650,10 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 		log.WithFields(logrus.Fields{
 			"page": c.Page.Name,
 		}).Error("Page does not exist")
-		return ErrPageNotFound
+		return nil, ErrPageNotFound
 	} else if err != nil {
 		log.Error(err)
-		return err
+		return nil, err
 	}
 	c.Page = p
 	c.PageId = p.Id
@@ -521,10 +668,10 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 			log.WithFields(logrus.Fields{
 				"sms_template": c.SMSTemplate.Name,
 			}).Error("SMS template does not exist")
-			return ErrSMSTemplateNotFound
+			return nil, ErrSMSTemplateNotFound
 		} else if err != nil {
 			log.Error(err)
-			return err
+			return nil, err
 		}
 		c.SMSTemplate = st
 		c.SMSTemplateId = st.Id
@@ -536,10 +683,10 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 			log.WithFields(logrus.Fields{
 				"sms": c.SMS.Name,
 			}).Error("SMS sending profile does not exist")
-			return ErrSMSNotFound
+			return nil, ErrSMSNotFound
 		} else if err != nil {
 			log.Error(err)
-			return err
+			return nil, err
 		}
 		c.SMS = s
 		c.SMSId = s.Id
@@ -551,10 +698,10 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 			log.WithFields(logrus.Fields{
 				"template": c.Template.Name,
 			}).Error("Template does not exist")
-			return ErrTemplateNotFound
+			return nil, ErrTemplateNotFound
 		} else if err != nil {
 			log.Error(err)
-			return err
+			return nil, err
 		}
 		c.Template = t
 		c.TemplateId = t.Id
@@ -566,10 +713,10 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 			log.WithFields(logrus.Fields{
 				"smtp": c.SMTP.Name,
 			}).Error("Sending profile does not exist")
-			return ErrSMTPNotFound
+			return nil, ErrSMTPNotFound
 		} else if err != nil {
 			log.Error(err)
-			return err
+			return nil, err
 		}
 		c.SMTP = s
 		c.SMTPId = s.Id
@@ -579,7 +726,7 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 	err = tx.Save(c).Error
 	if err != nil {
 		log.Error(err)
-		return err
+		return nil, err
 	}
 
 	// Create an event for the campaign
@@ -591,7 +738,7 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 	err = tx.Save(&e).Error
 	if err != nil {
 		log.Error(err)
-		return err
+		return nil, err
 	}
 
 	// Collect all the unique targets across the campaign's groups. We
@@ -619,10 +766,16 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 		})
 	}
 
-	// Insert all the results
-	recipientIndex := 0
-	for _, t := range targets {
-		sendDate := c.generateSendDate(recipientIndex, totalRecipients)
+	return targets, nil
+}
+
+// writeCampaignRecipientsTx writes the Result and MailLog/SMSLog rows for a
+// campaign's recipients within the transaction. sendDate maps a recipient's
+// index within targets to its scheduled send time, which lets a caller stagger
+// a single campaign or a whole set as one stream.
+func writeCampaignRecipientsTx(c *Campaign, tx *gorm.DB, targets []Target, sendDate func(localIdx int) time.Time) error {
+	for recipientIndex, t := range targets {
+		sd := sendDate(recipientIndex)
 		r := &Result{
 			BaseRecipient: BaseRecipient{
 				Email:     t.Email,
@@ -635,7 +788,7 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 			Status:       StatusScheduled,
 			CampaignId:   c.Id,
 			UserId:       c.UserId,
-			SendDate:     sendDate,
+			SendDate:     sd,
 			Reported:     false,
 			ModifiedDate: c.CreatedDate,
 			SMSTarget:    c.Type == "sms",
@@ -646,7 +799,7 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 		if c.Type == "sms" && r.Phone == "" {
 			r.Phone = r.Email
 		}
-		err = r.GenerateId(tx)
+		err := r.GenerateId(tx)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -672,7 +825,7 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 				UserId:     c.UserId,
 				CampaignId: c.Id,
 				RId:        r.RId,
-				SendDate:   sendDate,
+				SendDate:   sd,
 				Processing: processing,
 			}
 			err = tx.Save(s).Error
@@ -688,7 +841,7 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 				UserId:     c.UserId,
 				CampaignId: c.Id,
 				RId:        r.RId,
-				SendDate:   sendDate,
+				SendDate:   sd,
 				Processing: processing,
 			}
 			err = tx.Save(m).Error
@@ -699,7 +852,6 @@ func PostCampaignTx(c *Campaign, uid int64, tx *gorm.DB) error {
 				return err
 			}
 		}
-		recipientIndex++
 	}
 
 	return nil

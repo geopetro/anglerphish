@@ -27,12 +27,19 @@ function renderOverviewKpis(summary, mode) {
     var base = stats.total || 0;
     var contactWord = mode === "unique" ? "unique contacts" : "targets";
 
+    // Progression follows the engagement -> compromise chain. Attachment Opened
+    // and Macro Executed are part of it (Macro is a compromise outcome), not side
+    // signals.
     var stages = [
         { value: stats.sent, label: "Sent", icon: "fa-envelope-o", color: "cs-stat-sent", hex: "#1abc9c" },
         { value: stats.opened, label: "Opened", icon: "fa-envelope-open-o", color: "cs-stat-opened", hex: "#f9bf3b" },
         { value: stats.clicked, label: "Clicked", icon: "fa-mouse-pointer", color: "cs-stat-clicked", hex: "#F39C12" },
-        { value: stats.submitted_data, label: "Submitted", icon: "fa-exclamation-circle", color: "cs-stat-submitted", hex: "#f05b4f", outcome: true }
+        { value: stats.submitted_data, label: "Submitted", icon: "fa-exclamation-circle", color: "cs-stat-submitted", hex: "#f05b4f", outcome: true },
+        { value: stats.opened_attachment, label: "Attachment Opened", icon: "fa-paperclip", color: "cs-stat-attachment-opened", hex: "#f0ad4e" },
+        { value: stats.macro_executed, label: "Macro Executed", icon: "fa-file-code-o", color: "cs-stat-macro-executed", hex: "#c0392b", outcome: true }
     ];
+    // Side signals of target behaviour, outside the attack funnel: a reply
+    // (failure) and a report (defensive).
     var signals = [
         { value: stats.replied, label: "Replied", icon: "fa-reply", color: "cs-stat-replied", hex: "#E67E22" },
         { value: stats.email_reported, label: "Reported", icon: "fa-bullhorn", color: "cs-stat-reported", hex: "#45d6ef", good: true }
@@ -556,6 +563,7 @@ $(document).ready(function () {
         // Set launch date to current day
         $("#launch_date").val(moment().format("MMMM Do YYYY, h:mm a"));
         $("#send_by_date").val("");
+        $("#send_order").val("sequential");
         $("#campaignList").html("");
         $("#campaignDetail").html("");
         $(".campaign-detail-placeholder").show();
@@ -1313,7 +1321,14 @@ function addCampaignEntry(index) {
                 <select class="form-control groups" id="users_${index}" multiple="multiple">
                 </select>
             </div>
-            
+
+            <div class="form-group">
+                <input class="form-check-input campaign-randomize-send-order" type="checkbox" id="campaign_randomize_send_order_${index}">
+                <label class="form-check-label" for="campaign_randomize_send_order_${index}"> Randomize send order
+                    <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Sends messages to recipients in a random order instead of the order they appear in the target groups"></i>
+                </label>
+            </div>
+
             <div class="campaign-settings-override" style="display:none;">
                 <div class="form-group">
                     <label class="control-label" for="campaign_page_${index}">Landing Page:</label>
@@ -1710,6 +1725,7 @@ function launchCampaignSet() {
         const campaign = {};
         campaign.name = $(this).find(".campaign-name").val();
         campaign.type = $(this).find(".campaign-type").val();
+        campaign.randomize_send_order = $(this).find(".campaign-randomize-send-order").is(":checked");
 
         if (campaign.name === "") {
             modalError(`Campaign ${i + 1} name cannot be empty`);
@@ -1907,6 +1923,7 @@ function launchCampaignSet() {
         use_shared_qrsize: useSharedQRSize,
         use_shared_httpauth: useSharedHTTPAuth,
         use_shared_schedule: useSharedSchedule,
+        send_order: $("#send_order").val() || "sequential",
         launch_date: launch_date ? moment(launch_date, "MMMM Do YYYY, h:mm a").utc().format() : null,
         send_by_date: send_by_date ? moment(send_by_date, "MMMM Do YYYY, h:mm a").utc().format() : null,
         campaigns: campaigns
@@ -2026,6 +2043,7 @@ function saveDraftCampaignSet() {
         const campaign = {};
         campaign.name = $(this).find(".campaign-name").val();
         campaign.type = $(this).find(".campaign-type").val();
+        campaign.randomize_send_order = $(this).find(".campaign-randomize-send-order").is(":checked");
 
         if (campaign.name === "") {
             modalError(`Campaign ${i + 1} name cannot be empty`);
@@ -2144,6 +2162,7 @@ function saveDraftCampaignSet() {
         use_shared_qrsize: useSharedQRSize,
         use_shared_httpauth: useSharedHTTPAuth,
         use_shared_schedule: useSharedSchedule,
+        send_order: $("#send_order").val() || "sequential",
         launch_date: launch_date ? moment(launch_date, "MMMM Do YYYY, h:mm a").utc().format() : null,
         send_by_date: send_by_date ? moment(send_by_date, "MMMM Do YYYY, h:mm a").utc().format() : null,
         campaigns: campaigns
@@ -2294,6 +2313,9 @@ function editDraftCampaignSet(id) {
                 $("#send_by_date").val("");
             }
 
+            // Restore the send order (defaults to sequential)
+            $("#send_order").val(dcs.send_order || "sequential");
+
             // Set the shared settings checkbox based on the saved value
             const useSharedSettings = dcs.use_shared_settings !== undefined ? dcs.use_shared_settings : true;
             $("#useSharedSettings").prop("checked", useSharedSettings);
@@ -2424,6 +2446,7 @@ function editDraftCampaignSet(id) {
                                 $(`#campaign_urlparam_${i}`).val(campaign.urlparam || "");
                                 $(`#campaign_qrsize_${i}`).val(campaign.qrsize || "");
                                 $(`#campaign_basicauth_${i}`).prop("checked", campaign.basicauth || false);
+                                $(`#campaign_randomize_send_order_${i}`).prop("checked", campaign.randomize_send_order || false);
                                     // Handle dates - only show if they are actually set
                                     if (campaign.launch_date && campaign.launch_date !== "0001-01-01T00:00:00Z") {
                                         $(`#campaign_launch_date_${i}`).val(moment(campaign.launch_date).format("MMMM Do YYYY, h:mm a"));
@@ -2572,6 +2595,7 @@ function updateDraftCampaignSet(id) {
         const campaign = {};
         campaign.name = $(this).find(".campaign-name").val();
         campaign.type = $(this).find(".campaign-type").val();
+        campaign.randomize_send_order = $(this).find(".campaign-randomize-send-order").is(":checked");
 
         if (campaign.name === "") {
             modalError(`Campaign ${i + 1} name cannot be empty`);
@@ -2688,6 +2712,7 @@ function updateDraftCampaignSet(id) {
         use_shared_qrsize: useSharedQRSize,
         use_shared_httpauth: useSharedHTTPAuth,
         use_shared_schedule: useSharedSchedule,
+        send_order: $("#send_order").val() || "sequential",
         launch_date: launch_date ? moment(launch_date, "MMMM Do YYYY, h:mm a").utc().format() : null,
         send_by_date: send_by_date ? moment(send_by_date, "MMMM Do YYYY, h:mm a").utc().format() : null,
         campaigns: campaigns
@@ -2998,6 +3023,7 @@ function viewCampaignSet(id) {
             if (cs.send_by_date) {
                 $("#send_by_date").val(moment(cs.send_by_date).format("MMMM Do YYYY, h:mm a"));
             }
+            $("#send_order").val(cs.send_order || "sequential");
 
             // Set the shared settings checkbox based on the saved value
             const useSharedSettings = cs.use_shared_settings !== undefined ? cs.use_shared_settings : true;
@@ -3464,6 +3490,7 @@ function copyCampaignSet(id) {
             // Set launch date to current time (not the original)
             $("#launch_date").val(moment().format("MMMM Do YYYY, h:mm a"));
             $("#send_by_date").val("");
+            $("#send_order").val(cs.send_order || "sequential");
 
             // Set the shared settings checkboxes
             const useSharedSettings = cs.use_shared_settings !== undefined ? cs.use_shared_settings : true;
@@ -3559,6 +3586,7 @@ function copyCampaignSet(id) {
                                 $(`#campaign_urlparam_${i}`).val(campaign.urlparam || "");
                                 $(`#campaign_qrsize_${i}`).val(campaign.qrsize || "");
                                 $(`#campaign_basicauth_${i}`).prop("checked", campaign.basicauth || false);
+                                $(`#campaign_randomize_send_order_${i}`).prop("checked", campaign.randomize_send_order || false);
                                 
                                 // Reset dates to empty for copy
                                 $(`#campaign_launch_date_${i}`).val("");
@@ -3632,6 +3660,7 @@ function copyDraftCampaignSet(id) {
             // Set launch date to current time (not the original)
             $("#launch_date").val(moment().format("MMMM Do YYYY, h:mm a"));
             $("#send_by_date").val("");
+            $("#send_order").val(dcs.send_order || "sequential");
 
             // Set the shared settings checkboxes
             const useSharedSettings = dcs.use_shared_settings !== undefined ? dcs.use_shared_settings : true;
@@ -3735,6 +3764,7 @@ function copyDraftCampaignSet(id) {
                                 $(`#campaign_urlparam_${i}`).val(campaign.urlparam || "");
                                 $(`#campaign_qrsize_${i}`).val(campaign.qrsize || "");
                                 $(`#campaign_basicauth_${i}`).prop("checked", campaign.basicauth || false);
+                                $(`#campaign_randomize_send_order_${i}`).prop("checked", campaign.randomize_send_order || false);
                                 
                                 // Reset dates to empty for copy
                                 $(`#campaign_launch_date_${i}`).val("");

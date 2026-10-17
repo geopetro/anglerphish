@@ -147,12 +147,44 @@ func (r *Result) HandleEmailOpened(details EventDetails) error {
 	if err != nil {
 		return err
 	}
-	// Don't update the status if the user already clicked the link
-	// or submitted data to the campaign
-	if r.Status == EventClicked || r.Status == EventDataSubmit {
+	// Don't update the status if the user already clicked the link,
+	// submitted data, opened a tracked attachment or ran a macro (which rank higher).
+	if r.Status == EventClicked || r.Status == EventDataSubmit || r.Status == EventAttachmentOpened || r.Status == EventMacroExecuted {
 		return nil
 	}
 	r.Status = EventOpened
+	r.ModifiedDate = event.Time
+	return db.Save(r).Error
+}
+
+// HandleAttachmentOpened updates a Result when the recipient opened a tracked
+// attachment. Opening an attachment implies the email was opened, so this ranks
+// above Email Opened but never downgrades a Clicked/MacroExecuted/DataSubmit result.
+func (r *Result) HandleAttachmentOpened(details EventDetails) error {
+	event, err := r.createEvent(EventAttachmentOpened, details)
+	if err != nil {
+		return err
+	}
+	if r.Status == EventClicked || r.Status == EventDataSubmit || r.Status == EventMacroExecuted {
+		return nil
+	}
+	r.Status = EventAttachmentOpened
+	r.ModifiedDate = event.Time
+	return db.Save(r).Error
+}
+
+// HandleMacroExecuted updates a Result when a macro in an attachment called
+// back with the recipient's id. It ranks above Clicked Link and below
+// Submitted Data, and implies the attachment and email were opened.
+func (r *Result) HandleMacroExecuted(details EventDetails) error {
+	event, err := r.createEvent(EventMacroExecuted, details)
+	if err != nil {
+		return err
+	}
+	if r.Status == EventDataSubmit {
+		return nil
+	}
+	r.Status = EventMacroExecuted
 	r.ModifiedDate = event.Time
 	return db.Save(r).Error
 }
@@ -165,8 +197,8 @@ func (r *Result) HandleClickedLink(details EventDetails) error {
 		return err
 	}
 	// Don't update the status if the user has already submitted data via the
-	// landing page form.
-	if r.Status == EventDataSubmit {
+	// landing page form or ran a macro.
+	if r.Status == EventDataSubmit || r.Status == EventMacroExecuted {
 		return nil
 	}
 	r.Status = EventClicked
@@ -260,8 +292,8 @@ func (r *Result) HandleEmailReply(details EventDetails) error {
 
 	r.Replied = true
 	// Don't update the status if the user has already submitted data via the
-	// landing page form.
-	if r.Status != EventDataSubmit {
+	// landing page form or ran a macro.
+	if r.Status != EventDataSubmit && r.Status != EventMacroExecuted {
 		r.Status = EventReplied
 	}
 	r.ModifiedDate = event.Time
