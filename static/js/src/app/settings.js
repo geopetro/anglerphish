@@ -662,6 +662,23 @@ $(document).ready(function () {
             '<th>Plaintext</th><th>Empty</th><th>Total</th></tr></thead><tbody>' + rows + '</tbody></table>';
     }
 
+    function encHeader(cls, icon, title, body) {
+        return '<div class="alert ' + cls + ' clearfix" style="padding: 15px 20px;">' +
+            '<i class="fa ' + icon + ' fa-2x pull-left" style="margin: 4px 15px 0 0;"></i>' +
+            '<h4 style="margin: 0 0 4px 0;">' + title + '</h4>' +
+            '<div>' + body + '</div></div>';
+    }
+
+    function encSummary(report) {
+        var enc = 0, total = 0;
+        $.each(ENC_FIELDS, function (_, f) {
+            var c = (report && report[f[0]]) || {};
+            enc += Number(c.Encrypted) || 0;
+            total += (Number(c.Encrypted) || 0) + (Number(c.Plaintext) || 0);
+        });
+        return enc + ' of ' + total + ' stored value(s) encrypted.';
+    }
+
     function encResultsHtml(results) {
         if (!results || !results.length) {
             return "";
@@ -689,16 +706,17 @@ $(document).ready(function () {
                 'if it is still set at the next restart, encryption will turn back on with that key.</div>';
         }
         if (st.state === "off") {
-            h += '<div class="alert alert-info"><p><i class="fa fa-info-circle"></i> Encryption is <strong>off</strong>. ' +
-                'Turning it on encrypts SMTP passwords, SMS provider configs, IMAP passwords and captured event details at rest.</p></div>' +
+            h += encHeader("alert-info", "fa-unlock-alt", "Encryption is off",
+                'Turning it on encrypts SMTP passwords, SMS provider configs, IMAP passwords and captured event details at rest.') +
                 '<button class="btn btn-primary" id="encGenerateBtn"' + dis + '><i class="fa fa-key"></i> Generate key</button>';
         } else if (st.state === "on") {
-            var badge = st.source === "environment" ? "environment" : "session only";
-            h += '<p>Encryption is <strong>on</strong>. Key source: <span class="label ' +
-                (st.source === "environment" ? "label-success" : "label-warning") + '">' + badge + '</span></p>';
-            if (st.source !== "environment") {
-                h += '<div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> ' +
-                    'The key is held in memory only. Set ANGLERPHISH_ENCRYPTION_KEY before the next restart or the system will start locked.</div>';
+            if (st.source === "environment") {
+                h += encHeader("alert-success", "fa-lock", "Encryption is on",
+                    'Key loaded from the <strong>environment</strong>. ' + encSummary(st.report));
+            } else {
+                h += encHeader("alert-warning", "fa-lock", "Encryption is on &mdash; session key",
+                    'The key is held in memory only. Set <code>ANGLERPHISH_ENCRYPTION_KEY</code> before the next restart or the system will start locked. ' +
+                    encSummary(st.report));
             }
             h += encFieldTable(st.report);
             if (st.plaintext_count > 0) {
@@ -706,17 +724,18 @@ $(document).ready(function () {
                     ' value(s) are still stored as plaintext. Run <strong>Encrypt existing data</strong> to encrypt them.</div>';
             }
             h += '<div id="encResults"></div>' +
-                '<button class="btn btn-default" id="encPreviewEncryptBtn"' + dis + '>Preview encryption</button> &nbsp;' +
-                '<button class="btn btn-primary" id="encEncryptBtn"' + dis + '>Encrypt existing data</button> &nbsp;' +
-                '<button class="btn btn-default" id="encPreviewDecryptBtn"' + dis + '>Preview decryption</button> &nbsp;' +
-                '<button class="btn btn-danger" id="encDisableBtn"' + dis + '>Disable encryption</button>';
+                '<div class="row">' +
+                '<div class="col-sm-6"><h5><strong>Existing data</strong></h5>' +
+                '<button class="btn btn-default" id="encPreviewEncryptBtn"' + dis + '><i class="fa fa-eye"></i> Preview encryption</button> &nbsp;' +
+                '<button class="btn btn-primary" id="encEncryptBtn"' + dis + '><i class="fa fa-lock"></i> Encrypt existing data</button></div>' +
+                '<div class="col-sm-6"><h5><strong>Turn off</strong></h5>' +
+                '<button class="btn btn-default" id="encPreviewDecryptBtn"' + dis + '><i class="fa fa-eye"></i> Preview decryption</button> &nbsp;' +
+                '<button class="btn btn-danger" id="encDisableBtn"' + dis + '><i class="fa fa-unlock-alt"></i> Disable encryption</button></div>' +
+                '</div>';
         } else if (st.state === "locked") {
-            h += '<div class="alert alert-danger"><p><i class="fa fa-lock"></i> Encryption is <strong>locked</strong>. ' +
-                escapeHtml(ENC_LOCKED_REASONS[st.locked_reason] || "The encryption key is unavailable.") + '</p>';
-            if (st.plaintext_count > 0) {
-                h += '<p>' + st.plaintext_count + ' value(s) are stored as plaintext.</p>';
-            }
-            h += '</div>' +
+            h += encHeader("alert-danger", "fa-exclamation-circle", "Encryption is locked",
+                escapeHtml(ENC_LOCKED_REASONS[st.locked_reason] || "The encryption key is unavailable.") +
+                (st.plaintext_count > 0 ? ' ' + Number(st.plaintext_count) + ' value(s) are stored as plaintext.' : '')) +
                 '<div class="form-group"><label for="encUnlockKey" class="control-label">Encryption key</label>' +
                 '<input type="password" class="form-control" id="encUnlockKey" autocomplete="off" spellcheck="false" style="max-width: 480px;" /></div>' +
                 '<button class="btn btn-primary" id="encUnlockBtn"' + dis + '><i class="fa fa-unlock"></i> Unlock</button>' +
@@ -728,7 +747,8 @@ $(document).ready(function () {
                 '<input type="text" class="form-control" id="encDiscardPhrase" autocomplete="off" style="max-width: 480px;" /><br />' +
                 '<button class="btn btn-danger" id="encDiscardBtn" disabled><i class="fa fa-trash"></i> Discard encrypted data</button></div></div>';
         } else if (st.state === "disabling") {
-            h += '<div class="alert alert-warning"><p><i class="fa fa-exclamation-triangle"></i> Encryption is <strong>being disabled</strong>, but some values could not be decrypted. Retry to finish.</p></div>' +
+            h += encHeader("alert-warning", "fa-exclamation-triangle", "Encryption is being disabled",
+                'Some values could not be decrypted. Retry to finish.') +
                 encResultsHtml(encLastResults) + encFieldTable(st.report) +
                 '<button class="btn btn-danger" id="encRetryDisableBtn"' + dis + '>Retry disable</button>';
         }
