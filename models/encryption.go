@@ -28,8 +28,8 @@ func getFieldEncryptionStatus(value string) string {
 	return crypto.GetEncryptionStatus(value)
 }
 
-// GetEncryptionStatus returns a report of the encryption status of all sensitive fields
-func GetEncryptionStatus() (string, error) {
+// GetEncryptionReport returns the encryption status of all sensitive fields
+func GetEncryptionReport() (*crypto.EncryptionReport, error) {
 	report := &crypto.EncryptionReport{
 		EncryptionEnabled: crypto.IsEncryptionEnabled(),
 	}
@@ -40,7 +40,7 @@ func GetEncryptionStatus() (string, error) {
 	}
 	err := db.Table("smtp").Select("password").Scan(&smtpRecords).Error
 	if err != nil {
-		return "", fmt.Errorf("failed to query SMTP records: %w", err)
+		return nil, fmt.Errorf("failed to query SMTP records: %w", err)
 	}
 	for _, r := range smtpRecords {
 		report.SMTPPasswords.Total++
@@ -60,7 +60,7 @@ func GetEncryptionStatus() (string, error) {
 	}
 	err = db.Table("sms_profiles").Select("provider_config").Scan(&smsRecords).Error
 	if err != nil {
-		return "", fmt.Errorf("failed to query SMS records: %w", err)
+		return nil, fmt.Errorf("failed to query SMS records: %w", err)
 	}
 	for _, r := range smsRecords {
 		report.SMSConfigs.Total++
@@ -80,7 +80,7 @@ func GetEncryptionStatus() (string, error) {
 	}
 	err = db.Table("imap").Select("password").Scan(&imapRecords).Error
 	if err != nil {
-		return "", fmt.Errorf("failed to query IMAP records: %w", err)
+		return nil, fmt.Errorf("failed to query IMAP records: %w", err)
 	}
 	for _, r := range imapRecords {
 		report.IMAPPasswords.Total++
@@ -100,7 +100,7 @@ func GetEncryptionStatus() (string, error) {
 	}
 	err = db.Table("events").Select("details").Scan(&eventRecords).Error
 	if err != nil {
-		return "", fmt.Errorf("failed to query Event records: %w", err)
+		return nil, fmt.Errorf("failed to query Event records: %w", err)
 	}
 	for _, r := range eventRecords {
 		report.EventDetails.Total++
@@ -114,7 +114,7 @@ func GetEncryptionStatus() (string, error) {
 		}
 	}
 
-	return report.String(), nil
+	return report, nil
 }
 
 // MigrateToEncrypted encrypts all plaintext sensitive fields in the database
