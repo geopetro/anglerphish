@@ -4,6 +4,21 @@ All notable changes to Anglerphish are documented here.
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Encryption management in the admin UI** - A new admin-only **Settings > Encryption** tab replaces the encryption CLI flags: generate a key (shown once, with paste-back confirmation) and turn encryption on without a restart, preview and run **Encrypt existing data**, preview decryption and **Disable encryption**, **Unlock** with a pasted key, and **Discard encrypted data** (locked only, confirmed by typing `DISCARD ENCRYPTED DATA`). The matching `/api/encryption/*` endpoints are documented in the API documentation. `ANGLERPHISH_ENCRYPTION_KEY` remains the long-term source of the key; the key is never stored.
+- **Locked state and banners** - If encrypted data exists but the key is missing or wrong, Anglerphish now starts in a locked state instead of failing. Admins see a locked banner (and a warning when the key is active for the session only); other users see a generic notice. Sending with a still-encrypted SMTP, SMS or IMAP credential is refused with `encryption key unavailable` until the key is provided.
+
+### Changed
+- **Encryption CLI flags removed** - `--generate-encryption-key`, `--migrate-encryption`, `--migrate-decryption`, `--encryption-status` and `--dry-run` no longer exist. This is a breaking change for any scripts that use them; use Settings > Encryption instead.
+
+### Fixed
+- A malformed `ANGLERPHISH_ENCRYPTION_KEY` no longer aborts startup; Anglerphish starts locked and the key can be corrected from the UI.
+- Encrypted credentials are never sent as passwords: an SMTP, SMS or IMAP credential that is still encrypted is no longer used as if it were plaintext.
+
+---
+
 ## [1.4.0] - 2026-10-17
 
 ### Added

@@ -1096,99 +1096,57 @@ Response: 200 OK
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td><code>ANGLERPHISH_ENCRYPTION_KEY</code></td><td>32-byte encryption key for AES-256-GCM. If not set, encryption is disabled.</td></tr>
+                    <tr><td><code>ANGLERPHISH_ENCRYPTION_KEY</code></td><td>Base64url-encoded 32-byte (44 character) encryption key for AES-256-GCM. If not set, encryption can still be turned on for the current session from Settings &rarr; Encryption.</td></tr>
                 </tbody>
             </table>
 
-            <h4>CLI Commands</h4>
-            <div class="endpoint-doc">
-                <strong><code>--generate-encryption-key</code></strong>
-                <p>Generates a new random 32-byte encryption key. <a class="example-toggle" data-toggle="collapse" data-target="#encryptGenKeyExample2"><small>[Show Example]</small></a></p>
-                <div id="encryptGenKeyExample2" class="collapse">
-                <pre><code>./anglerphish --generate-encryption-key
+            <h4>Managing Encryption in the UI</h4>
+            <p>Administrators (users with the <em>Modify System</em> permission) manage encryption from <strong>Settings &rarr; Encryption</strong>. The tab is not shown to other users, and no restart is needed to turn encryption on. The old command-line flags have been removed.</p>
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr>
+                        <th style="width: 20%;">State</th>
+                        <th style="width: 80%;">Meaning</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>Off</strong></td><td>No key is loaded and no encrypted values exist. Data is stored in plaintext.</td></tr>
+                    <tr><td><strong>On</strong></td><td>A key is loaded, either from the <code>ANGLERPHISH_ENCRYPTION_KEY</code> environment variable or for this session only (generated in the UI or unlocked by pasting it). A session key is lost when the process exits, so a warning banner is shown on every admin page until the key is added to the environment or your secret manager.</td></tr>
+                    <tr><td><strong>Locked</strong></td><td>Encrypted values exist but the key is missing (<code>missing_key</code>), does not match the stored check value (<code>wrong_key</code>), or is malformed (<code>invalid_key</code>). Anglerphish stays up, a red banner is shown to admins (other users see a generic notice), and sending with a still-encrypted SMTP, SMS or IMAP credential is refused with <code>encryption key unavailable</code>. Data written while locked is stored in plaintext until you run <em>Encrypt existing data</em>.</td></tr>
+                    <tr><td><strong>Disabling</strong></td><td>Decryption is in progress or incomplete. The key stays loaded for reads, new writes are no longer encrypted, and you can retry until no encrypted values remain.</td></tr>
+                </tbody>
+            </table>
 
-Output:
-ANGLERPHISH_ENCRYPTION_KEY=xK9m2pL7qR4sT6vW8yB1cD3eF5gH7jK9</code></pre>
-                </div>
-            </div>
+            <h4>Actions</h4>
+            <ul>
+                <li><strong>Generate key</strong> &mdash; creates a new key and shows it <em>once</em>. Save it, then paste it back to confirm you have a copy. Encryption turns on immediately for new writes, using the key for this session. Existing data is <em>not</em> migrated automatically.</li>
+                <li><strong>Preview / Encrypt existing data</strong> &mdash; the preview reports what would change without modifying anything; encrypting then converts existing plaintext values. Run this after turning encryption on, and after any period spent locked.</li>
+                <li><strong>Preview decryption / Disable encryption</strong> &mdash; decrypts all stored values and, once none remain encrypted, unloads the key. Afterwards remove the key from your environment or secret manager; if it is still set at the next restart, encryption turns back on.</li>
+                <li><strong>Unlock</strong> &mdash; paste the key while locked. Failed attempts are rate limited (5 failures per user within 15 minutes).</li>
+                <li><strong>Discard encrypted data</strong> &mdash; available only while locked, for when the key is permanently lost. Permanently clears the encrypted values after you type <code>DISCARD ENCRYPTED DATA</code>.</li>
+            </ul>
+            <p>A malformed <code>ANGLERPHISH_ENCRYPTION_KEY</code> no longer aborts startup: Anglerphish starts in the Locked state (<code>invalid_key</code>) so it can be fixed from the UI.</p>
 
-            <div class="endpoint-doc">
-                <strong><code>--migrate-encryption</code></strong>
-                <p>Encrypts all existing plaintext sensitive fields in the database. <a class="example-toggle" data-toggle="collapse" data-target="#encryptMigrateExample2"><small>[Show Example]</small></a></p>
-                <div id="encryptMigrateExample2" class="collapse">
-                <pre><code># Set the encryption key first
-export ANGLERPHISH_ENCRYPTION_KEY=your-32-byte-key   # Linux/Mac
-set ANGLERPHISH_ENCRYPTION_KEY=your-32-byte-key      # Windows CMD
-
-# Run migration
-./anglerphish --migrate-encryption
-
-Output:
-Migrating plaintext fields to encrypted...
-SMTP passwords: 5 encrypted, 0 skipped
-SMS provider configs: 3 encrypted, 0 skipped
-IMAP passwords: 2 encrypted, 0 skipped
-Event details (captured data): 10 encrypted, 0 skipped
-Migration complete!</code></pre>
-                </div>
-            </div>
-
-            <div class="endpoint-doc">
-                <strong><code>--migrate-decryption</code></strong>
-                <p>Decrypts all encrypted fields back to plaintext (reverse migration). <a class="example-toggle" data-toggle="collapse" data-target="#encryptDecryptExample2"><small>[Show Example]</small></a></p>
-                <div id="encryptDecryptExample2" class="collapse">
-                <pre><code># Requires the encryption key
-export ANGLERPHISH_ENCRYPTION_KEY=your-32-byte-key   # Linux/Mac
-set ANGLERPHISH_ENCRYPTION_KEY=your-32-byte-key      # Windows CMD
-
-# Run reverse migration
-./anglerphish --migrate-decryption
-
-Output:
-Decrypting all encrypted fields...
-SMTP passwords: 5 decrypted, 0 skipped
-SMS provider configs: 3 decrypted, 0 skipped
-IMAP passwords: 2 decrypted, 0 skipped
-Event details (captured data): 10 decrypted, 0 skipped
-Decryption complete!</code></pre>
-                </div>
-            </div>
-
-            <div class="endpoint-doc">
-                <strong><code>--dry-run</code></strong>
-                <p>Preview migration changes without applying them. Use with <code>--migrate-encryption</code> or <code>--migrate-decryption</code>. <a class="example-toggle" data-toggle="collapse" data-target="#encryptDryRunExample2"><small>[Show Example]</small></a></p>
-                <div id="encryptDryRunExample2" class="collapse">
-                <pre><code># Preview what would be encrypted (no changes made)
-./anglerphish --migrate-encryption --dry-run
-
-Output:
-DRY RUN - Previewing encryption migration (no changes will be made)...
-SMTP passwords: 5 would be encrypted, 0 would be skipped
-SMS provider configs: 3 would be encrypted, 0 would be skipped
-IMAP passwords: 0 would be encrypted, 2 would be skipped
-Event details (captured data): 10 would be encrypted, 0 would be skipped
-
-Dry run complete. Use --migrate-encryption without --dry-run to apply changes.
-
-# Preview what would be decrypted
-./anglerphish --migrate-decryption --dry-run</code></pre>
-                </div>
-            </div>
-
-            <div class="endpoint-doc">
-                <strong><code>--encryption-status</code></strong>
-                <p>Shows the current encryption status of the database. <a class="example-toggle" data-toggle="collapse" data-target="#encryptStatusExample2"><small>[Show Example]</small></a></p>
-                <div id="encryptStatusExample2" class="collapse">
-                <pre><code>./anglerphish --encryption-status
-
-Output:
-Encryption Enabled: Yes
-SMTP Passwords: 5 encrypted, 0 plaintext
-SMS Provider Configs: 3 encrypted, 0 plaintext
-IMAP Passwords: 2 encrypted, 0 plaintext
-Event Details: 10 encrypted, 0 plaintext</code></pre>
-                </div>
-            </div>
+            <h4>Encryption API</h4>
+            <p>All endpoints are under <code>/api/encryption/</code>, require an admin (<em>Modify System</em>) and return <code>403</code> for other users. Other HTTP methods return <code>405</code> and malformed JSON returns <code>400</code>. The key is never logged and appears only in the <code>generate</code> response, which is sent with <code>Cache-Control: no-store</code>.</p>
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Endpoint</th>
+                        <th style="width: 25%;">Request body</th>
+                        <th style="width: 50%;">Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>GET /api/encryption/status</code></td><td>&mdash;</td><td>Returns <code>state</code> (<code>off</code>, <code>on</code>, <code>locked</code>, <code>disabling</code>), <code>source</code> (<code>none</code>, <code>environment</code>, <code>session</code>), <code>locked_reason</code>, <code>startup_warning</code>, per-field counts in <code>report</code>, <code>plaintext_count</code> and <code>migration_running</code>.</td></tr>
+                    <tr><td><code>POST /api/encryption/generate</code></td><td>&mdash;</td><td>Returns <code>{"key": "..."}</code>. The key is not loaded.</td></tr>
+                    <tr><td><code>POST /api/encryption/enable</code></td><td><code>{"key": "..."}</code></td><td>Loads the key for this session and turns encryption on. <code>400</code> for an invalid key; <code>409</code> if encryption is already on or encrypted data exists.</td></tr>
+                    <tr><td><code>POST /api/encryption/unlock</code></td><td><code>{"key": "..."}</code></td><td>Unlocks with the correct key. <code>400</code> for a wrong or invalid key, <code>409</code> if not locked, <code>429</code> after 5 failed attempts in 15 minutes.</td></tr>
+                    <tr><td><code>POST /api/encryption/migrate</code></td><td><code>{"direction": "encrypt" or "decrypt", "dry_run": true or false}</code></td><td>Encrypts or decrypts stored values, or previews with <code>dry_run</code>. Returns <code>results</code> and <code>status</code>. <code>400</code> for an invalid direction; <code>409</code> if a migration is already running, no key is loaded, or <code>encrypt</code> is requested while disabling.</td></tr>
+                    <tr><td><code>POST /api/encryption/disable</code></td><td>&mdash;</td><td>Decrypts all values and turns encryption off. <code>409</code> if decryption is incomplete (retry).</td></tr>
+                    <tr><td><code>POST /api/encryption/discard</code></td><td><code>{"confirmation": "DISCARD ENCRYPTED DATA"}</code></td><td>Locked state only. Permanently clears encrypted values. <code>400</code> for a wrong confirmation, <code>409</code> if not locked.</td></tr>
+                </tbody>
+            </table>
 
             <h4>Encrypted Fields</h4>
             <table class="table table-bordered table-striped">
@@ -1208,19 +1166,55 @@ Event Details: 10 encrypted, 0 plaintext</code></pre>
             </table>
 
             <h4>Production Deployment</h4>
+            <p><code>ANGLERPHISH_ENCRYPTION_KEY</code> remains the long-term home of the key. Keep it out of <code>config.json</code>, the database and the application folder, and inject it from your secret store. Replace the example paths and names with your own.</p>
             <div class="endpoint-doc">
-                <p>For systemd services, use an environment file with restricted permissions: <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample2"><small>[Show Example]</small></a></p>
+                <p>systemd with an environment file (restricted permissions): <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample2"><small>[Show Example]</small></a></p>
                 <div id="encryptProdExample2" class="collapse">
-                <pre><code># Create secrets file
-sudo mkdir -p /etc/anglerphish
-echo "ANGLERPHISH_ENCRYPTION_KEY=your-32-byte-key" | sudo tee /etc/anglerphish/secrets.env
+                <pre><code>sudo mkdir -p /etc/anglerphish
+echo "ANGLERPHISH_ENCRYPTION_KEY=your-key" | sudo tee /etc/anglerphish/secrets.env
 sudo chmod 600 /etc/anglerphish/secrets.env
 sudo chown root:root /etc/anglerphish/secrets.env
 
-# In systemd service file (/etc/systemd/system/anglerphish.service)
+# /etc/systemd/system/anglerphish.service
 [Service]
 EnvironmentFile=/etc/anglerphish/secrets.env
 ExecStart=/opt/anglerphish/anglerphish</code></pre>
+                </div>
+            </div>
+            <div class="endpoint-doc">
+                <p>systemd <code>LoadCredential</code> (the key is exposed as a file, so a small wrapper exports it): <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample3"><small>[Show Example]</small></a></p>
+                <div id="encryptProdExample3" class="collapse">
+                <pre><code># /etc/systemd/system/anglerphish.service
+[Service]
+LoadCredential=encryption_key:/etc/anglerphish/encryption_key
+ExecStart=/bin/sh -c 'ANGLERPHISH_ENCRYPTION_KEY="$(cat "$CREDENTIALS_DIRECTORY/encryption_key")" exec /opt/anglerphish/anglerphish'</code></pre>
+                </div>
+            </div>
+            <div class="endpoint-doc">
+                <p>Docker secrets (the secret is mounted under <code>/run/secrets/</code>): <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample4"><small>[Show Example]</small></a></p>
+                <div id="encryptProdExample4" class="collapse">
+                <pre><code># docker-compose.yml
+services:
+  anglerphish:
+    image: your-anglerphish-image
+    secrets:
+      - anglerphish_encryption_key
+    entrypoint: ["/bin/sh", "-c", "ANGLERPHISH_ENCRYPTION_KEY=\"$$(cat /run/secrets/anglerphish_encryption_key)\" exec ./anglerphish"]
+
+secrets:
+  anglerphish_encryption_key:
+    file: ./anglerphish_encryption_key.txt</code></pre>
+                </div>
+            </div>
+            <div class="endpoint-doc">
+                <p>Vault Agent: render the key into an environment file with a template, then load it with <code>EnvironmentFile=</code> as above: <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample5"><small>[Show Example]</small></a></p>
+                <div id="encryptProdExample5" class="collapse">
+                <pre><code># vault-agent.hcl
+template {
+  contents    = "ANGLERPHISH_ENCRYPTION_KEY={{ with secret \"secret/data/anglerphish\" }}{{ .Data.data.encryption_key }}{{ end }}\n"
+  destination = "/etc/anglerphish/secrets.env"
+  perms       = "0600"
+}</code></pre>
                 </div>
             </div>
 
