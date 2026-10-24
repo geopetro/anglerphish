@@ -25,6 +25,12 @@
     margin-right: 15px;
 }
 
+/* Encryption lock / session-key badge, aligned with #navbar-dropdown. */
+.encryption-navbar-badge {
+    margin-top: 8px;
+    margin-right: 10px;
+}
+
 .sans {
     font-family: 'Open Sans', sans-serif !important;
 }

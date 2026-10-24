@@ -102,6 +102,28 @@
             </div>
             <div class="navbar-collapse collapse">
                 <ul class="nav navbar-nav navbar-right">
+                    {{if .EncryptionLocked}}
+                    <li>
+                        <div class="encryption-navbar-badge">
+                        {{if .ModifySystem}}
+                        <a class="btn btn-danger btn-sm" href="/settings#encryptionSettings"
+                            title="Encrypted data found but no valid encryption key is loaded. Sending with encrypted credentials is blocked. Unlock in Settings.">
+                            <i class="fa fa-lock"></i> Encryption locked</a>
+                        {{else}}
+                        <span class="btn btn-warning btn-sm" title="Some sending is unavailable &mdash; contact an administrator.">
+                            <i class="fa fa-exclamation-triangle"></i> Sending limited</span>
+                        {{end}}
+                        </div>
+                    </li>
+                    {{else if and .ModifySystem .EncryptionSessionKey}}
+                    <li>
+                        <div class="encryption-navbar-badge">
+                        <a class="btn btn-warning btn-sm" href="/settings#encryptionSettings"
+                            title="Encryption key is active for this session only. Add it to your environment or secret manager before the next restart.">
+                            <i class="fa fa-key"></i> Session key</a>
+                        </div>
+                    </li>
+                    {{end}}
                     <li>
                         {{if .User}}
                         <div class="btn-group" id="navbar-dropdown">
@@ -121,29 +143,6 @@
         </div>
     </div>
     {{template "nav" .}}
-    {{if .EncryptionLocked}}
-    {{if .ModifySystem}}
-    <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2" style="padding-top: 60px; margin-bottom: -50px;">
-        <div class="alert alert-danger" role="alert" style="margin-bottom: 0;">
-        Encrypted data found but no valid encryption key is loaded. Sending with encrypted credentials is blocked.
-        <a href="/settings#encryptionSettings" class="alert-link">Unlock in Settings</a>
-        </div>
-    </div>
-    {{else}}
-    <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2" style="padding-top: 60px; margin-bottom: -50px;">
-        <div class="alert alert-warning" role="alert" style="margin-bottom: 0;">
-        Some sending is unavailable &mdash; contact an administrator.
-        </div>
-    </div>
-    {{end}}
-    {{end}}
-    {{if and .ModifySystem .EncryptionSessionKey}}
-    <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2" style="padding-top: 60px; margin-bottom: -50px;">
-        <div class="alert alert-warning" role="alert" style="margin-bottom: 0;">
-        Encryption key is active for this session only. Add it to your environment or secret manager before the next restart.
-        </div>
-    </div>
-    {{end}}
     {{template "body" .}}
     <!-- Placed at the end of the document so the pages load faster -->
     <script src="/js/dist/vendor.min.js"></script>
