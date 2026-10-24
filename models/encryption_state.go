@@ -259,6 +259,7 @@ func EnableEncryptionWithKey(key string) error {
 	}
 	n, err := countEncryptedValues()
 	if err != nil {
+		log.Warnf("encryption: enable failed: %v", err)
 		return err
 	}
 	if n > 0 {
@@ -294,6 +295,7 @@ func UnlockEncryption(key string) error {
 	}
 	ok, err := verifyKey(key)
 	if err != nil {
+		log.Warnf("encryption: unlock failed: %v", err)
 		return err
 	}
 	if !ok {
@@ -301,6 +303,7 @@ func UnlockEncryption(key string) error {
 		return ErrWrongKey
 	}
 	if err := crypto.LoadKey(key, crypto.SourceSession); err != nil {
+		log.Warnf("encryption: unlock failed: %v", err)
 		return err
 	}
 	if err := ensureCheckValue(); err != nil {
@@ -396,6 +399,7 @@ func DisableEncryption() ([]string, error) {
 		}
 		remaining, err = countEncryptedValues()
 		if err != nil {
+			log.Warnf("encryption: disable failed counting remaining values, staying in decrypt-only mode: %v", err)
 			return results, err
 		}
 		if remaining == 0 {
@@ -440,6 +444,7 @@ func DiscardEncryptedData(confirmation string) (*crypto.EncryptionReport, error)
 	}
 	report, err := GetEncryptionReport()
 	if err != nil {
+		log.Warnf("encryption: discard failed: %v", err)
 		return nil, err
 	}
 
