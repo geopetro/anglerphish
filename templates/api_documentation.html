@@ -1081,7 +1081,12 @@ Response: 200 OK
         <!-- Tab 3: Database Encryption -->
         <div role="tabpanel" class="tab-pane" id="database-encryption">
             <h3><i class="fa fa-lock"></i> Database Encryption</h3>
-            <p>Anglerphish can encrypt sensitive database fields with AES-256-GCM. Encryption is optional, and encrypted and plaintext values can coexist. Administrators (<em>Modify System</em> permission) manage it from <strong>Settings &rarr; DB Encryption</strong>; other users don't see the tab.</p>
+            <ul>
+                <li>Anglerphish can encrypt sensitive database fields with AES-256-GCM.</li>
+                <li>Encryption is optional, and encrypted and plaintext values can coexist.</li>
+                <li>Administrators (<em>Modify System</em> permission) manage it from <strong>Settings &rarr; DB Encryption</strong>.</li>
+                <li>Other users don't see the tab.</li>
+            </ul>
 
             <div class="alert alert-warning">
                 <i class="fa fa-exclamation-triangle"></i> <strong>Keep a copy of your key.</strong> Without it, encrypted values cannot be recovered.
@@ -1123,7 +1128,7 @@ Response: 200 OK
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td><strong>Off</strong></td><td>No key loaded; data is stored in plaintext.</td></tr>
+                    <tr><td><strong>Off</strong></td><td>No key loaded. Data is stored in plaintext.</td></tr>
                     <tr><td><strong>On</strong></td><td>A key is loaded, from the <em>environment</em> or for <em>this session only</em>. New writes are encrypted.</td></tr>
                     <tr><td><strong>Locked</strong></td><td>Encrypted data exists but no valid key is loaded. See below.</td></tr>
                     <tr><td><strong>Disabling</strong></td><td>Decryption has started but values remain encrypted. Retry <em>Disable encryption</em>.</td></tr>
@@ -1133,16 +1138,16 @@ Response: 200 OK
             <h4>When the Platform Is Locked</h4>
             <p>At startup, if encrypted data exists but the key is missing (<code>missing_key</code>), doesn't match (<code>wrong_key</code>) or is malformed (<code>invalid_key</code>), Anglerphish still starts but locks:</p>
             <ul>
-                <li>Admins see a red banner; other users see a generic &ldquo;sending unavailable&rdquo; notice.</li>
+                <li>Admins see a red banner. Other users see a generic &ldquo;sending unavailable&rdquo; notice.</li>
                 <li>Sending with an SMTP, SMS or IMAP profile whose credential is still encrypted fails with <code>encryption key unavailable</code>. Profiles with plaintext credentials keep working.</li>
                 <li>New data is saved unencrypted until you unlock and run <em>Encrypt existing data</em>.</li>
             </ul>
             <p>To recover:</p>
             <ul>
-                <li><strong>You have the key</strong> &mdash; paste it into <em>Unlock</em>. Everything works again immediately; then fix the environment variable so it doesn't happen at the next restart.</li>
-                <li><strong>The key is lost</strong> &mdash; use <em>Discard encrypted data</em> and type <code>DISCARD ENCRYPTED DATA</code>. Encrypted values are cleared for good: re-enter the affected SMTP, SMS and IMAP passwords; that captured data is gone. If an environment key is still set, remove it, or keep it knowingly &mdash; it becomes the new key at the next restart.</li>
+                <li><strong>You have the key</strong> &mdash; paste it into <em>Unlock</em>. Everything works again immediately. Then fix the environment variable so it doesn't happen at the next restart.</li>
+                <li><strong>The key is lost</strong> &mdash; use <em>Discard encrypted data</em> and type <code>DISCARD ENCRYPTED DATA</code>. Encrypted values are cleared for good: re-enter the affected SMTP, SMS and IMAP passwords. That captured data is gone. If an environment key is still set, remove it, or keep it knowingly &mdash; it becomes the new key at the next restart.</li>
             </ul>
-            <p>A malformed key with nothing encrypted yet doesn't lock; the platform starts with encryption Off and logs a warning.</p>
+            <p>A malformed key with nothing encrypted yet doesn't lock. The platform starts with encryption Off and logs a warning.</p>
 
             <h4>Turning Encryption Off</h4>
             <p>Click <em>Preview decryption</em>, then <em>Disable encryption</em>. All values are decrypted and the key is unloaded once none remain encrypted. Then remove <code>ANGLERPHISH_ENCRYPTION_KEY</code> &mdash; if it is still set at the next restart, encryption turns back on.</p>
@@ -1213,11 +1218,11 @@ template {
                 <tbody>
                     <tr><td><code>GET /api/encryption/status</code></td><td>&mdash;</td><td><code>state</code>, <code>source</code>, <code>locked_reason</code>, <code>startup_warning</code>, per-field counts in <code>report</code>, <code>plaintext_count</code>, <code>migration_running</code>.</td></tr>
                     <tr><td><code>POST /api/encryption/generate</code></td><td>&mdash;</td><td>Returns <code>{"key": "..."}</code> without loading it.</td></tr>
-                    <tr><td><code>POST /api/encryption/enable</code></td><td><code>{"key": "..."}</code></td><td>Turns encryption on for this session. <code>400</code> invalid key; <code>409</code> already on or encrypted data exists.</td></tr>
-                    <tr><td><code>POST /api/encryption/unlock</code></td><td><code>{"key": "..."}</code></td><td><code>400</code> wrong or invalid key; <code>409</code> not locked; <code>429</code> after 5 failures in 15 minutes.</td></tr>
-                    <tr><td><code>POST /api/encryption/migrate</code></td><td><code>{"direction": "encrypt"|"decrypt", "dry_run": bool}</code></td><td>Returns <code>results</code> and <code>status</code>. <code>400</code> invalid direction; <code>409</code> migration running, no key, or encrypt while disabling.</td></tr>
+                    <tr><td><code>POST /api/encryption/enable</code></td><td><code>{"key": "..."}</code></td><td>Turns encryption on for this session. <code>400</code> invalid key. <code>409</code> already on or encrypted data exists.</td></tr>
+                    <tr><td><code>POST /api/encryption/unlock</code></td><td><code>{"key": "..."}</code></td><td><code>400</code> wrong or invalid key. <code>409</code> not locked. <code>429</code> after 5 failures in 15 minutes.</td></tr>
+                    <tr><td><code>POST /api/encryption/migrate</code></td><td><code>{"direction": "encrypt"|"decrypt", "dry_run": bool}</code></td><td>Returns <code>results</code> and <code>status</code>. <code>400</code> invalid direction. <code>409</code> migration running, no key, or encrypt while disabling.</td></tr>
                     <tr><td><code>POST /api/encryption/disable</code></td><td>&mdash;</td><td>Decrypts everything and turns encryption off. <code>409</code> with <code>results</code> if values remain (retry).</td></tr>
-                    <tr><td><code>POST /api/encryption/discard</code></td><td><code>{"confirmation": "DISCARD ENCRYPTED DATA"}</code></td><td>Locked only. <code>400</code> wrong confirmation; <code>409</code> not locked.</td></tr>
+                    <tr><td><code>POST /api/encryption/discard</code></td><td><code>{"confirmation": "DISCARD ENCRYPTED DATA"}</code></td><td>Locked only. <code>400</code> wrong confirmation. <code>409</code> not locked.</td></tr>
                 </tbody>
             </table>
 
