@@ -49,6 +49,7 @@ func (s *ModelsSuite) TearDownTest(c *check.C) {
 	db.Delete(Webhook{})
 	db.Delete(TrackedRequest{})
 	db.Delete(EncryptionMeta{})
+	db.Delete(IMAP{})
 
 	// Reset users table to default state.
 	db.Not("id", 1).Delete(User{})
