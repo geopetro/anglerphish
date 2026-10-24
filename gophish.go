@@ -36,7 +36,6 @@ import (
 
 	"github.com/gophish/gophish/config"
 	"github.com/gophish/gophish/controllers"
-	"github.com/gophish/gophish/crypto"
 	"github.com/gophish/gophish/dialer"
 	"github.com/gophish/gophish/imap"
 	log "github.com/gophish/gophish/logger"
@@ -107,12 +106,26 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Load the encryption key from the environment, if present (temporary shim)
-	if envKey, ok := crypto.ReadEnvKey(); ok {
-		if err := crypto.LoadKey(envKey, crypto.SourceEnv); err != nil {
-			log.Fatal("Error initializing encryption: ", err)
+	// Determine the database encryption state (key from the environment, if any)
+	if err = models.InitEncryptionAtStartup(); err != nil {
+		log.Fatal("Error initializing encryption: ", err)
+	}
+	if status, serr := models.GetEncryptionStatusInfo(); serr != nil {
+		log.Warnf("Could not read encryption status: %v", serr)
+	} else {
+		switch status.State {
+		case models.EncryptionStateOn:
+			log.Infof("Database encryption: on (%s)", status.Source)
+		case models.EncryptionStateLocked:
+			log.Warnf("Database encryption: LOCKED (%s) - unlock from Settings > Encryption", status.LockedReason)
+		case models.EncryptionStateDisabling:
+			log.Warnf("Database encryption: disabling in progress")
+		default:
+			log.Info("Database encryption: off")
 		}
-		log.Info("Database encryption is enabled")
+		if status.StartupWarning != "" {
+			log.Warn(status.StartupWarning)
+		}
 	}
 
 	// Unlock any maillogs and smslogs that may have been locked for processing
