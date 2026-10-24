@@ -295,3 +295,44 @@ func TestKeyNeverLogged(t *testing.T) {
 		t.Fatal("log output contains the key")
 	}
 }
+
+func TestDisableWithUndecryptableValueReturnsConflict(t *testing.T) {
+	tc := setupTest(t)
+	resetEncryptionForTest(t)
+	key := generateKey(t, tc)
+	w := encryptionRequest(t, tc, tc.apiKey, http.MethodPost, "/api/encryption/enable", map[string]string{"key": key})
+	if w.Code != http.StatusOK {
+		t.Fatalf("enable: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if err := crypto.LoadKey(generateKey(t, tc), crypto.SourceSession); err != nil {
+		t.Fatal(err)
+	}
+	other, err := crypto.Encrypt("captured")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := crypto.LoadKey(key, crypto.SourceSession); err != nil {
+		t.Fatal(err)
+	}
+	if err := models.AddEvent(&models.Event{Email: "a@example.com", Details: other}, 1); err != nil {
+		t.Fatal(err)
+	}
+	w = encryptionRequest(t, tc, tc.apiKey, http.MethodPost, "/api/encryption/disable", nil)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("disable: expected 409, got %d: %s", w.Code, w.Body.String())
+	}
+	out := struct {
+		Data struct {
+			Results []string `json:"results"`
+		} `json:"data"`
+	}{}
+	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Data.Results) == 0 {
+		t.Fatalf("expected results in body: %s", w.Body.String())
+	}
+	if strings.Contains(w.Body.String(), key) {
+		t.Fatal("response contains the key")
+	}
+}

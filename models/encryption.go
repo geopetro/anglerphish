@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gophish/gophish/crypto"
+	log "github.com/gophish/gophish/logger"
 )
 
 // encryptField encrypts a sensitive field using the crypto package.
@@ -358,6 +359,7 @@ func migrateSMTPToDecrypted() (string, error) {
 
 	updated := 0
 	skipped := 0
+	failed := 0
 	for _, r := range records {
 		if r.Password == "" || !crypto.IsEncrypted(r.Password) {
 			skipped++
@@ -365,7 +367,11 @@ func migrateSMTPToDecrypted() (string, error) {
 		}
 		decrypted, err := crypto.Decrypt(r.Password)
 		if err != nil {
-			return "", fmt.Errorf("failed to decrypt SMTP password (id=%d): %w", r.Id, err)
+			// Skip and count: the value stays encrypted so disable can report
+			// it and stay in decrypt-only mode. Never log the value or key.
+			log.Warnf("encryption: could not decrypt SMTP password (id=%d)", r.Id)
+			failed++
+			continue
 		}
 		err = db.Table("smtp").Where("id = ?", r.Id).Update("password", decrypted).Error
 		if err != nil {
@@ -374,7 +380,7 @@ func migrateSMTPToDecrypted() (string, error) {
 		updated++
 	}
 
-	return fmt.Sprintf("SMTP passwords: %d decrypted, %d skipped", updated, skipped), nil
+	return fmt.Sprintf("SMTP passwords: %d decrypted, %d skipped, %d could not be decrypted", updated, skipped, failed), nil
 }
 
 func migrateSMSToDecrypted() (string, error) {
@@ -389,6 +395,7 @@ func migrateSMSToDecrypted() (string, error) {
 
 	updated := 0
 	skipped := 0
+	failed := 0
 	for _, r := range records {
 		if r.ProviderConfig == "" || !crypto.IsEncrypted(r.ProviderConfig) {
 			skipped++
@@ -396,7 +403,11 @@ func migrateSMSToDecrypted() (string, error) {
 		}
 		decrypted, err := crypto.Decrypt(r.ProviderConfig)
 		if err != nil {
-			return "", fmt.Errorf("failed to decrypt SMS config (id=%d): %w", r.Id, err)
+			// Skip and count: the value stays encrypted so disable can report
+			// it and stay in decrypt-only mode. Never log the value or key.
+			log.Warnf("encryption: could not decrypt SMS config (id=%d)", r.Id)
+			failed++
+			continue
 		}
 		err = db.Table("sms_profiles").Where("id = ?", r.Id).Update("provider_config", decrypted).Error
 		if err != nil {
@@ -405,7 +416,7 @@ func migrateSMSToDecrypted() (string, error) {
 		updated++
 	}
 
-	return fmt.Sprintf("SMS provider configs: %d decrypted, %d skipped", updated, skipped), nil
+	return fmt.Sprintf("SMS provider configs: %d decrypted, %d skipped, %d could not be decrypted", updated, skipped, failed), nil
 }
 
 func migrateIMAPToDecrypted() (string, error) {
@@ -420,6 +431,7 @@ func migrateIMAPToDecrypted() (string, error) {
 
 	updated := 0
 	skipped := 0
+	failed := 0
 	for _, r := range records {
 		if r.Password == "" || !crypto.IsEncrypted(r.Password) {
 			skipped++
@@ -427,7 +439,11 @@ func migrateIMAPToDecrypted() (string, error) {
 		}
 		decrypted, err := crypto.Decrypt(r.Password)
 		if err != nil {
-			return "", fmt.Errorf("failed to decrypt IMAP password (id=%d): %w", r.Id, err)
+			// Skip and count: the value stays encrypted so disable can report
+			// it and stay in decrypt-only mode. Never log the value or key.
+			log.Warnf("encryption: could not decrypt IMAP password (id=%d)", r.Id)
+			failed++
+			continue
 		}
 		err = db.Table("imap").Where("id = ?", r.Id).Update("password", decrypted).Error
 		if err != nil {
@@ -436,7 +452,7 @@ func migrateIMAPToDecrypted() (string, error) {
 		updated++
 	}
 
-	return fmt.Sprintf("IMAP passwords: %d decrypted, %d skipped", updated, skipped), nil
+	return fmt.Sprintf("IMAP passwords: %d decrypted, %d skipped, %d could not be decrypted", updated, skipped, failed), nil
 }
 
 func migrateEventsToDecrypted() (string, error) {
@@ -451,6 +467,7 @@ func migrateEventsToDecrypted() (string, error) {
 
 	updated := 0
 	skipped := 0
+	failed := 0
 	for _, r := range records {
 		if r.Details == "" || !crypto.IsEncrypted(r.Details) {
 			skipped++
@@ -458,7 +475,11 @@ func migrateEventsToDecrypted() (string, error) {
 		}
 		decrypted, err := crypto.Decrypt(r.Details)
 		if err != nil {
-			return "", fmt.Errorf("failed to decrypt Event details (id=%d): %w", r.Id, err)
+			// Skip and count: the value stays encrypted so disable can report
+			// it and stay in decrypt-only mode. Never log the value or key.
+			log.Warnf("encryption: could not decrypt Event details (id=%d)", r.Id)
+			failed++
+			continue
 		}
 		err = db.Table("events").Where("id = ?", r.Id).Update("details", decrypted).Error
 		if err != nil {
@@ -467,7 +488,7 @@ func migrateEventsToDecrypted() (string, error) {
 		updated++
 	}
 
-	return fmt.Sprintf("Event details (captured data): %d decrypted, %d skipped", updated, skipped), nil
+	return fmt.Sprintf("Event details (captured data): %d decrypted, %d skipped, %d could not be decrypted", updated, skipped, failed), nil
 }
 
 // DryRunMigrateToDecrypted previews what would be decrypted without making changes

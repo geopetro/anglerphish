@@ -408,3 +408,47 @@ func (s *ModelsSuite) TestSetEncryptionLockedForTest(c *check.C) {
 	SetEncryptionLockedForTest(false)
 	c.Assert(IsEncryptionLocked(), check.Equals, false)
 }
+
+func (s *ModelsSuite) TestDisableWithUndecryptableValue(c *check.C) {
+	defer resetEncryptionStateForTest()
+	key := s.newTestKey(c)
+	c.Assert(EnableEncryptionWithKey(key), check.IsNil)
+	id := s.postTestSMTP(c, "secret")
+	c.Assert(crypto.IsEncrypted(rawSMTPPassword(c, id)), check.Equals, true)
+
+	c.Assert(crypto.LoadKey(s.newTestKey(c), crypto.SourceSession), check.IsNil)
+	other, err := crypto.Encrypt("captured")
+	c.Assert(err, check.IsNil)
+	c.Assert(crypto.LoadKey(key, crypto.SourceSession), check.IsNil)
+	bad := &Event{CampaignId: 1, Email: "a@example.com", Details: other}
+	c.Assert(db.Save(bad).Error, check.IsNil)
+
+	results, err := DisableEncryption()
+	c.Assert(err, check.Equals, ErrDecryptIncomplete)
+	c.Assert(len(results) > 0, check.Equals, true)
+	c.Assert(encryptionStatus(c).State, check.Equals, EncryptionStateDisabling)
+	c.Assert(rawSMTPPassword(c, id), check.Equals, "secret")
+	var raw []string
+	c.Assert(db.Table("events").Where("id = ?", bad.Id).Pluck("details", &raw).Error, check.IsNil)
+	c.Assert(raw, check.DeepEquals, []string{other})
+}
+
+func (s *ModelsSuite) TestStartupDeletesStaleCheckValue(c *check.C) {
+	defer resetEncryptionStateForTest()
+	c.Assert(EnableEncryptionWithKey(s.newTestKey(c)), check.IsNil)
+	has, err := hasCheckValue()
+	c.Assert(err, check.IsNil)
+	c.Assert(has, check.Equals, true)
+
+	crypto.Unload()
+	os.Unsetenv(crypto.EncryptionKeyEnvVar)
+	c.Assert(InitEncryptionAtStartup(), check.IsNil)
+	has, err = hasCheckValue()
+	c.Assert(err, check.IsNil)
+	c.Assert(has, check.Equals, false)
+
+	os.Setenv(crypto.EncryptionKeyEnvVar, s.newTestKey(c))
+	defer os.Unsetenv(crypto.EncryptionKeyEnvVar)
+	c.Assert(InitEncryptionAtStartup(), check.IsNil)
+	c.Assert(encryptionStatus(c).State, check.Equals, EncryptionStateOn)
+}

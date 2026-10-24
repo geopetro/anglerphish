@@ -166,8 +166,11 @@ func InitEncryptionAtStartup() error {
 		if n > 0 {
 			setLocked(lockedMissingKey)
 			log.Errorf("encryption: locked at startup, %d encrypted values exist but %s is not set", n, crypto.EncryptionKeyEnvVar)
+			return nil
 		}
-		return nil
+		// No key and no ciphertext: a leftover check value would make a later
+		// different env key look wrong, so remove it.
+		return deleteCheckValue()
 	}
 
 	if err := crypto.ValidateKey(key); err != nil {
