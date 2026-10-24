@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/gophish/gophish/crypto"
 	"github.com/gophish/gophish/models"
 )
 
@@ -65,5 +67,36 @@ func TestGetMessageReturns410ForLegacyReport(t *testing.T) {
 
 	if response.Code != http.StatusGone {
 		t.Fatalf("expected 410 for a report with no identifiers, got %d", response.Code)
+	}
+}
+
+// With the key unavailable the stored ciphertext must never be sent to the
+// remote IMAP server as a password.
+func TestGetMessageReturns503WhenPasswordIsCiphertext(t *testing.T) {
+	ctx := setupTest(t)
+
+	im := models.IMAP{Name: "locked", Host: "127.0.0.1", Port: 993, Username: "u", Password: crypto.EncryptedPrefix + "x"}
+	if err := models.PostIMAP(&im, 1); err != nil {
+		t.Fatalf("failed seeding imap: %v", err)
+	}
+	if err := models.RecordNonCampaignReport(1, im.Id, "jane@corp.com", "Locked", 5, 1, "<x@y>"); err != nil {
+		t.Fatalf("failed seeding report: %v", err)
+	}
+	reports, err := models.GetRecentNonCampaignReports(1, 1, 0)
+	if err != nil || len(reports) == 0 {
+		t.Fatalf("failed reading back seeded report: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet,
+		fmt.Sprintf("/api/imap/non_campaign_reports/%d/message", reports[0].Id), nil)
+	req.Header.Set("Authorization", "Bearer "+ctx.apiKey)
+	response := httptest.NewRecorder()
+	ctx.apiServer.ServeHTTP(response, req)
+
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d", response.Code)
+	}
+	if !strings.Contains(response.Body.String(), "encryption key unavailable") {
+		t.Fatalf("unexpected body: %s", response.Body.String())
 	}
 }

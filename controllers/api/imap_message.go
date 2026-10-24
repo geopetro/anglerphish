@@ -54,6 +54,11 @@ func (as *Server) NonCampaignReportMessage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if err := models.RequirePlaintextCredential(im.Password); err != nil {
+		JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusServiceUnavailable)
+		return
+	}
+
 	mailbox := imap.Mailbox{
 		Host:             im.Host + ":" + strconv.Itoa(int(im.Port)),
 		TLS:              im.TLS,

@@ -878,6 +878,10 @@ func sendMFASMS(smsProfile models.SMS, phone string, message string, fromSender 
 		phone = "+" + phone
 	}
 
+	if err := models.RequirePlaintextCredential(smsProfile.ProviderConfig); err != nil {
+		return err
+	}
+
 	// Get the SMS dialer
 	dialer, err := mailer.GetSMSDialer(smsProfile.Provider, smsProfile.ProviderConfig)
 	if err != nil {
