@@ -110,6 +110,9 @@ func validateFromAddress(email string) bool {
 
 // GetDialer returns a dialer for the given SMTP profile
 func (s *SMTP) GetDialer() (mailer.Dialer, error) {
+	if err := RequirePlaintextCredential(s.Password); err != nil {
+		return nil, err
+	}
 	// Setup the message and dial
 	hp := strings.Split(s.Host, ":")
 	if len(hp) < 2 {

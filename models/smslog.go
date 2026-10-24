@@ -161,6 +161,10 @@ func (s *SMSLog) GetDialer() (mailer.SMSDialer, error) {
 		return nil, err
 	}
 
+	if err := RequirePlaintextCredential(campaign.SMS.ProviderConfig); err != nil {
+		return nil, err
+	}
+
 	dialer, err := mailer.GetSMSDialer(campaign.SMS.Provider, campaign.SMS.ProviderConfig)
 	if err != nil {
 		log.Error(err)

@@ -99,6 +99,9 @@ type Event struct {
 	Time       time.Time `json:"time"`
 	Message    string    `json:"message"`
 	Details    string    `json:"details"`
+	// DetailsLocked is true when Details is stored encrypted and could not be
+	// decrypted (encryption key unavailable or wrong).
+	DetailsLocked bool `json:"details_locked,omitempty" gorm:"-"`
 }
 
 // BeforeSave encrypts sensitive Event fields before saving to database
@@ -130,6 +133,7 @@ func (e *Event) AfterFind() error {
 		if err != nil {
 			log.Warnf("Failed to decrypt event details: %v", err)
 			e.Details = ""
+			e.DetailsLocked = true
 		} else {
 			e.Details = decrypted
 		}

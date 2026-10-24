@@ -53,6 +53,9 @@ type Mailbox struct {
 
 // Validate validates supplied IMAP model by connecting to the server
 func Validate(s *models.IMAP) error {
+	if err := models.RequirePlaintextCredential(s.Password); err != nil {
+		return err
+	}
 	err := s.Validate()
 	if err != nil {
 		log.Error(err)

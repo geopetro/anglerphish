@@ -3,6 +3,9 @@ package imap
 import (
 	"errors"
 	"testing"
+
+	"github.com/gophish/gophish/crypto"
+	"github.com/gophish/gophish/models"
 )
 
 func TestShouldUseUID(t *testing.T) {
@@ -39,5 +42,12 @@ func TestResolveSearchResults(t *testing.T) {
 	// A forged Message-ID can collide with another message. Refuse to guess.
 	if _, err := resolveSearchResults([]uint32{7, 9}); !errors.Is(err, ErrMessageAmbiguous) {
 		t.Errorf("multiple results: got %v, want ErrMessageAmbiguous", err)
+	}
+}
+
+func TestValidateRefusesEncryptedPassword(t *testing.T) {
+	err := Validate(&models.IMAP{Host: "127.0.0.1", Port: 993, Username: "u", Password: crypto.EncryptedPrefix + "x"})
+	if !errors.Is(err, models.ErrEncryptionKeyUnavailable) {
+		t.Errorf("got %v, want ErrEncryptionKeyUnavailable", err)
 	}
 }

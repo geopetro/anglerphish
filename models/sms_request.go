@@ -110,6 +110,9 @@ func (s *SMSRequest) Generate() (string, error) {
 
 // GetDialer returns a mailer.SMSDialer based on the SMS profile
 func (s *SMSRequest) GetDialer() (mailer.SMSDialer, error) {
+	if err := RequirePlaintextCredential(s.SMS.ProviderConfig); err != nil {
+		return nil, err
+	}
 	dialer, err := mailer.GetSMSDialer(s.SMS.Provider, s.SMS.ProviderConfig)
 	if err != nil {
 		return nil, err

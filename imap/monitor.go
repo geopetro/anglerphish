@@ -407,6 +407,10 @@ func checkForNewEmails(im models.IMAP) {
 		log.Debugf("No new campaigns, skipping parameter regex update")
 	}
 	regexUpdateMutex.Unlock()
+	if err := models.RequirePlaintextCredential(im.Password); err != nil {
+		log.Warnf("Skipping IMAP config %d: %v", im.Id, err)
+		return
+	}
 	im.Host = im.Host + ":" + strconv.Itoa(int(im.Port)) // Append port
 	mailServer := Mailbox{
 		Host:             im.Host,

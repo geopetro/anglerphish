@@ -33,6 +33,15 @@ var (
 	ErrBadConfirmation = errors.New("confirmation phrase does not match")
 )
 
+// RequirePlaintextCredential returns ErrEncryptionKeyUnavailable when value is
+// still ciphertext, so callers never send an encrypted blob to a remote server.
+func RequirePlaintextCredential(value string) error {
+	if crypto.IsEncrypted(value) {
+		return ErrEncryptionKeyUnavailable
+	}
+	return nil
+}
+
 // DiscardConfirmationPhrase must be typed exactly to discard encrypted data.
 const DiscardConfirmationPhrase = "DISCARD ENCRYPTED DATA"
 
