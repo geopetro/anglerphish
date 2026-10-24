@@ -103,7 +103,7 @@
             <div class="navbar-collapse collapse">
                 <ul class="nav navbar-nav navbar-right">
                     {{if .EncryptionLocked}}
-                    <li>
+                    <li id="encryption-navbar-item">
                         <div class="encryption-navbar-badge">
                         {{if .ModifySystem}}
                         <a class="btn btn-danger btn-sm" href="/settings#encryptionSettings"
@@ -116,7 +116,7 @@
                         </div>
                     </li>
                     {{else if and .ModifySystem .EncryptionSessionKey}}
-                    <li>
+                    <li id="encryption-navbar-item">
                         <div class="encryption-navbar-badge">
                         <a class="btn btn-warning btn-sm" href="/settings#encryptionSettings"
                             title="Encryption key is active for this session only. Add it to your environment or secret manager before the next restart.">

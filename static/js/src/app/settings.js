@@ -686,11 +686,38 @@ $(document).ready(function () {
         return "<pre>" + escapeHtml(results.join("\n")) + "</pre>";
     }
 
+    // Keeps the navbar badge (rendered server-side on page load) in step with
+    // status changes made on this page, so unlocking doesn't need a reload.
+    // Mirrors templates/base.html: locked wins, then session key.
+    function syncEncryptionNavbar(st) {
+        var badge = "";
+        if (st.state === "locked") {
+            badge = '<a class="btn btn-danger btn-sm" href="/settings#encryptionSettings" ' +
+                'title="Encrypted data found but no valid encryption key is loaded. Sending with encrypted credentials is blocked. Unlock in Settings.">' +
+                '<i class="fa fa-lock"></i> Encryption locked</a>';
+        } else if (st.source === "session") {
+            badge = '<a class="btn btn-warning btn-sm" href="/settings#encryptionSettings" ' +
+                'title="Encryption key is active for this session only. Add it to your environment or secret manager before the next restart.">' +
+                '<i class="fa fa-key"></i> Session key</a>';
+        }
+        var $item = $("#encryption-navbar-item");
+        if (!badge) {
+            $item.remove();
+            return;
+        }
+        if (!$item.length) {
+            $item = $('<li id="encryption-navbar-item"></li>');
+            $(".navbar-right").prepend($item);
+        }
+        $item.html('<div class="encryption-navbar-badge">' + badge + '</div>');
+    }
+
     function renderEncryption() {
         var st = encStatus;
         if (!st) {
             return;
         }
+        syncEncryptionNavbar(st);
         var dis = st.migration_running ? " disabled" : "";
         var h = "";
         if (st.startup_warning) {
