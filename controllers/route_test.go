@@ -9,7 +9,10 @@ import (
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/gophish/gophish/auth"
+	"github.com/gophish/gophish/crypto"
 	"github.com/gophish/gophish/middleware/ratelimit"
+	"github.com/gophish/gophish/models"
 )
 
 func attemptLogin(t *testing.T, ctx *testContext, client *http.Client, username, password, optionalPath string) *http.Response {
@@ -259,5 +262,123 @@ func TestOIDCCallbackRateLimited(t *testing.T) {
 	}
 	if strings.TrimSpace(string(body)) != http.StatusText(http.StatusTooManyRequests) {
 		t.Fatalf("unexpected body: %q", body)
+	}
+}
+
+// getDashboardBody logs in as the given user and returns the body of GET /.
+func getDashboardBody(t *testing.T, ctx *testContext, username, password string) string {
+	t.Helper()
+	u, err := models.GetUserByUsername(username)
+	if err != nil {
+		t.Fatalf("error getting user %s: %v", username, err)
+	}
+	u.PasswordChangeRequired = false
+	if err := models.PutUser(&u); err != nil {
+		t.Fatalf("error updating user %s: %v", username, err)
+	}
+	noRedirect := &http.Client{CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	resp := attemptLogin(t, ctx, noRedirect, username, password, "")
+	resp.Body.Close()
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/", ctx.adminServer.URL), nil)
+	if err != nil {
+		t.Fatalf("error creating dashboard request: %v", err)
+	}
+	for _, c := range resp.Cookies() {
+		req.AddCookie(c)
+	}
+	resp, err = noRedirect.Do(req)
+	if err != nil {
+		t.Fatalf("error requesting dashboard: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected dashboard status %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading dashboard body: %v", err)
+	}
+	return string(body)
+}
+
+func createBannerTestUser(t *testing.T) {
+	t.Helper()
+	hash, err := auth.GeneratePasswordHash("gophish")
+	if err != nil {
+		t.Fatalf("error hashing password: %v", err)
+	}
+	role, err := models.GetRoleBySlug(models.RoleUser)
+	if err != nil {
+		t.Fatalf("error getting user role: %v", err)
+	}
+	u := models.User{Username: "regular", Hash: hash, ApiKey: "bannerkey", Role: role, RoleID: role.ID}
+	if err := models.PutUser(&u); err != nil {
+		t.Fatalf("error creating regular user: %v", err)
+	}
+}
+
+func TestEncryptionLockedBannerAdmin(t *testing.T) {
+	ctx := setupTest(t)
+	defer tearDown(t, ctx)
+	models.SetEncryptionLockedForTest(true)
+	defer models.SetEncryptionLockedForTest(false)
+	body := getDashboardBody(t, ctx, "admin", "gophish")
+	if !strings.Contains(body, "Unlock in Settings") {
+		t.Fatal("expected admin locked banner")
+	}
+	if !strings.Contains(body, "/settings#encryptionSettings") {
+		t.Fatal("expected unlock link target")
+	}
+	if strings.Contains(body, "contact an administrator") {
+		t.Fatal("admin should not see the non-admin notice")
+	}
+}
+
+func TestEncryptionLockedBannerNonAdmin(t *testing.T) {
+	ctx := setupTest(t)
+	defer tearDown(t, ctx)
+	createBannerTestUser(t)
+	models.SetEncryptionLockedForTest(true)
+	defer models.SetEncryptionLockedForTest(false)
+	body := getDashboardBody(t, ctx, "regular", "gophish")
+	if !strings.Contains(body, "contact an administrator") {
+		t.Fatal("expected non-admin locked notice")
+	}
+	if strings.Contains(body, "Unlock in Settings") {
+		t.Fatal("non-admin must not see the unlock link")
+	}
+}
+
+func TestEncryptionBannerAbsentWhenUnlocked(t *testing.T) {
+	ctx := setupTest(t)
+	defer tearDown(t, ctx)
+	body := getDashboardBody(t, ctx, "admin", "gophish")
+	for _, s := range []string{"Unlock in Settings", "contact an administrator", "active for this session only"} {
+		if strings.Contains(body, s) {
+			t.Fatalf("unexpected banner text %q", s)
+		}
+	}
+}
+
+func TestEncryptionSessionKeyBanner(t *testing.T) {
+	ctx := setupTest(t)
+	defer tearDown(t, ctx)
+	createBannerTestUser(t)
+	key, err := crypto.GenerateEncryptionKey()
+	if err != nil {
+		t.Fatalf("error generating key: %v", err)
+	}
+	if err := crypto.LoadKey(key, crypto.SourceSession); err != nil {
+		t.Fatalf("error loading key: %v", err)
+	}
+	defer crypto.Unload()
+	defer models.SetEncryptionLockedForTest(false)
+	if body := getDashboardBody(t, ctx, "admin", "gophish"); !strings.Contains(body, "active for this session only") {
+		t.Fatal("expected session key banner for admin")
+	}
+	if body := getDashboardBody(t, ctx, "regular", "gophish"); strings.Contains(body, "active for this session only") {
+		t.Fatal("non-admin must not see session key banner")
 	}
 }

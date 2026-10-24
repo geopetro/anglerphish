@@ -209,6 +209,10 @@ type templateParams struct {
 	Version            string
 	AnglerPhishVersion string
 	ModifySystem       bool
+	// EncryptionLocked is true when encrypted data exists but no valid key is loaded.
+	EncryptionLocked bool
+	// EncryptionSessionKey is true when the active key was supplied for this session only.
+	EncryptionSessionKey bool
 }
 
 // newTemplateParams returns the default template parameters for a user and
@@ -218,12 +222,14 @@ func newTemplateParams(r *http.Request) templateParams {
 	session := ctx.Get(r, "session").(*sessions.Session)
 	modifySystem, _ := user.HasPermission(models.PermissionModifySystem)
 	return templateParams{
-		Token:              csrf.Token(r),
-		User:               user,
-		ModifySystem:       modifySystem,
-		Version:            config.Version,
-		AnglerPhishVersion: config.AnglerPhishVersion,
-		Flashes:            session.Flashes(),
+		Token:                csrf.Token(r),
+		User:                 user,
+		ModifySystem:         modifySystem,
+		EncryptionLocked:     models.IsEncryptionLocked(),
+		EncryptionSessionKey: models.IsSessionKeyActive(),
+		Version:              config.Version,
+		AnglerPhishVersion:   config.AnglerPhishVersion,
+		Flashes:              session.Flashes(),
 	}
 }
 
