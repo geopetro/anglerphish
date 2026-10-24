@@ -1081,27 +1081,40 @@ Response: 200 OK
         <!-- Tab 3: Database Encryption -->
         <div role="tabpanel" class="tab-pane" id="database-encryption">
             <h3><i class="fa fa-lock"></i> Database Encryption</h3>
-            <p>AnglerPhish supports AES-256-GCM encryption for sensitive database fields including SMTP passwords, SMS provider credentials, IMAP passwords, and captured event details (credentials submitted by phishing targets).</p>
-            
-            <div class="alert alert-info">
-                <i class="fa fa-info-circle"></i> <strong>Note:</strong> Encryption is optional and backward compatible. The application works without an encryption key, and encrypted/plaintext data can coexist.
+            <p>Anglerphish can encrypt sensitive database fields with AES-256-GCM. Encryption is optional, and encrypted and plaintext values can coexist. Administrators (<em>Modify System</em> permission) manage it from <strong>Settings &rarr; DB Encryption</strong>; other users don't see the tab.</p>
+
+            <div class="alert alert-warning">
+                <i class="fa fa-exclamation-triangle"></i> <strong>Keep a copy of your key.</strong> Without it, encrypted values cannot be recovered.
             </div>
 
-            <h4>Environment Variable</h4>
+            <h4>What Gets Encrypted</h4>
             <table class="table table-bordered table-striped">
                 <thead>
                     <tr>
-                        <th style="width: 35%;">Variable</th>
-                        <th style="width: 65%;">Description</th>
+                        <th>Model</th>
+                        <th>Field</th>
+                        <th>Contents</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td><code>ANGLERPHISH_ENCRYPTION_KEY</code></td><td>Base64url-encoded 32-byte (44 character) encryption key for AES-256-GCM. If not set, encryption can still be turned on for the current session from Settings &rarr; DB Encryption.</td></tr>
+                    <tr><td>SMTP (Sending Profiles)</td><td><code>password</code></td><td>SMTP server password</td></tr>
+                    <tr><td>SMS (SMS Profiles)</td><td><code>provider_config</code></td><td>Twilio/Vonage API credentials</td></tr>
+                    <tr><td>IMAP</td><td><code>password</code></td><td>IMAP server password</td></tr>
+                    <tr><td>Events (Campaign Results)</td><td><code>details</code></td><td>Credentials and form data submitted by targets</td></tr>
                 </tbody>
             </table>
 
-            <h4>Managing Encryption in the UI</h4>
-            <p>Administrators (users with the <em>Modify System</em> permission) manage encryption from <strong>Settings &rarr; DB Encryption</strong>. The tab is not shown to other users, and no restart is needed to turn encryption on. The old command-line flags have been removed.</p>
+            <h4>Turning Encryption On</h4>
+            <p>Choose one of two ways. Either way, the key's long-term home is the <code>ANGLERPHISH_ENCRYPTION_KEY</code> environment variable &mdash; never <code>config.json</code>, the database or the application folder.</p>
+            <ol>
+                <li><strong>Generate the key in the platform.</strong> Click <em>Generate key</em>, save the key (it is shown only once), and paste it back to confirm. Encryption turns on immediately, no restart. Then add the key to your environment or secret manager &mdash; until you do, a banner reminds you that the key lives only in memory and will be lost on restart.</li>
+                <li><strong>Bring your own key.</strong> Generate a 32-byte base64url key (44 characters), set it as <code>ANGLERPHISH_ENCRYPTION_KEY</code> (by hand or via your KMS / secret manager) and restart. The tab then shows <em>On (environment)</em>.
+                    <pre><code>openssl rand -base64 32 | tr '+/' '-_'</code></pre>
+                </li>
+            </ol>
+            <p>Turning encryption on only encrypts <em>new</em> writes. To encrypt values already stored, click <em>Preview encryption</em> to see what will change, then <em>Encrypt existing data</em>.</p>
+
+            <h4>Status</h4>
             <table class="table table-bordered table-striped">
                 <thead>
                     <tr>
@@ -1110,66 +1123,34 @@ Response: 200 OK
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td><strong>Off</strong></td><td>No key is loaded and no encrypted values exist. Data is stored in plaintext.</td></tr>
-                    <tr><td><strong>On</strong></td><td>A key is loaded, either from the <code>ANGLERPHISH_ENCRYPTION_KEY</code> environment variable or for this session only (generated in the UI or unlocked by pasting it). A session key is lost when the process exits, so a warning banner is shown on every admin page until the key is added to the environment or your secret manager.</td></tr>
-                    <tr><td><strong>Locked</strong></td><td>Encrypted values exist but the key is missing (<code>missing_key</code>), does not match the stored check value (<code>wrong_key</code>), or is malformed (<code>invalid_key</code>). Anglerphish stays up, a red banner is shown to admins (other users see a generic notice), and sending with a still-encrypted SMTP, SMS or IMAP credential is refused with <code>encryption key unavailable</code>. Data written while locked is stored in plaintext until you run <em>Encrypt existing data</em>.</td></tr>
-                    <tr><td><strong>Disabling</strong></td><td>Decryption is in progress or incomplete. The key stays loaded for reads, new writes are no longer encrypted, and you can retry until no encrypted values remain.</td></tr>
+                    <tr><td><strong>Off</strong></td><td>No key loaded; data is stored in plaintext.</td></tr>
+                    <tr><td><strong>On</strong></td><td>A key is loaded, from the <em>environment</em> or for <em>this session only</em>. New writes are encrypted.</td></tr>
+                    <tr><td><strong>Locked</strong></td><td>Encrypted data exists but no valid key is loaded. See below.</td></tr>
+                    <tr><td><strong>Disabling</strong></td><td>Decryption has started but values remain encrypted. Retry <em>Disable encryption</em>.</td></tr>
                 </tbody>
             </table>
 
-            <h4>Actions</h4>
+            <h4>When the Platform Is Locked</h4>
+            <p>At startup, if encrypted data exists but the key is missing (<code>missing_key</code>), doesn't match (<code>wrong_key</code>) or is malformed (<code>invalid_key</code>), Anglerphish still starts but locks:</p>
             <ul>
-                <li><strong>Generate key</strong> &mdash; creates a new key and shows it <em>once</em>. Save it, then paste it back to confirm you have a copy. Encryption turns on immediately for new writes, using the key for this session. Existing data is <em>not</em> migrated automatically.</li>
-                <li><strong>Preview / Encrypt existing data</strong> &mdash; the preview reports what would change without modifying anything; encrypting then converts existing plaintext values. Run this after turning encryption on, and after any period spent locked.</li>
-                <li><strong>Preview decryption / Disable encryption</strong> &mdash; decrypts all stored values and, once none remain encrypted, unloads the key. Afterwards remove the key from your environment or secret manager; if it is still set at the next restart, encryption turns back on.</li>
-                <li><strong>Unlock</strong> &mdash; paste the key while locked. Failed attempts are rate limited (5 failures per user within 15 minutes).</li>
-                <li><strong>Discard encrypted data</strong> &mdash; available only while locked, for when the key is permanently lost. Permanently clears the encrypted values after you type <code>DISCARD ENCRYPTED DATA</code>. If <code>ANGLERPHISH_ENCRYPTION_KEY</code> is still set afterwards, remove it &mdash; or keep it knowingly: at the next restart it is accepted as the new encryption key.</li>
+                <li>Admins see a red banner; other users see a generic &ldquo;sending unavailable&rdquo; notice.</li>
+                <li>Sending with an SMTP, SMS or IMAP profile whose credential is still encrypted fails with <code>encryption key unavailable</code>. Profiles with plaintext credentials keep working.</li>
+                <li>New data is saved unencrypted until you unlock and run <em>Encrypt existing data</em>.</li>
             </ul>
-            <p>A malformed <code>ANGLERPHISH_ENCRYPTION_KEY</code> no longer aborts startup. If encrypted data exists, Anglerphish starts in the Locked state (<code>invalid_key</code>) so it can be fixed from the UI; otherwise it starts with encryption Off and logs a startup warning.</p>
-            <p>In split deployments (<code>--mode admin</code> and <code>--mode phish</code> running as separate processes) a session key exists only in the process where it was entered. Use the <code>ANGLERPHISH_ENCRYPTION_KEY</code> environment key for split deployments.</p>
+            <p>To recover:</p>
+            <ul>
+                <li><strong>You have the key</strong> &mdash; paste it into <em>Unlock</em>. Everything works again immediately; then fix the environment variable so it doesn't happen at the next restart.</li>
+                <li><strong>The key is lost</strong> &mdash; use <em>Discard encrypted data</em> and type <code>DISCARD ENCRYPTED DATA</code>. Encrypted values are cleared for good: re-enter the affected SMTP, SMS and IMAP passwords; that captured data is gone. If an environment key is still set, remove it, or keep it knowingly &mdash; it becomes the new key at the next restart.</li>
+            </ul>
+            <p>A malformed key with nothing encrypted yet doesn't lock; the platform starts with encryption Off and logs a warning.</p>
 
-            <h4>Encryption API</h4>
-            <p>All endpoints are under <code>/api/encryption/</code>, require an admin (<em>Modify System</em>) and return <code>403</code> for other users. Other HTTP methods return <code>405</code> and malformed JSON returns <code>400</code>. The key is never logged and appears only in the <code>generate</code> response, which is sent with <code>Cache-Control: no-store</code>.</p>
-            <table class="table table-bordered table-striped">
-                <thead>
-                    <tr>
-                        <th style="width: 25%;">Endpoint</th>
-                        <th style="width: 25%;">Request body</th>
-                        <th style="width: 50%;">Description</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr><td><code>GET /api/encryption/status</code></td><td>&mdash;</td><td>Returns <code>state</code> (<code>off</code>, <code>on</code>, <code>locked</code>, <code>disabling</code>), <code>source</code> (<code>none</code>, <code>environment</code>, <code>session</code>), <code>locked_reason</code>, <code>startup_warning</code>, per-field counts in <code>report</code>, <code>plaintext_count</code> and <code>migration_running</code>.</td></tr>
-                    <tr><td><code>POST /api/encryption/generate</code></td><td>&mdash;</td><td>Returns <code>{"key": "..."}</code>. The key is not loaded.</td></tr>
-                    <tr><td><code>POST /api/encryption/enable</code></td><td><code>{"key": "..."}</code></td><td>Loads the key for this session and turns encryption on. <code>400</code> for an invalid key; <code>409</code> if encryption is already on or encrypted data exists.</td></tr>
-                    <tr><td><code>POST /api/encryption/unlock</code></td><td><code>{"key": "..."}</code></td><td>Unlocks with the correct key. <code>400</code> for a wrong or invalid key, <code>409</code> if not locked, <code>429</code> after 5 failed attempts in 15 minutes.</td></tr>
-                    <tr><td><code>POST /api/encryption/migrate</code></td><td><code>{"direction": "encrypt" or "decrypt", "dry_run": true or false}</code></td><td>Encrypts or decrypts stored values, or previews with <code>dry_run</code>. Returns <code>results</code> and <code>status</code>. <code>400</code> for an invalid direction; <code>409</code> if a migration is already running, no key is loaded, or <code>encrypt</code> is requested while disabling.</td></tr>
-                    <tr><td><code>POST /api/encryption/disable</code></td><td>&mdash;</td><td>Decrypts all values and turns encryption off. <code>409</code> if decryption is incomplete (retry).</td></tr>
-                    <tr><td><code>POST /api/encryption/discard</code></td><td><code>{"confirmation": "DISCARD ENCRYPTED DATA"}</code></td><td>Locked state only. Permanently clears encrypted values. <code>400</code> for a wrong confirmation, <code>409</code> if not locked.</td></tr>
-                </tbody>
-            </table>
+            <h4>Turning Encryption Off</h4>
+            <p>Click <em>Preview decryption</em>, then <em>Disable encryption</em>. All values are decrypted and the key is unloaded once none remain encrypted. Then remove <code>ANGLERPHISH_ENCRYPTION_KEY</code> &mdash; if it is still set at the next restart, encryption turns back on.</p>
 
-            <h4>Encrypted Fields</h4>
-            <table class="table table-bordered table-striped">
-                <thead>
-                    <tr>
-                        <th>Model</th>
-                        <th>Field</th>
-                        <th>Description</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr><td>SMTP (Sending Profiles)</td><td><code>password</code></td><td>SMTP server password</td></tr>
-                    <tr><td>SMS (SMS Profiles)</td><td><code>provider_config</code></td><td>Twilio/Vonage API credentials</td></tr>
-                    <tr><td>IMAP</td><td><code>password</code></td><td>IMAP server password</td></tr>
-                    <tr><td>Events (Campaign Results)</td><td><code>details</code></td><td>Captured credentials and form data submitted by phishing targets</td></tr>
-                </tbody>
-            </table>
-
-            <h4>Production Deployment</h4>
-            <p><code>ANGLERPHISH_ENCRYPTION_KEY</code> remains the long-term home of the key. Keep it out of <code>config.json</code>, the database and the application folder, and inject it from your secret store. Replace the example paths and names with your own.</p>
+            <h4>Deployment Examples</h4>
+            <p>Replace the paths and names with your own. In split deployments (<code>--mode admin</code> and <code>--mode phish</code> as separate processes), always use the environment variable: a key entered in the UI exists only in the process where it was entered.</p>
             <div class="endpoint-doc">
-                <p>systemd with an environment file (restricted permissions): <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample2"><small>[Show Example]</small></a></p>
+                <p>systemd with an environment file: <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample2"><small>[Show Example]</small></a></p>
                 <div id="encryptProdExample2" class="collapse">
                 <pre><code>sudo mkdir -p /etc/anglerphish
 echo "ANGLERPHISH_ENCRYPTION_KEY=your-key" | sudo tee /etc/anglerphish/secrets.env
@@ -1183,7 +1164,7 @@ ExecStart=/opt/anglerphish/anglerphish</code></pre>
                 </div>
             </div>
             <div class="endpoint-doc">
-                <p>systemd <code>LoadCredential</code> (the key is exposed as a file, so a small wrapper exports it): <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample3"><small>[Show Example]</small></a></p>
+                <p>systemd <code>LoadCredential</code>: <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample3"><small>[Show Example]</small></a></p>
                 <div id="encryptProdExample3" class="collapse">
                 <pre><code># /etc/systemd/system/anglerphish.service
 [Service]
@@ -1192,7 +1173,7 @@ ExecStart=/bin/sh -c 'ANGLERPHISH_ENCRYPTION_KEY="$$(cat "%d/encryption_key")" e
                 </div>
             </div>
             <div class="endpoint-doc">
-                <p>Docker secrets (the secret is mounted under <code>/run/secrets/</code>): <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample4"><small>[Show Example]</small></a></p>
+                <p>Docker secrets: <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample4"><small>[Show Example]</small></a></p>
                 <div id="encryptProdExample4" class="collapse">
                 <pre><code># docker-compose.yml
 services:
@@ -1208,7 +1189,7 @@ secrets:
                 </div>
             </div>
             <div class="endpoint-doc">
-                <p>Vault Agent: render the key into an environment file with a template, then load it with <code>EnvironmentFile=</code> as above: <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample5"><small>[Show Example]</small></a></p>
+                <p>Vault Agent (renders an environment file for <code>EnvironmentFile=</code>): <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample5"><small>[Show Example]</small></a></p>
                 <div id="encryptProdExample5" class="collapse">
                 <pre><code># vault-agent.hcl
 template {
@@ -1219,9 +1200,26 @@ template {
                 </div>
             </div>
 
-            <div class="alert alert-warning">
-                <i class="fa fa-exclamation-triangle"></i> <strong>Important:</strong> Never lose your encryption key! If lost, encrypted passwords become unrecoverable and you'll need to re-enter all credentials.
-            </div>
+            <h4>Encryption API</h4>
+            <p>All endpoints are under <code>/api/encryption/</code> and require <em>Modify System</em> (others get <code>403</code>). The key appears only in the <code>generate</code> response (sent with <code>Cache-Control: no-store</code>) and is never logged.</p>
+            <table class="table table-bordered table-striped">
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Endpoint</th>
+                        <th style="width: 25%;">Request body</th>
+                        <th style="width: 50%;">Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>GET /api/encryption/status</code></td><td>&mdash;</td><td><code>state</code>, <code>source</code>, <code>locked_reason</code>, <code>startup_warning</code>, per-field counts in <code>report</code>, <code>plaintext_count</code>, <code>migration_running</code>.</td></tr>
+                    <tr><td><code>POST /api/encryption/generate</code></td><td>&mdash;</td><td>Returns <code>{"key": "..."}</code> without loading it.</td></tr>
+                    <tr><td><code>POST /api/encryption/enable</code></td><td><code>{"key": "..."}</code></td><td>Turns encryption on for this session. <code>400</code> invalid key; <code>409</code> already on or encrypted data exists.</td></tr>
+                    <tr><td><code>POST /api/encryption/unlock</code></td><td><code>{"key": "..."}</code></td><td><code>400</code> wrong or invalid key; <code>409</code> not locked; <code>429</code> after 5 failures in 15 minutes.</td></tr>
+                    <tr><td><code>POST /api/encryption/migrate</code></td><td><code>{"direction": "encrypt"|"decrypt", "dry_run": bool}</code></td><td>Returns <code>results</code> and <code>status</code>. <code>400</code> invalid direction; <code>409</code> migration running, no key, or encrypt while disabling.</td></tr>
+                    <tr><td><code>POST /api/encryption/disable</code></td><td>&mdash;</td><td>Decrypts everything and turns encryption off. <code>409</code> with <code>results</code> if values remain (retry).</td></tr>
+                    <tr><td><code>POST /api/encryption/discard</code></td><td><code>{"confirmation": "DISCARD ENCRYPTED DATA"}</code></td><td>Locked only. <code>400</code> wrong confirmation; <code>409</code> not locked.</td></tr>
+                </tbody>
+            </table>
 
         </div>
         <!-- End Tab 3: Database Encryption -->
