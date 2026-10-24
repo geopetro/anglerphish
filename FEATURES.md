@@ -68,7 +68,7 @@
 
 | Feature | Description | Relevant Context / Use Case |
 | :--- | :--- | :--- |
-| **Database Encryption** | Optional **AES-256-GCM encryption** for sensitive database fields (SMTP passwords, SMS provider credentials, IMAP passwords and Captured Data). Enabled via `ANGLERPHISH_ENCRYPTION_KEY` environment variable. | Protects sensitive credentials at rest. Managed from an admin-only **Settings > Encryption** tab: key generation, status, previews, migration to encrypted state, reverse migration back to plaintext, unlock and recovery. Backward compatible—works with or without encryption enabled. |
+| **Database Encryption** | Optional **AES-256-GCM encryption** for sensitive database fields (SMTP passwords, SMS provider credentials, IMAP passwords and Captured Data). Enabled via `ANGLERPHISH_ENCRYPTION_KEY` environment variable. | Protects sensitive credentials at rest. Managed from an admin-only **Settings > DB Encryption** tab: key generation, status, previews, migration to encrypted state, reverse migration back to plaintext, unlock and recovery. Backward compatible—works with or without encryption enabled. |
 | **Admin SSO (OIDC)** | Optional **OIDC login** for the admin UI only, compatible with any standard provider (Keycloak, Microsoft Entra ID, and others). Users in a configured IdP group are mapped to pre-provisioned local accounts. Password login is restricted to the `admin` break-glass account when SSO is enabled. | Restrict admin access via your identity provider without changing campaign or API authentication. |
 
 ---

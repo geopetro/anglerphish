@@ -117,7 +117,7 @@ func main() {
 		case models.EncryptionStateOn:
 			log.Infof("Database encryption: on (%s)", status.Source)
 		case models.EncryptionStateLocked:
-			log.Warnf("Database encryption: LOCKED (%s) - unlock from Settings > Encryption", status.LockedReason)
+			log.Warnf("Database encryption: LOCKED (%s) - unlock from Settings > DB Encryption", status.LockedReason)
 		case models.EncryptionStateDisabling:
 			log.Warnf("Database encryption: disabling in progress")
 		default:
