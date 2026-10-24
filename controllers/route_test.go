@@ -346,6 +346,9 @@ func TestEncryptionLockedBannerNonAdmin(t *testing.T) {
 	if !strings.Contains(body, "contact an administrator") {
 		t.Fatal("expected non-admin locked notice")
 	}
+	if !strings.Contains(body, "unavailable &mdash; contact") {
+		t.Fatal("expected em dash entity in non-admin notice")
+	}
 	if strings.Contains(body, "Unlock in Settings") {
 		t.Fatal("non-admin must not see the unlock link")
 	}
