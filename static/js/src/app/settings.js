@@ -889,7 +889,7 @@ $(document).ready(function () {
             .done(function (data) {
                 encDisabledNotice = false;
                 encApply(data.status);
-                successFlash("Encrypted data discarded.");
+                successFlash("Encrypted data discarded. Encryption is off. If ANGLERPHISH_ENCRYPTION_KEY is still set, remove it — or keep it knowingly: at the next restart it will become the new encryption key.");
             })
             .fail(function (xhr) {
                 errorFlash(encMessage(xhr, "Failed to discard encrypted data"));

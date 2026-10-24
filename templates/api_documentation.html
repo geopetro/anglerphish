@@ -1123,9 +1123,10 @@ Response: 200 OK
                 <li><strong>Preview / Encrypt existing data</strong> &mdash; the preview reports what would change without modifying anything; encrypting then converts existing plaintext values. Run this after turning encryption on, and after any period spent locked.</li>
                 <li><strong>Preview decryption / Disable encryption</strong> &mdash; decrypts all stored values and, once none remain encrypted, unloads the key. Afterwards remove the key from your environment or secret manager; if it is still set at the next restart, encryption turns back on.</li>
                 <li><strong>Unlock</strong> &mdash; paste the key while locked. Failed attempts are rate limited (5 failures per user within 15 minutes).</li>
-                <li><strong>Discard encrypted data</strong> &mdash; available only while locked, for when the key is permanently lost. Permanently clears the encrypted values after you type <code>DISCARD ENCRYPTED DATA</code>.</li>
+                <li><strong>Discard encrypted data</strong> &mdash; available only while locked, for when the key is permanently lost. Permanently clears the encrypted values after you type <code>DISCARD ENCRYPTED DATA</code>. If <code>ANGLERPHISH_ENCRYPTION_KEY</code> is still set afterwards, remove it &mdash; or keep it knowingly: at the next restart it is accepted as the new encryption key.</li>
             </ul>
-            <p>A malformed <code>ANGLERPHISH_ENCRYPTION_KEY</code> no longer aborts startup: Anglerphish starts in the Locked state (<code>invalid_key</code>) so it can be fixed from the UI.</p>
+            <p>A malformed <code>ANGLERPHISH_ENCRYPTION_KEY</code> no longer aborts startup. If encrypted data exists, Anglerphish starts in the Locked state (<code>invalid_key</code>) so it can be fixed from the UI; otherwise it starts with encryption Off and logs a startup warning.</p>
+            <p>In split deployments (<code>--mode admin</code> and <code>--mode phish</code> running as separate processes) a session key exists only in the process where it was entered. Use the <code>ANGLERPHISH_ENCRYPTION_KEY</code> environment key for split deployments.</p>
 
             <h4>Encryption API</h4>
             <p>All endpoints are under <code>/api/encryption/</code>, require an admin (<em>Modify System</em>) and return <code>403</code> for other users. Other HTTP methods return <code>405</code> and malformed JSON returns <code>400</code>. The key is never logged and appears only in the <code>generate</code> response, which is sent with <code>Cache-Control: no-store</code>.</p>
@@ -1187,7 +1188,7 @@ ExecStart=/opt/anglerphish/anglerphish</code></pre>
                 <pre><code># /etc/systemd/system/anglerphish.service
 [Service]
 LoadCredential=encryption_key:/etc/anglerphish/encryption_key
-ExecStart=/bin/sh -c 'ANGLERPHISH_ENCRYPTION_KEY="$(cat "$CREDENTIALS_DIRECTORY/encryption_key")" exec /opt/anglerphish/anglerphish'</code></pre>
+ExecStart=/bin/sh -c 'ANGLERPHISH_ENCRYPTION_KEY="$$(cat "%d/encryption_key")" exec /opt/anglerphish/anglerphish'</code></pre>
                 </div>
             </div>
             <div class="endpoint-doc">

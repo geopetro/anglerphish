@@ -709,6 +709,9 @@ function renderTimeline(data) {
                 '    <i class="fa ' + (statuses[event.message]?.icon || 'fa-question') + '"></i></div>' +
                 '    <div class="timeline-message">' + escapeHtml(event.message) +
                 '    <span class="timeline-date">' + moment.utc(event.time).local().format('MMMM Do YYYY h:mm:ss a') + '</span>'
+            if (event.details_locked) {
+                results += '<div class="timeline-event-locked text-muted"><i class="fa fa-lock"></i> encrypted — unlock to view</div>'
+            }
             if (event.details) {
                 details = JSON.parse(event.details)
                 if (event.message == "Clicked Link" || event.message == "Submitted Data" || event.message == "Macro Executed") {
@@ -1657,6 +1660,9 @@ function renderGenericTimeline(data) {
                 '    <div class="timeline-message">' + escapeHtml(event.message) +
                 '    <span class="timeline-date">' + moment.utc(event.time).local().format('MMMM Do YYYY h:mm:ss a') + '</span>';
             
+            if (event.details_locked) {
+                results += '<div class="timeline-event-locked text-muted"><i class="fa fa-lock"></i> encrypted — unlock to view</div>';
+            }
             if (event.details) {
                 // Parse details and set as global for renderDevice function
                 details = JSON.parse(event.details);

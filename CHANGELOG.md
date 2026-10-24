@@ -14,7 +14,7 @@ All notable changes to Anglerphish are documented here.
 - **Encryption CLI flags removed** - `--generate-encryption-key`, `--migrate-encryption`, `--migrate-decryption`, `--encryption-status` and `--dry-run` no longer exist. This is a breaking change for any scripts that use them; use Settings > Encryption instead.
 
 ### Fixed
-- A malformed `ANGLERPHISH_ENCRYPTION_KEY` no longer aborts startup; Anglerphish starts locked and the key can be corrected from the UI.
+- A malformed `ANGLERPHISH_ENCRYPTION_KEY` no longer aborts startup. If encrypted data exists, Anglerphish starts locked (`invalid_key`) and the key can be corrected from the UI; otherwise it starts with encryption off and logs a startup warning.
 - Encrypted credentials are never sent as passwords: an SMTP, SMS or IMAP credential that is still encrypted is no longer used as if it were plaintext.
 
 ---
