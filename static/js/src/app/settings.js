@@ -628,4 +628,271 @@ $(document).ready(function () {
     if (window.location.hash === "#globalVariablesSettings") {
         loadGlobalVariables();
     }
+
+    // ── Encryption ─────────────────────────────────────────────────────────
+    var encStatus = null;
+    var encLastResults = null;   // results from the last incomplete disable
+    var encDisabledNotice = false;
+    var encGeneratedKey = null;  // held only while the key modal is open
+    var ENC_DISCARD_PHRASE = "DISCARD ENCRYPTED DATA";
+    var ENC_FIELDS = [
+        ["SMTPPasswords", "SMTP passwords"],
+        ["SMSConfigs", "SMS provider configs"],
+        ["IMAPPasswords", "IMAP passwords"],
+        ["EventDetails", "Event details (captured data)"]
+    ];
+    var ENC_LOCKED_REASONS = {
+        missing_key: "No encryption key was provided at startup, but encrypted data exists.",
+        wrong_key: "The key provided at startup does not match the encrypted data.",
+        invalid_key: "The key provided at startup is not a valid encryption key."
+    };
+
+    function encMessage(xhr, fallback) {
+        return (xhr && xhr.responseJSON && xhr.responseJSON.message) || fallback;
+    }
+
+    function encFieldTable(report) {
+        var rows = "";
+        $.each(ENC_FIELDS, function (_, f) {
+            var c = (report && report[f[0]]) || {};
+            rows += "<tr><td>" + f[1] + "</td><td>" + (c.Encrypted || 0) + "</td><td>" +
+                (c.Plaintext || 0) + "</td><td>" + (c.Empty || 0) + "</td><td>" + (c.Total || 0) + "</td></tr>";
+        });
+        return '<table class="table table-striped table-condensed"><thead><tr><th>Field</th><th>Encrypted</th>' +
+            '<th>Plaintext</th><th>Empty</th><th>Total</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    }
+
+    function encResultsHtml(results) {
+        if (!results || !results.length) {
+            return "";
+        }
+        return "<pre>" + escapeHtml(results.join("\n")) + "</pre>";
+    }
+
+    function renderEncryption() {
+        var st = encStatus;
+        if (!st) {
+            return;
+        }
+        var dis = st.migration_running ? " disabled" : "";
+        var h = "";
+        if (st.startup_warning) {
+            h += '<div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> ' +
+                escapeHtml(st.startup_warning) + '</div>';
+        }
+        if (st.migration_running) {
+            h += '<div class="alert alert-info"><i class="fa fa-spinner fa-spin"></i> A migration is running. Actions are disabled until it finishes.</div>';
+        }
+        if (encDisabledNotice && st.state === "off") {
+            h += '<div class="alert alert-warning"><i class="fa fa-info-circle"></i> ' +
+                'Encryption is off. Remove ANGLERPHISH_ENCRYPTION_KEY from your environment or secret manager — ' +
+                'if it is still set at the next restart, encryption will turn back on with that key.</div>';
+        }
+        if (st.state === "off") {
+            h += '<div class="alert alert-info"><p><i class="fa fa-info-circle"></i> Encryption is <strong>off</strong>. ' +
+                'Turning it on encrypts SMTP passwords, SMS provider configs, IMAP passwords and captured event details at rest.</p></div>' +
+                '<button class="btn btn-primary" id="encGenerateBtn"' + dis + '><i class="fa fa-key"></i> Generate key</button>';
+        } else if (st.state === "on") {
+            var badge = st.source === "environment" ? "environment" : "session only";
+            h += '<p>Encryption is <strong>on</strong>. Key source: <span class="label ' +
+                (st.source === "environment" ? "label-success" : "label-warning") + '">' + badge + '</span></p>';
+            if (st.source !== "environment") {
+                h += '<div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> ' +
+                    'The key is held in memory only. Set ANGLERPHISH_ENCRYPTION_KEY before the next restart or the system will start locked.</div>';
+            }
+            h += encFieldTable(st.report);
+            if (st.plaintext_count > 0) {
+                h += '<div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> ' + st.plaintext_count +
+                    ' value(s) are still stored as plaintext. Run <strong>Encrypt existing data</strong> to encrypt them.</div>';
+            }
+            h += '<div id="encResults"></div>' +
+                '<button class="btn btn-default" id="encPreviewEncryptBtn"' + dis + '>Preview encryption</button> &nbsp;' +
+                '<button class="btn btn-primary" id="encEncryptBtn"' + dis + '>Encrypt existing data</button> &nbsp;' +
+                '<button class="btn btn-default" id="encPreviewDecryptBtn"' + dis + '>Preview decryption</button> &nbsp;' +
+                '<button class="btn btn-danger" id="encDisableBtn"' + dis + '>Disable encryption</button>';
+        } else if (st.state === "locked") {
+            h += '<div class="alert alert-danger"><p><i class="fa fa-lock"></i> Encryption is <strong>locked</strong>. ' +
+                escapeHtml(ENC_LOCKED_REASONS[st.locked_reason] || "The encryption key is unavailable.") + '</p>';
+            if (st.plaintext_count > 0) {
+                h += '<p>' + st.plaintext_count + ' value(s) are stored as plaintext.</p>';
+            }
+            h += '</div>' +
+                '<div class="form-group"><label for="encUnlockKey" class="control-label">Encryption key</label>' +
+                '<input type="password" class="form-control" id="encUnlockKey" autocomplete="off" spellcheck="false" style="max-width: 480px;" /></div>' +
+                '<button class="btn btn-primary" id="encUnlockBtn"' + dis + '><i class="fa fa-unlock"></i> Unlock</button>' +
+                '<hr><a href="#encDiscardSection" data-toggle="collapse" class="text-danger">Discard encrypted data</a>' +
+                '<div id="encDiscardSection" class="collapse"><br /><div class="alert alert-danger">' +
+                '<p><i class="fa fa-exclamation-triangle"></i> This permanently clears every encrypted value. It cannot be undone. The following will be lost:</p>' +
+                encFieldTable(st.report) +
+                '<p>Type <code>' + ENC_DISCARD_PHRASE + '</code> to confirm.</p>' +
+                '<input type="text" class="form-control" id="encDiscardPhrase" autocomplete="off" style="max-width: 480px;" /><br />' +
+                '<button class="btn btn-danger" id="encDiscardBtn" disabled><i class="fa fa-trash"></i> Discard encrypted data</button></div></div>';
+        } else if (st.state === "disabling") {
+            h += '<div class="alert alert-warning"><p><i class="fa fa-exclamation-triangle"></i> Encryption is <strong>being disabled</strong>, but some values could not be decrypted. Retry to finish.</p></div>' +
+                encResultsHtml(encLastResults) + encFieldTable(st.report) +
+                '<button class="btn btn-danger" id="encRetryDisableBtn"' + dis + '>Retry disable</button>';
+        }
+        $("#encryptionContent").html(h);
+    }
+
+    function loadEncryption() {
+        api.encryption.status()
+            .done(function (st) {
+                encStatus = st;
+                renderEncryption();
+            })
+            .fail(function (xhr) {
+                errorFlash(encMessage(xhr, "Failed to load encryption status"));
+            });
+    }
+
+    function encApply(st) {
+        encStatus = st;
+        renderEncryption();
+    }
+
+    $('a[href="#encryptionSettings"]').on("shown.bs.tab", loadEncryption);
+    if (window.location.hash === "#encryptionSettings") {
+        loadEncryption();
+    }
+
+    function encClearKeyModal() {
+        encGeneratedKey = null;
+        $("#encGeneratedKey").val("");
+        $("#encConfirmKey").val("");
+        $("#encEnableBtn").prop("disabled", true);
+    }
+    $("#encKeyModal").on("hidden.bs.modal", encClearKeyModal);
+
+    $("#encryptionContent").on("click", "#encGenerateBtn", function () {
+        api.encryption.generate()
+            .done(function (data) {
+                encGeneratedKey = data.key;
+                $("#encGeneratedKey").val(data.key);
+                $("#encConfirmKey").val("");
+                $("#encEnableBtn").prop("disabled", true);
+                $("#encKeyModal").modal("show");
+            })
+            .fail(function (xhr) {
+                errorFlash(encMessage(xhr, "Failed to generate key"));
+            });
+    });
+
+    $("#encConfirmKey").on("input", function () {
+        $("#encEnableBtn").prop("disabled", !encGeneratedKey || $(this).val() !== encGeneratedKey);
+    });
+
+    $("#encCopyKey").click(function () {
+        var input = document.getElementById("encGeneratedKey");
+        input.select();
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(input.value);
+            } else {
+                document.execCommand("copy");
+            }
+        } catch (err) {
+            errorFlash("Failed to copy key");
+        }
+    });
+
+    $("#encEnableBtn").click(function () {
+        var key = encGeneratedKey;
+        if (!key || $("#encConfirmKey").val() !== key) {
+            return;
+        }
+        $("#encEnableBtn").prop("disabled", true);
+        api.encryption.enable(key)
+            .done(function (st) {
+                encClearKeyModal();
+                $("#encKeyModal").modal("hide");
+                encDisabledNotice = false;
+                encApply(st);
+                successFlash("Encryption is on. Run Encrypt existing data to encrypt values already stored.");
+            })
+            .fail(function (xhr) {
+                $("#encEnableBtn").prop("disabled", false);
+                errorFlash(encMessage(xhr, "Failed to turn on encryption"));
+            });
+    });
+
+    function encMigrate(direction, dryRun) {
+        return api.encryption.migrate(direction, dryRun)
+            .done(function (data) {
+                if (dryRun) {
+                    $("#encResults").html(encResultsHtml(data.results));
+                } else {
+                    encApply(data.status);
+                    $("#encResults").html(encResultsHtml(data.results));
+                    successFlash("Existing data encrypted.");
+                }
+            })
+            .fail(function (xhr) {
+                errorFlash(encMessage(xhr, "Migration failed"));
+            });
+    }
+
+    $("#encryptionContent").on("click", "#encPreviewEncryptBtn", function () { encMigrate("encrypt", true); });
+    $("#encryptionContent").on("click", "#encEncryptBtn", function () { encMigrate("encrypt", false); });
+    $("#encryptionContent").on("click", "#encPreviewDecryptBtn", function () { encMigrate("decrypt", true); });
+
+    $("#encryptionContent").on("click", "#encDisableBtn", function () {
+        api.encryption.migrate("decrypt", true)
+            .done(function (data) {
+                $("#encDisablePreview").text((data.results || []).join("\n"));
+                $("#encDisableModal").modal("show");
+            })
+            .fail(function (xhr) {
+                errorFlash(encMessage(xhr, "Failed to preview decryption"));
+            });
+    });
+
+    function encDisable() {
+        api.encryption.disable()
+            .done(function (data) {
+                encLastResults = null;
+                encDisabledNotice = true;
+                $("#encDisableModal").modal("hide");
+                encApply(data.status);
+            })
+            .fail(function (xhr) {
+                $("#encDisableModal").modal("hide");
+                var body = xhr.responseJSON || {};
+                encLastResults = body.data && body.data.results ? body.data.results : null;
+                errorFlash(encMessage(xhr, "Failed to disable encryption"));
+                loadEncryption();
+            });
+    }
+    $("#encDisableConfirmBtn").click(encDisable);
+    $("#encryptionContent").on("click", "#encRetryDisableBtn", encDisable);
+
+    $("#encryptionContent").on("click", "#encUnlockBtn", function () {
+        var input = $("#encUnlockKey");
+        api.encryption.unlock(input.val())
+            .done(function (st) {
+                input.val("");
+                encApply(st);
+                successFlash("Encryption unlocked.");
+            })
+            .fail(function (xhr) {
+                input.val("");
+                errorFlash(encMessage(xhr, "Failed to unlock encryption"));
+            });
+    });
+
+    $("#encryptionContent").on("input", "#encDiscardPhrase", function () {
+        $("#encDiscardBtn").prop("disabled", $(this).val() !== ENC_DISCARD_PHRASE || encStatus.migration_running);
+    });
+
+    $("#encryptionContent").on("click", "#encDiscardBtn", function () {
+        api.encryption.discard($("#encDiscardPhrase").val())
+            .done(function (data) {
+                encDisabledNotice = false;
+                encApply(data.status);
+                successFlash("Encrypted data discarded.");
+            })
+            .fail(function (xhr) {
+                errorFlash(encMessage(xhr, "Failed to discard encrypted data"));
+            });
+    });
 });

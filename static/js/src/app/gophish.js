@@ -510,6 +510,30 @@ var api = {
             return query("/url_templates/", "POST", template, false)
         }
     },
+    // encryption contains the endpoints for /encryption
+    encryption: {
+        status: function () {
+            return query("/encryption/status", "GET", {}, true)
+        },
+        generate: function () {
+            return query("/encryption/generate", "POST", {}, true)
+        },
+        enable: function (key) {
+            return query("/encryption/enable", "POST", { key: key }, true)
+        },
+        unlock: function (key) {
+            return query("/encryption/unlock", "POST", { key: key }, true)
+        },
+        migrate: function (direction, dryRun) {
+            return query("/encryption/migrate", "POST", { direction: direction, dry_run: dryRun }, true)
+        },
+        disable: function () {
+            return query("/encryption/disable", "POST", {}, true)
+        },
+        discard: function (confirmation) {
+            return query("/encryption/discard", "POST", { confirmation: confirmation }, true)
+        }
+    },
     // errorPages contains the endpoints for /error_pages
     errorPages: {
         // get404() - Fetches the current 404 page HTML
