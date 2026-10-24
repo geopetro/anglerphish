@@ -928,6 +928,128 @@ Response: 200 OK
         </div>
     </div>
 
+    <!-- Database Encryption API -->
+    <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="encryptionApiHeading">
+            <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" href="#encryptionApiCollapse" aria-expanded="false" aria-controls="encryptionApiCollapse">
+                    <i class="fa fa-lock"></i> Database Encryption API
+                    <i class="fa fa-chevron-down pull-right"></i>
+                </a>
+            </h4>
+        </div>
+        <div id="encryptionApiCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="encryptionApiHeading">
+            <div class="panel-body">
+            <p>Manage database encryption. See the <strong>Database Encryption</strong> tab for how the states and actions work.</p>
+            <ul>
+                <li>All endpoints require the <em>Modify System</em> permission. Other users get <code>403</code>.</li>
+                <li>The key appears only in the <code>generate</code> response, which is sent with <code>Cache-Control: no-store</code>. It is never logged.</li>
+                <li>Errors return <code>{"success": false, "message": "..."}</code>.</li>
+            </ul>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/encryption/status</strong>
+                <p>Returns the current state, key source and per-field counts. <a class="example-toggle" data-toggle="collapse" data-target="#encStatusExample"><small>[Show Example]</small></a></p>
+                <div id="encStatusExample" class="collapse">
+                <pre><code>Response: 200 OK
+{
+  "state": "on",
+  "source": "environment",
+  "report": {
+    "EncryptionEnabled": true,
+    "SMTPPasswords": {"Total": 2, "Encrypted": 2, "Plaintext": 0, "Empty": 0},
+    "SMSConfigs":    {"Total": 1, "Encrypted": 1, "Plaintext": 0, "Empty": 0},
+    "IMAPPasswords": {"Total": 1, "Encrypted": 1, "Plaintext": 0, "Empty": 0},
+    "EventDetails":  {"Total": 40, "Encrypted": 12, "Plaintext": 0, "Empty": 28}
+  },
+  "plaintext_count": 0,
+  "migration_running": false
+}</code></pre>
+                <p><code>state</code> is <code>off</code>, <code>on</code>, <code>locked</code> or <code>disabling</code>. <code>source</code> is <code>none</code>, <code>environment</code> or <code>session</code>. <code>locked_reason</code> (<code>missing_key</code>, <code>wrong_key</code>, <code>invalid_key</code>) and <code>startup_warning</code> appear only when set.</p>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/encryption/generate</strong>
+                <p>Generates a new key and returns it once. The key is not loaded. <a class="example-toggle" data-toggle="collapse" data-target="#encGenerateExample"><small>[Show Example]</small></a></p>
+                <div id="encGenerateExample" class="collapse">
+                <pre><code>Response: 200 OK
+{
+  "key": "&lt;44-character base64url key&gt;"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/encryption/enable</strong>
+                <p>Loads the key for this session and turns encryption on. Returns the status. <code>400</code> invalid key. <code>409</code> already on, or encrypted data exists (use unlock). <a class="example-toggle" data-toggle="collapse" data-target="#encEnableExample"><small>[Show Example]</small></a></p>
+                <div id="encEnableExample" class="collapse">
+                <pre><code>Request:
+{
+  "key": "&lt;key&gt;"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/encryption/unlock</strong>
+                <p>Unlocks a locked platform with the correct key. Returns the status. <code>400</code> wrong or invalid key. <code>409</code> not locked. <code>429</code> after 5 failed attempts per user in 15 minutes. <a class="example-toggle" data-toggle="collapse" data-target="#encUnlockExample"><small>[Show Example]</small></a></p>
+                <div id="encUnlockExample" class="collapse">
+                <pre><code>Request:
+{
+  "key": "&lt;key&gt;"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/encryption/migrate</strong>
+                <p>Encrypts or decrypts stored values, or previews the change with <code>dry_run</code>. <code>400</code> invalid direction. <code>409</code> migration already running, no key loaded, or encrypt requested while disabling. <a class="example-toggle" data-toggle="collapse" data-target="#encMigrateExample"><small>[Show Example]</small></a></p>
+                <div id="encMigrateExample" class="collapse">
+                <pre><code>Request:
+{
+  "direction": "encrypt",
+  "dry_run": false
+}
+
+Response: 200 OK
+{
+  "results": [
+    "SMTP passwords: 2 encrypted, 0 skipped",
+    "SMS provider configs: 1 encrypted, 0 skipped",
+    "IMAP passwords: 1 encrypted, 0 skipped",
+    "Event details (captured data): 12 encrypted, 0 skipped"
+  ],
+  "status": { ... }
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/encryption/disable</strong>
+                <p>Decrypts all values and turns encryption off. Returns <code>results</code> and <code>status</code>. <code>409</code> with <code>results</code> if some values could not be decrypted (retry).</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/encryption/discard</strong>
+                <p>Locked state only. Permanently clears all encrypted values. Returns the counts that were discarded and the new status. <code>400</code> wrong confirmation. <code>409</code> not locked. <a class="example-toggle" data-toggle="collapse" data-target="#encDiscardExample"><small>[Show Example]</small></a></p>
+                <div id="encDiscardExample" class="collapse">
+                <pre><code>Request:
+{
+  "confirmation": "DISCARD ENCRYPTED DATA"
+}
+
+Response: 200 OK
+{
+  "discarded": { ... },
+  "status": { ... }
+}</code></pre>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Authorization Note -->
     <div class="panel panel-info">
         <div class="panel-heading">
@@ -1206,25 +1328,7 @@ template {
             </div>
 
             <h4>Encryption API</h4>
-            <p>All endpoints are under <code>/api/encryption/</code> and require <em>Modify System</em> (others get <code>403</code>). The key appears only in the <code>generate</code> response (sent with <code>Cache-Control: no-store</code>) and is never logged.</p>
-            <table class="table table-bordered table-striped">
-                <thead>
-                    <tr>
-                        <th style="width: 25%;">Endpoint</th>
-                        <th style="width: 25%;">Request body</th>
-                        <th style="width: 50%;">Description</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr><td><code>GET /api/encryption/status</code></td><td>&mdash;</td><td><code>state</code>, <code>source</code>, <code>locked_reason</code>, <code>startup_warning</code>, per-field counts in <code>report</code>, <code>plaintext_count</code>, <code>migration_running</code>.</td></tr>
-                    <tr><td><code>POST /api/encryption/generate</code></td><td>&mdash;</td><td>Returns <code>{"key": "..."}</code> without loading it.</td></tr>
-                    <tr><td><code>POST /api/encryption/enable</code></td><td><code>{"key": "..."}</code></td><td>Turns encryption on for this session. <code>400</code> invalid key. <code>409</code> already on or encrypted data exists.</td></tr>
-                    <tr><td><code>POST /api/encryption/unlock</code></td><td><code>{"key": "..."}</code></td><td><code>400</code> wrong or invalid key. <code>409</code> not locked. <code>429</code> after 5 failures in 15 minutes.</td></tr>
-                    <tr><td><code>POST /api/encryption/migrate</code></td><td><code>{"direction": "encrypt"|"decrypt", "dry_run": bool}</code></td><td>Returns <code>results</code> and <code>status</code>. <code>400</code> invalid direction. <code>409</code> migration running, no key, or encrypt while disabling.</td></tr>
-                    <tr><td><code>POST /api/encryption/disable</code></td><td>&mdash;</td><td>Decrypts everything and turns encryption off. <code>409</code> with <code>results</code> if values remain (retry).</td></tr>
-                    <tr><td><code>POST /api/encryption/discard</code></td><td><code>{"confirmation": "DISCARD ENCRYPTED DATA"}</code></td><td>Locked only. <code>400</code> wrong confirmation. <code>409</code> not locked.</td></tr>
-                </tbody>
-            </table>
+            <p>The endpoints are documented in <strong>API Extensions &rarr; Database Encryption API</strong>.</p>
 
         </div>
         <!-- End Tab 3: Database Encryption -->
