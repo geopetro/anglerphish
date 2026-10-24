@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 
@@ -383,5 +384,33 @@ func TestEncryptionSessionKeyBanner(t *testing.T) {
 	}
 	if body := getDashboardBody(t, ctx, "regular", "gophish"); strings.Contains(body, "active for this session only") {
 		t.Fatal("non-admin must not see session key banner")
+	}
+}
+
+// TestPageTemplatesParse guards against page templates that only fail when
+// someone opens them, e.g. documentation examples containing literal "{{".
+func TestPageTemplatesParse(t *testing.T) {
+	origPath, _ := os.Getwd()
+	if err := os.Chdir("../"); err != nil {
+		t.Fatalf("error changing directories: %v", err)
+	}
+	defer os.Chdir(origPath)
+
+	pages := []string{
+		"api_documentation", "campaign_results", "campaign_sets", "campaigns",
+		"dashboard", "groups", "landing_pages", "non_campaign_reports",
+		"qr_code_generator", "reports", "reset_password", "sending_profiles",
+		"settings", "templates", "users", "webhooks",
+		// sms_templates is omitted: SMSTemplates is unrouted and its file does not exist.
+	}
+	for _, page := range pages {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("template %s failed to parse: %v", page, r)
+				}
+			}()
+			getTemplate(nil, page)
+		}()
 	}
 }

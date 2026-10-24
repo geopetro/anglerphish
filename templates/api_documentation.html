@@ -1212,7 +1212,7 @@ secrets:
                 <div id="encryptProdExample5" class="collapse">
                 <pre><code># vault-agent.hcl
 template {
-  contents    = "ANGLERPHISH_ENCRYPTION_KEY={{ with secret \"secret/data/anglerphish\" }}{{ .Data.data.encryption_key }}{{ end }}\n"
+  contents    = "ANGLERPHISH_ENCRYPTION_KEY=&#123;&#123; with secret \"secret/data/anglerphish\" &#125;&#125;&#123;&#123; .Data.data.encryption_key &#125;&#125;&#123;&#123; end &#125;&#125;\n"
   destination = "/etc/anglerphish/secrets.env"
   perms       = "0600"
 }</code></pre>
