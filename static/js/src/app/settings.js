@@ -808,7 +808,7 @@ $(document).ready(function () {
                 $("#encKeyModal").modal("hide");
                 encDisabledNotice = false;
                 encApply(st);
-                successFlash("Encryption is on. Run Encrypt existing data to encrypt values already stored.");
+                successFlashFade("Encryption is on.", 5);
             })
             .fail(function (xhr) {
                 $("#encEnableBtn").prop("disabled", false);
@@ -824,7 +824,7 @@ $(document).ready(function () {
                 } else {
                     encApply(data.status);
                     $("#encResults").html(encResultsHtml(data.results));
-                    successFlash("Existing data encrypted.");
+                    successFlashFade("Existing data encrypted.", 5);
                 }
             })
             .fail(function (xhr) {
@@ -872,7 +872,7 @@ $(document).ready(function () {
             .done(function (st) {
                 input.val("");
                 encApply(st);
-                successFlash("Encryption unlocked.");
+                successFlashFade("Encryption unlocked.", 5);
             })
             .fail(function (xhr) {
                 input.val("");
