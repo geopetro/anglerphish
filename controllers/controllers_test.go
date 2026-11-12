@@ -14,20 +14,22 @@ import (
 
 func setupOIDCTest(t *testing.T) *testContext {
 	t.Helper()
-	t.Setenv(auth.OIDCClientSecretEnv, "test-secret")
 	ctx := setupTest(t)
-	ctx.config.OIDC = config.OIDC{
-		Enabled:       true,
-		Issuer:        "https://keycloak.example.com/realms/test",
-		ClientID:      "anglerphish-admin",
-		RedirectURL:   fmt.Sprintf("%s/auth/oidc/callback", ctx.adminServer.URL),
-		RequiredGroup: "anglerphish-admins",
-		GroupsClaim:   "groups",
+	t.Cleanup(func() { auth.SetActiveOIDCClient(nil) })
+	err := models.SaveOIDCSettings(models.OIDCSettingsInput{
+		Enabled:           true,
+		Provider:          "keycloak",
+		Issuer:            "https://keycloak.example.com/realms/test",
+		ClientID:          "anglerphish-admin",
+		ClientSecret:      "test-secret",
+		RedirectURL:       ctx.adminServer.URL + "/auth/oidc/callback",
+		RequiredGroup:     "anglerphish-admins",
+		GroupsClaim:       "groups",
+		UsernameFromEmail: "local_part",
+	})
+	if err != nil {
+		t.Fatalf("error saving sso settings: %v", err)
 	}
-	ctx.adminServer.Close()
-	ctx.adminServer = httptest.NewUnstartedServer(NewAdminServer(ctx.config.AdminConf, ctx.config).server.Handler)
-	ctx.adminServer.Config.Addr = ctx.config.AdminConf.ListenURL
-	ctx.adminServer.Start()
 	return ctx
 }
 

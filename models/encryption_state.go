@@ -250,7 +250,7 @@ func GetEncryptionStatusInfo() (EncryptionStatus, error) {
 		StartupWarning: warning,
 		Report:         report,
 		PlaintextCount: report.SMTPPasswords.Plaintext + report.SMSConfigs.Plaintext +
-			report.IMAPPasswords.Plaintext + report.EventDetails.Plaintext,
+			report.IMAPPasswords.Plaintext + report.EventDetails.Plaintext + report.OIDCSecrets.Plaintext,
 		MigrationRunning: migrationRunning.Load(),
 	}, nil
 }
@@ -324,6 +324,9 @@ func UnlockEncryption(key string) error {
 		return err
 	}
 	clearLocked()
+	if err := ReloadOIDC(); err != nil {
+		log.Warnf("encryption: sso reload after unlock failed: %v", err)
+	}
 	log.Infof("encryption: unlocked with a session key")
 	return nil
 }
@@ -437,6 +440,7 @@ var discardTargets = []struct{ table, column string }{
 	{"sms_profiles", "provider_config"},
 	{"imap", "password"},
 	{"events", "details"},
+	{"oidc_settings", "client_secret"},
 }
 
 // DiscardEncryptedData blanks every encrypted value, removes the check value
@@ -461,6 +465,12 @@ func DiscardEncryptedData(confirmation string) (*crypto.EncryptionReport, error)
 	}
 
 	tx := db.Begin()
+	// Turn SSO off first so it cannot be left enabled without its secret.
+	if err := tx.Exec("UPDATE oidc_settings SET enabled = ? WHERE client_secret LIKE ?", false, crypto.EncryptedPrefix+"%").Error; err != nil {
+		tx.Rollback()
+		log.Warnf("encryption: discard failed disabling sso: %v", err)
+		return nil, err
+	}
 	for _, t := range discardTargets {
 		err := tx.Exec(fmt.Sprintf("UPDATE %s SET %s = '' WHERE %s LIKE ?", t.table, t.column, t.column), crypto.EncryptedPrefix+"%").Error
 		if err != nil {
@@ -479,7 +489,10 @@ func DiscardEncryptedData(confirmation string) (*crypto.EncryptionReport, error)
 		return nil, err
 	}
 	clearLocked()
-	log.Infof("encryption: discarded encrypted data (smtp passwords: %d, sms configs: %d, imap passwords: %d, event details: %d)",
-		report.SMTPPasswords.Encrypted, report.SMSConfigs.Encrypted, report.IMAPPasswords.Encrypted, report.EventDetails.Encrypted)
+	if err := ReloadOIDC(); err != nil {
+		log.Warnf("encryption: sso reload after discard failed: %v", err)
+	}
+	log.Infof("encryption: discarded encrypted data (smtp passwords: %d, sms configs: %d, imap passwords: %d, event details: %d, sso client secret: %d)",
+		report.SMTPPasswords.Encrypted, report.SMSConfigs.Encrypted, report.IMAPPasswords.Encrypted, report.EventDetails.Encrypted, report.OIDCSecrets.Encrypted)
 	return report, nil
 }

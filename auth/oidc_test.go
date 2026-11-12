@@ -3,10 +3,10 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -226,7 +226,6 @@ func TestParseBoolClaim(t *testing.T) {
 }
 
 func TestOIDCDiscoveryRetriesAfterFailure(t *testing.T) {
-	t.Setenv(OIDCClientSecretEnv, "super-secret-value")
 	var attempts atomic.Int32
 	server := newTestOIDCIssuer(t, &attempts, failOnceDiscovery)
 	defer server.Close()
@@ -237,6 +236,7 @@ func TestOIDCDiscoveryRetriesAfterFailure(t *testing.T) {
 		ClientID:      "test-client",
 		RedirectURL:   "http://localhost/callback",
 		RequiredGroup: "anglerphish-admins",
+		ClientSecret:  "super-secret-value",
 	})
 	if err != nil {
 		t.Fatalf("NewOIDCClient: %v", err)
@@ -260,7 +260,6 @@ func TestOIDCDiscoveryRetriesAfterFailure(t *testing.T) {
 }
 
 func TestOIDCDiscoverySuccessCached(t *testing.T) {
-	t.Setenv(OIDCClientSecretEnv, "super-secret-value")
 	var attempts atomic.Int32
 	server := newTestOIDCIssuer(t, &attempts, alwaysSucceedDiscovery)
 	defer server.Close()
@@ -271,6 +270,7 @@ func TestOIDCDiscoverySuccessCached(t *testing.T) {
 		ClientID:      "test-client",
 		RedirectURL:   "http://localhost/callback",
 		RequiredGroup: "anglerphish-admins",
+		ClientSecret:  "super-secret-value",
 	})
 	if err != nil {
 		t.Fatalf("NewOIDCClient: %v", err)
@@ -287,7 +287,6 @@ func TestOIDCDiscoverySuccessCached(t *testing.T) {
 }
 
 func TestOIDCDiscoveryConcurrentInit(t *testing.T) {
-	t.Setenv(OIDCClientSecretEnv, "super-secret-value")
 	var attempts atomic.Int32
 	server := newTestOIDCIssuer(t, &attempts, alwaysSucceedDiscovery)
 	defer server.Close()
@@ -298,6 +297,7 @@ func TestOIDCDiscoveryConcurrentInit(t *testing.T) {
 		ClientID:      "test-client",
 		RedirectURL:   "http://localhost/callback",
 		RequiredGroup: "anglerphish-admins",
+		ClientSecret:  "super-secret-value",
 	})
 	if err != nil {
 		t.Fatalf("NewOIDCClient: %v", err)
@@ -323,7 +323,6 @@ func TestOIDCDiscoveryConcurrentInit(t *testing.T) {
 
 func TestOIDCDiscoveryErrorSanitized(t *testing.T) {
 	const secret = "super-secret-value"
-	t.Setenv(OIDCClientSecretEnv, secret)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "upstream unavailable", http.StatusServiceUnavailable)
 	}))
@@ -335,6 +334,7 @@ func TestOIDCDiscoveryErrorSanitized(t *testing.T) {
 		ClientID:      "test-client",
 		RedirectURL:   "http://localhost/callback",
 		RequiredGroup: "anglerphish-admins",
+		ClientSecret:  secret,
 	})
 	if err != nil {
 		t.Fatalf("NewOIDCClient: %v", err)
@@ -389,9 +389,58 @@ func newTestOIDCIssuer(t *testing.T, attempts *atomic.Int32, mode discoveryMode)
 	}))
 }
 
-func TestMain(m *testing.M) {
-	if os.Getenv(OIDCClientSecretEnv) == "" {
-		_ = os.Setenv(OIDCClientSecretEnv, "test-secret")
+func TestValidateOIDCConfigRequiresSecret(t *testing.T) {
+	err := ValidateOIDCConfig(OIDCConfig{
+		Enabled:       true,
+		Issuer:        "https://idp.example.com",
+		ClientID:      "test-client",
+		RedirectURL:   "http://localhost/callback",
+		RequiredGroup: "anglerphish-admins",
+	})
+	if err == nil || !strings.Contains(err.Error(), "client secret") {
+		t.Fatalf("expected client secret error, got %v", err)
 	}
-	os.Exit(m.Run())
+}
+
+func TestCheckIssuerOK(t *testing.T) {
+	var attempts atomic.Int32
+	server := newTestOIDCIssuer(t, &attempts, alwaysSucceedDiscovery)
+	defer server.Close()
+	if err := CheckIssuer(context.Background(), server.URL); err != nil {
+		t.Fatalf("CheckIssuer: %v", err)
+	}
+}
+
+func TestCheckIssuerUnreachable(t *testing.T) {
+	err := CheckIssuer(context.Background(), "http://127.0.0.1:1")
+	if !errors.Is(err, ErrIssuerUnreachable) {
+		t.Fatalf("error = %v, want ErrIssuerUnreachable", err)
+	}
+}
+
+func TestCheckIssuerNotOIDC(t *testing.T) {
+	server := httptest.NewServer(http.NotFoundHandler())
+	defer server.Close()
+	if err := CheckIssuer(context.Background(), server.URL); !errors.Is(err, ErrIssuerNotOIDC) {
+		t.Fatalf("error = %v, want ErrIssuerNotOIDC", err)
+	}
+	if err := CheckIssuer(context.Background(), "ftp://x"); !errors.Is(err, ErrIssuerNotOIDC) {
+		t.Fatalf("ftp error = %v, want ErrIssuerNotOIDC", err)
+	}
+	if err := CheckIssuer(context.Background(), ""); !errors.Is(err, ErrIssuerNotOIDC) {
+		t.Fatalf("empty error = %v, want ErrIssuerNotOIDC", err)
+	}
+}
+
+func TestActiveOIDCClient(t *testing.T) {
+	t.Cleanup(func() { SetActiveOIDCClient(nil) })
+	c := &OIDCClient{}
+	SetActiveOIDCClient(c)
+	if ActiveOIDCClient() != c {
+		t.Fatal("expected same client pointer")
+	}
+	SetActiveOIDCClient(nil)
+	if ActiveOIDCClient() != nil {
+		t.Fatal("expected nil client")
+	}
 }

@@ -115,6 +115,26 @@ func GetEncryptionReport() (*crypto.EncryptionReport, error) {
 		}
 	}
 
+	// Check SSO client secret
+	var oidcRecords []struct {
+		ClientSecret string `gorm:"column:client_secret"`
+	}
+	err = db.Table("oidc_settings").Select("client_secret").Scan(&oidcRecords).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to query SSO settings: %w", err)
+	}
+	for _, r := range oidcRecords {
+		report.OIDCSecrets.Total++
+		switch crypto.GetEncryptionStatus(r.ClientSecret) {
+		case "encrypted":
+			report.OIDCSecrets.Encrypted++
+		case "plaintext":
+			report.OIDCSecrets.Plaintext++
+		case "empty":
+			report.OIDCSecrets.Empty++
+		}
+	}
+
 	return report, nil
 }
 
@@ -145,6 +165,13 @@ func MigrateToEncrypted() ([]string, error) {
 
 	// Migrate Event details (captured credentials)
 	result, err = migrateEventsToEncrypted()
+	if err != nil {
+		return results, err
+	}
+	results = append(results, result)
+
+	// Migrate SSO client secret
+	result, err = migrateOIDCToEncrypted()
 	if err != nil {
 		return results, err
 	}
@@ -185,6 +212,13 @@ func DryRunMigrateToEncrypted() ([]string, error) {
 	}
 	results = append(results, result)
 
+	// Preview SSO client secret
+	result, err = dryRunOIDCEncrypt()
+	if err != nil {
+		return results, err
+	}
+	results = append(results, result)
+
 	return results, nil
 }
 
@@ -215,6 +249,13 @@ func MigrateToDecrypted() ([]string, error) {
 
 	// Decrypt Event details (captured credentials)
 	result, err = migrateEventsToDecrypted()
+	if err != nil {
+		return results, err
+	}
+	results = append(results, result)
+
+	// Decrypt SSO client secret
+	result, err = migrateOIDCToDecrypted()
 	if err != nil {
 		return results, err
 	}
@@ -523,6 +564,13 @@ func DryRunMigrateToDecrypted() ([]string, error) {
 	}
 	results = append(results, result)
 
+	// Preview SSO client secret
+	result, err = dryRunOIDCDecrypt()
+	if err != nil {
+		return results, err
+	}
+	results = append(results, result)
+
 	return results, nil
 }
 
@@ -710,4 +758,115 @@ func dryRunEventsDecrypt() (string, error) {
 	}
 
 	return fmt.Sprintf("Event details (captured data): %d would be decrypted, %d would be skipped", wouldDecrypt, wouldSkip), nil
+}
+
+func migrateOIDCToEncrypted() (string, error) {
+	var records []struct {
+		Id           int64
+		ClientSecret string `gorm:"column:client_secret"`
+	}
+	err := db.Table("oidc_settings").Select("id, client_secret").Scan(&records).Error
+	if err != nil {
+		return "", fmt.Errorf("failed to query SSO settings: %w", err)
+	}
+
+	updated := 0
+	skipped := 0
+	for _, r := range records {
+		if r.ClientSecret == "" || crypto.IsEncrypted(r.ClientSecret) {
+			skipped++
+			continue
+		}
+		encrypted, err := crypto.Encrypt(r.ClientSecret)
+		if err != nil {
+			return "", fmt.Errorf("failed to encrypt SSO client secret (id=%d): %w", r.Id, err)
+		}
+		err = db.Table("oidc_settings").Where("id = ?", r.Id).Update("client_secret", encrypted).Error
+		if err != nil {
+			return "", fmt.Errorf("failed to update SSO client secret (id=%d): %w", r.Id, err)
+		}
+		updated++
+	}
+
+	return fmt.Sprintf("SSO client secret: %d encrypted, %d skipped", updated, skipped), nil
+}
+
+func migrateOIDCToDecrypted() (string, error) {
+	var records []struct {
+		Id           int64
+		ClientSecret string `gorm:"column:client_secret"`
+	}
+	err := db.Table("oidc_settings").Select("id, client_secret").Scan(&records).Error
+	if err != nil {
+		return "", fmt.Errorf("failed to query SSO settings: %w", err)
+	}
+
+	updated := 0
+	skipped := 0
+	failed := 0
+	for _, r := range records {
+		if r.ClientSecret == "" || !crypto.IsEncrypted(r.ClientSecret) {
+			skipped++
+			continue
+		}
+		decrypted, err := crypto.Decrypt(r.ClientSecret)
+		if err != nil {
+			// Skip and count: the value stays encrypted so disable can report
+			// it and stay in decrypt-only mode. Never log the value or key.
+			log.Warnf("encryption: could not decrypt SSO client secret (id=%d)", r.Id)
+			failed++
+			continue
+		}
+		err = db.Table("oidc_settings").Where("id = ?", r.Id).Update("client_secret", decrypted).Error
+		if err != nil {
+			return "", fmt.Errorf("failed to update SSO client secret (id=%d): %w", r.Id, err)
+		}
+		updated++
+	}
+
+	return fmt.Sprintf("SSO client secret: %d decrypted, %d skipped, %d could not be decrypted", updated, skipped, failed), nil
+}
+
+func dryRunOIDCEncrypt() (string, error) {
+	var records []struct {
+		ClientSecret string `gorm:"column:client_secret"`
+	}
+	err := db.Table("oidc_settings").Select("client_secret").Scan(&records).Error
+	if err != nil {
+		return "", fmt.Errorf("failed to query SSO settings: %w", err)
+	}
+
+	wouldEncrypt := 0
+	wouldSkip := 0
+	for _, r := range records {
+		if r.ClientSecret == "" || crypto.IsEncrypted(r.ClientSecret) {
+			wouldSkip++
+		} else {
+			wouldEncrypt++
+		}
+	}
+
+	return fmt.Sprintf("SSO client secret: %d would be encrypted, %d would be skipped", wouldEncrypt, wouldSkip), nil
+}
+
+func dryRunOIDCDecrypt() (string, error) {
+	var records []struct {
+		ClientSecret string `gorm:"column:client_secret"`
+	}
+	err := db.Table("oidc_settings").Select("client_secret").Scan(&records).Error
+	if err != nil {
+		return "", fmt.Errorf("failed to query SSO settings: %w", err)
+	}
+
+	wouldDecrypt := 0
+	wouldSkip := 0
+	for _, r := range records {
+		if r.ClientSecret == "" || !crypto.IsEncrypted(r.ClientSecret) {
+			wouldSkip++
+		} else {
+			wouldDecrypt++
+		}
+	}
+
+	return fmt.Sprintf("SSO client secret: %d would be decrypted, %d would be skipped", wouldDecrypt, wouldSkip), nil
 }

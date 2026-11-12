@@ -110,6 +110,12 @@ func main() {
 	if err = models.InitEncryptionAtStartup(); err != nil {
 		log.Fatal("Error initializing encryption: ", err)
 	}
+	if err = models.ReloadOIDC(); err != nil {
+		log.Warnf("sso: settings are invalid, sso is off: %v", err)
+	}
+	if conf.LegacyOIDCBlock {
+		log.Warn("config.json contains an \"oidc\" block; it is ignored. Configure SSO in Settings > SSO.")
+	}
 	if status, serr := models.GetEncryptionStatusInfo(); serr != nil {
 		log.Warnf("Could not read encryption status: %v", serr)
 	} else {

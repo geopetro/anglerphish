@@ -2,20 +2,21 @@ package auth
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	log "github.com/gophish/gophish/logger"
 	"golang.org/x/oauth2"
 )
-
-// OIDCClientSecretEnv is the environment variable for the OIDC client secret.
-const OIDCClientSecretEnv = "GOPHISH_OIDC_CLIENT_SECRET"
 
 const (
 	// UsernameFromEmailLocalPart maps firstlast@example.com to username firstlast.
@@ -30,11 +31,31 @@ var ErrOIDCAccessDenied = errors.New("access denied")
 // ErrOIDCDiscoveryFailed is returned when OIDC provider discovery fails.
 var ErrOIDCDiscoveryFailed = errors.New("oidc provider discovery failed")
 
+// Errors returned by CheckIssuer.
+var (
+	// ErrIssuerUnreachable is returned when the issuer cannot be contacted.
+	ErrIssuerUnreachable = errors.New("issuer is unreachable")
+	// ErrIssuerTLS is returned when the issuer's TLS certificate cannot be verified.
+	ErrIssuerTLS = errors.New("issuer TLS certificate could not be verified")
+	// ErrIssuerNotOIDC is returned when the issuer does not serve valid OIDC discovery.
+	ErrIssuerNotOIDC = errors.New("issuer is not a valid OIDC provider")
+)
+
+// activeOIDCClient holds the client used for SSO login; nil means SSO is off.
+var activeOIDCClient atomic.Pointer[OIDCClient]
+
+// SetActiveOIDCClient sets the active OIDC client. Pass nil to disable SSO.
+func SetActiveOIDCClient(c *OIDCClient) { activeOIDCClient.Store(c) }
+
+// ActiveOIDCClient returns the active OIDC client, or nil when SSO is off.
+func ActiveOIDCClient() *OIDCClient { return activeOIDCClient.Load() }
+
 // OIDCConfig is the runtime configuration for OIDC admin login.
 type OIDCConfig struct {
 	Enabled           bool
 	Issuer            string
 	ClientID          string
+	ClientSecret      string
 	RedirectURL       string
 	RequiredGroup     string
 	GroupsClaim       string
@@ -69,17 +90,52 @@ func ValidateOIDCConfig(cfg OIDCConfig) error {
 	}
 	switch {
 	case strings.TrimSpace(cfg.Issuer) == "":
-		return errors.New("oidc.issuer is required when oidc is enabled")
+		return errors.New("issuer is required when sso is enabled")
 	case strings.TrimSpace(cfg.ClientID) == "":
-		return errors.New("oidc.client_id is required when oidc is enabled")
+		return errors.New("client id is required when sso is enabled")
 	case strings.TrimSpace(cfg.RedirectURL) == "":
-		return errors.New("oidc.redirect_url is required when oidc is enabled")
+		return errors.New("redirect url is required when sso is enabled")
 	case strings.TrimSpace(cfg.RequiredGroup) == "":
-		return errors.New("oidc.required_group is required when oidc is enabled")
-	case os.Getenv(OIDCClientSecretEnv) == "":
-		return fmt.Errorf("%s is required when oidc is enabled", OIDCClientSecretEnv)
+		return errors.New("required group is required when sso is enabled")
+	case strings.TrimSpace(cfg.ClientSecret) == "":
+		return errors.New("client secret is required when sso is enabled")
 	}
 	return nil
+}
+
+// CheckIssuer verifies that issuer serves OIDC discovery. It returns nil,
+// ErrIssuerUnreachable, ErrIssuerTLS or ErrIssuerNotOIDC.
+func CheckIssuer(ctx context.Context, issuer string) error {
+	u, err := url.Parse(strings.TrimSpace(issuer))
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return ErrIssuerNotOIDC
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if _, err := oidc.NewProvider(ctx, strings.TrimSpace(issuer)); err != nil {
+		return classifyIssuerError(err)
+	}
+	return nil
+}
+
+func classifyIssuerError(err error) error {
+	var (
+		unknownAuth x509.UnknownAuthorityError
+		certInvalid x509.CertificateInvalidError
+		hostErr     x509.HostnameError
+		verifyErr   *tls.CertificateVerificationError
+		recordErr   tls.RecordHeaderError
+		urlErr      *url.Error
+		netErr      net.Error
+	)
+	switch {
+	case errors.As(err, &unknownAuth), errors.As(err, &certInvalid),
+		errors.As(err, &hostErr), errors.As(err, &verifyErr), errors.As(err, &recordErr):
+		return ErrIssuerTLS
+	case errors.As(err, &urlErr), errors.As(err, &netErr):
+		return ErrIssuerUnreachable
+	}
+	return ErrIssuerNotOIDC
 }
 
 // NewOIDCClient creates an OIDC client. Provider discovery is deferred until first use.
@@ -115,7 +171,7 @@ func (c *OIDCClient) init(ctx context.Context) error {
 	c.provider = provider
 	c.oauth2 = &oauth2.Config{
 		ClientID:     c.config.ClientID,
-		ClientSecret: os.Getenv(OIDCClientSecretEnv),
+		ClientSecret: c.config.ClientSecret,
 		RedirectURL:  c.config.RedirectURL,
 		Endpoint:     provider.Endpoint(),
 		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},

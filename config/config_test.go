@@ -76,3 +76,45 @@ func TestLoadConfig(t *testing.T) {
 		t.Fatalf("expected error when loading invalid config, but got %v", err)
 	}
 }
+
+func TestLoadConfigLegacyOIDCBlock(t *testing.T) {
+	f := createTemporaryConfig(t)
+	defer removeTemporaryConfig(t, f)
+	legacy := []byte(`{"db_name": "sqlite3", "migrations_prefix": "db/db_", "oidc": {"enabled": true}}`)
+	if _, err := f.Write(legacy); err != nil {
+		t.Fatalf("error writing config: %v", err)
+	}
+	conf, err := LoadConfig(f.Name())
+	if err != nil {
+		t.Fatalf("error loading config: %v", err)
+	}
+	if !conf.LegacyOIDCBlock {
+		t.Fatal("expected LegacyOIDCBlock to be true")
+	}
+
+	u := createTemporaryConfig(t)
+	defer removeTemporaryConfig(t, u)
+	if _, err := u.Write([]byte(`{"db_name": "sqlite3", "migrations_prefix": "db/db_", "OIDC": {"enabled": true}}`)); err != nil {
+		t.Fatalf("error writing config: %v", err)
+	}
+	conf, err = LoadConfig(u.Name())
+	if err != nil {
+		t.Fatalf("error loading config: %v", err)
+	}
+	if !conf.LegacyOIDCBlock {
+		t.Fatal("expected LegacyOIDCBlock to be true for uppercase key")
+	}
+
+	g := createTemporaryConfig(t)
+	defer removeTemporaryConfig(t, g)
+	if _, err := g.Write(validConfig); err != nil {
+		t.Fatalf("error writing config: %v", err)
+	}
+	conf, err = LoadConfig(g.Name())
+	if err != nil {
+		t.Fatalf("error loading config: %v", err)
+	}
+	if conf.LegacyOIDCBlock {
+		t.Fatal("expected LegacyOIDCBlock to be false")
+	}
+}

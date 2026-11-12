@@ -9,8 +9,10 @@ All notable changes to Anglerphish are documented here.
 ### Added
 - **Encryption management in the admin UI** - A new admin-only **Settings > DB Encryption** tab replaces the encryption CLI flags: generate a key (shown once, with paste-back confirmation) and turn encryption on without a restart, preview and run **Encrypt existing data**, preview decryption and **Disable encryption**, **Unlock** with a pasted key, and **Discard encrypted data** (locked only, confirmed by typing `DISCARD ENCRYPTED DATA`). The matching `/api/encryption/*` endpoints are documented in the API documentation. `ANGLERPHISH_ENCRYPTION_KEY` remains the long-term source of the key; the key is never stored.
 - **Locked state and banners** - If encrypted data exists but the key is missing or wrong, Anglerphish now starts in a locked state instead of failing. Admins see a locked banner (and a warning when the key is active for the session only); other users see a generic notice. Sending with a still-encrypted SMTP, SMS or IMAP credential is refused with `encryption key unavailable` until the key is provided.
+- **SSO settings in the admin UI** - A new admin-only **Settings > SSO** tab configures admin SSO (OIDC) without editing `config.json` or restarting. Changes apply live. It has provider presets for Microsoft Entra ID, Keycloak, Okta and Generic, and a **Test connection** button. The client secret is stored in the database and covered by DB encryption. The API documentation has step-by-step setup for each provider and documents the matching `/api/sso` endpoints.
 
 ### Changed
+- **SSO config.json and environment variable no longer read** - The `oidc` block in `config.json` and `GOPHISH_OIDC_CLIENT_SECRET` are ignored (a warning is logged if the block is present). This is a breaking change: existing SSO setups must re-enter their settings in **Settings > SSO** after upgrading.
 - **Encryption CLI flags removed** - `--generate-encryption-key`, `--migrate-encryption`, `--migrate-decryption`, `--encryption-status` and `--dry-run` no longer exist. This is a breaking change for any scripts that use them; use Settings > DB Encryption instead.
 
 ### Fixed

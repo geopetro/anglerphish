@@ -18,6 +18,8 @@
                 data-toggle="tab">Default Error Page</a></li>
         <li role="encryptionSettings"><a href="#encryptionSettings" aria-controls="encryptionSettings" role="tab"
                 data-toggle="tab">DB Encryption</a></li>
+        <li role="ssoSettings"><a href="#ssoSettings" aria-controls="ssoSettings" role="tab"
+                data-toggle="tab">SSO</a></li>
         {{- end}}
         <li role="globalVariablesSettings"><a href="#globalVariablesSettings" aria-controls="globalVariablesSettings" role="tab"
                 data-toggle="tab">Global Variables</a></li>
@@ -221,6 +223,16 @@
         {{end}}
         <!-- Encryption Settings End -->
 
+        <!-- SSO Settings Begin -->
+        {{if .ModifySystem}}
+        <div role="tabpanel" class="tab-pane" id="ssoSettings">
+            <br />
+            <div id="ssoContent"><p class="text-muted">Loading...</p></div>
+            <br />
+        </div>
+        {{end}}
+        <!-- SSO Settings End -->
+
         <!-- Global Variables Settings Begin -->
         <div role="tabpanel" class="tab-pane" id="globalVariablesSettings">
             <br />
@@ -343,6 +355,25 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-danger" id="encDisableConfirmBtn">Disable encryption</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SSO: enable confirmation modal -->
+<div class="modal fade" id="ssoEnableModal" tabindex="-1" role="dialog" aria-labelledby="ssoEnableModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="ssoEnableModalLabel">Enable SSO</h4>
+            </div>
+            <div class="modal-body">
+                <p>While SSO is on, only the admin account can sign in with a password. Make sure you know its password.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="ssoEnableConfirmBtn">Enable SSO</button>
             </div>
         </div>
     </div>

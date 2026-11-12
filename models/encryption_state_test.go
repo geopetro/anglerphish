@@ -3,8 +3,10 @@ package models
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
+	"github.com/gophish/gophish/auth"
 	"github.com/gophish/gophish/crypto"
 	check "gopkg.in/check.v1"
 )
@@ -451,4 +453,82 @@ func (s *ModelsSuite) TestStartupDeletesStaleCheckValue(c *check.C) {
 	defer os.Unsetenv(crypto.EncryptionKeyEnvVar)
 	c.Assert(InitEncryptionAtStartup(), check.IsNil)
 	c.Assert(encryptionStatus(c).State, check.Equals, EncryptionStateOn)
+}
+
+func (s *ModelsSuite) TestEncryptionReportIncludesOIDCSecret(c *check.C) {
+	defer crypto.Unload()
+	c.Assert(crypto.LoadKey(s.newTestKey(c), crypto.SourceSession), check.IsNil)
+	c.Assert(SaveOIDCSettings(validOIDCInput()), check.IsNil)
+	report, err := GetEncryptionReport()
+	c.Assert(err, check.IsNil)
+	c.Assert(report.OIDCSecrets.Encrypted, check.Equals, 1)
+	n, err := countEncryptedValues()
+	c.Assert(err, check.IsNil)
+	c.Assert(n, check.Equals, 1)
+}
+
+func (s *ModelsSuite) TestMigrateOIDCSecretRoundTrip(c *check.C) {
+	defer crypto.Unload()
+	c.Assert(SaveOIDCSettings(validOIDCInput()), check.IsNil)
+	c.Assert(rawOIDCSecret(c), check.Equals, "s")
+	c.Assert(crypto.LoadKey(s.newTestKey(c), crypto.SourceSession), check.IsNil)
+	_, err := MigrateToEncrypted()
+	c.Assert(err, check.IsNil)
+	c.Assert(strings.HasPrefix(rawOIDCSecret(c), crypto.EncryptedPrefix), check.Equals, true)
+	_, err = MigrateToDecrypted()
+	c.Assert(err, check.IsNil)
+	c.Assert(rawOIDCSecret(c), check.Equals, "s")
+}
+
+// lockedOIDCSetup stores an encrypted, enabled SSO secret, then puts
+// encryption in the Locked state. It returns the key.
+func (s *ModelsSuite) lockedOIDCSetup(c *check.C) string {
+	key := s.newTestKey(c)
+	c.Assert(crypto.LoadKey(key, crypto.SourceSession), check.IsNil)
+	c.Assert(writeCheckValue(), check.IsNil)
+	c.Assert(SaveOIDCSettings(validOIDCInput()), check.IsNil)
+	crypto.Unload()
+	SetEncryptionLockedForTest(true)
+	return key
+}
+
+func (s *ModelsSuite) TestOIDCUnavailableWhileLockedThenUnlock(c *check.C) {
+	defer resetEncryptionStateForTest()
+	key := s.lockedOIDCSetup(c)
+	c.Assert(ReloadOIDC(), check.IsNil)
+	c.Assert(auth.ActiveOIDCClient() == nil, check.Equals, true)
+	c.Assert(CurrentOIDCStatus(), check.Equals, OIDCStatusUnavailable)
+
+	c.Assert(UnlockEncryption(key), check.IsNil)
+	c.Assert(auth.ActiveOIDCClient() != nil, check.Equals, true)
+	c.Assert(CurrentOIDCStatus(), check.Equals, OIDCStatusEnabled)
+}
+
+func (s *ModelsSuite) TestDiscardDisablesOIDC(c *check.C) {
+	defer resetEncryptionStateForTest()
+	s.lockedOIDCSetup(c)
+	c.Assert(ReloadOIDC(), check.IsNil)
+
+	report, err := DiscardEncryptedData(DiscardConfirmationPhrase)
+	c.Assert(err, check.IsNil)
+	c.Assert(report.OIDCSecrets.Encrypted, check.Equals, 1)
+	got, err := GetOIDCSettings()
+	c.Assert(err, check.IsNil)
+	c.Assert(got.Enabled, check.Equals, false)
+	c.Assert(got.ClientSecret, check.Equals, "")
+	c.Assert(auth.ActiveOIDCClient() == nil, check.Equals, true)
+}
+
+func (s *ModelsSuite) TestVerifyKeyUsesOIDCSecret(c *check.C) {
+	defer crypto.Unload()
+	right, wrong := s.newTestKey(c), s.newTestKey(c)
+	c.Assert(crypto.LoadKey(right, crypto.SourceSession), check.IsNil)
+	c.Assert(SaveOIDCSettings(validOIDCInput()), check.IsNil)
+	crypto.Unload()
+	ok, err := verifyKey(right)
+	c.Assert(err, check.IsNil)
+	c.Assert(ok, check.Equals, true)
+	ok, err = verifyKey(wrong)
+	c.Assert(err, check.IsNil)
+	c.Assert(ok, check.Equals, false)
 }

@@ -639,7 +639,8 @@ $(document).ready(function () {
         ["SMTPPasswords", "SMTP passwords"],
         ["SMSConfigs", "SMS provider configs"],
         ["IMAPPasswords", "IMAP passwords"],
-        ["EventDetails", "Event details (captured data)"]
+        ["EventDetails", "Event details (captured data)"],
+        ["OIDCSecrets", "SSO client secret"]
     ];
     var ENC_LOCKED_REASONS = {
         missing_key: "No encryption key was provided at startup, but encrypted data exists.",
@@ -651,32 +652,43 @@ $(document).ready(function () {
         return (xhr && xhr.responseJSON && xhr.responseJSON.message) || fallback;
     }
 
+    function encCounts(report) {
+        var enc = 0, plain = 0;
+        $.each(ENC_FIELDS, function (_, f) {
+            var c = (report && report[f[0]]) || {};
+            enc += Number(c.Encrypted) || 0;
+            plain += Number(c.Plaintext) || 0;
+        });
+        return { encrypted: enc, plaintext: plain, total: enc + plain };
+    }
+
     function encFieldTable(report) {
         var rows = "";
         $.each(ENC_FIELDS, function (_, f) {
             var c = (report && report[f[0]]) || {};
-            rows += "<tr><td>" + f[1] + "</td><td>" + (c.Encrypted || 0) + "</td><td>" +
-                (c.Plaintext || 0) + "</td><td>" + (c.Empty || 0) + "</td><td>" + (c.Total || 0) + "</td></tr>";
+            rows += "<tr><td>" + f[1] + "</td><td>" + (Number(c.Encrypted) || 0) + "</td><td>" +
+                (Number(c.Plaintext) || 0) + "</td></tr>";
         });
-        return '<table class="table table-striped table-condensed"><thead><tr><th>Field</th><th>Encrypted</th>' +
-            '<th>Plaintext</th><th>Empty</th><th>Total</th></tr></thead><tbody>' + rows + '</tbody></table>';
+        return '<table class="table table-condensed enc-table"><thead><tr><th>Field</th><th>Encrypted</th>' +
+            '<th>Not encrypted</th></tr></thead><tbody>' + rows + '</tbody></table>';
     }
 
-    function encHeader(cls, icon, title, body) {
-        return '<div class="alert ' + cls + ' clearfix" style="padding: 15px 20px;">' +
-            '<i class="fa ' + icon + ' fa-2x pull-left" style="margin: 4px 15px 0 0;"></i>' +
-            '<h4 style="margin: 0 0 4px 0;">' + title + '</h4>' +
-            '<div>' + body + '</div></div>';
+    // One row of the encryption panel. tone colours the icon only
+    // (success, warning, danger, info or muted).
+    function encRow(tone, icon, title, text, side, extra) {
+        return '<div class="enc-row">' +
+            '<div class="enc-row-main">' +
+            (icon ? '<span class="enc-icon enc-' + tone + '"><i class="fa ' + icon + '"></i></span>' : '') +
+            '<div class="enc-row-text"><div class="enc-row-title">' + title + '</div>' +
+            (text ? '<div class="text-muted">' + text + '</div>' : '') + '</div>' +
+            (side ? '<div class="enc-row-side">' + side + '</div>' : '') +
+            '</div>' + (extra || '') + '</div>';
     }
 
-    function encSummary(report) {
-        var enc = 0, total = 0;
-        $.each(ENC_FIELDS, function (_, f) {
-            var c = (report && report[f[0]]) || {};
-            enc += Number(c.Encrypted) || 0;
-            total += (Number(c.Encrypted) || 0) + (Number(c.Plaintext) || 0);
-        });
-        return enc + ' of ' + total + ' stored value(s) encrypted.';
+    function encDetailsRow(report) {
+        return encRow("muted", "fa-table", "Stored data", "Encrypted and unencrypted values per field.",
+            '<a href="#encDetails" data-toggle="collapse" class="btn btn-default btn-sm">Show</a>',
+            '<div id="encDetails" class="collapse enc-row-extra">' + encFieldTable(report) + '</div>');
     }
 
     function encResultsHtml(results) {
@@ -729,56 +741,60 @@ $(document).ready(function () {
         }
         if (encDisabledNotice && st.state === "off") {
             h += '<div class="alert alert-warning"><i class="fa fa-info-circle"></i> ' +
-                'Encryption is off. Remove ANGLERPHISH_ENCRYPTION_KEY from your environment or secret manager — ' +
-                'if it is still set at the next restart, encryption will turn back on with that key.</div>';
+                'Encryption is off. Remove ANGLERPHISH_ENCRYPTION_KEY from your environment, or encryption turns back on with that key at the next restart.</div>';
         }
+        var n = encCounts(st.report);
+        var rows = "";
         if (st.state === "off") {
-            h += encHeader("alert-info", "fa-unlock-alt", "Encryption is off",
-                'Turning it on encrypts SMTP passwords, SMS provider configs, IMAP passwords and captured event details at rest.') +
-                '<button class="btn btn-primary" id="encGenerateBtn"' + dis + '><i class="fa fa-key"></i> Generate key</button>';
+            rows += encRow("info", "fa-unlock-alt", "Encryption is off",
+                "Protect passwords, provider credentials and captured data in the database.",
+                '<button class="btn btn-primary" id="encGenerateBtn"' + dis + '><i class="fa fa-key"></i> Generate key</button>');
         } else if (st.state === "on") {
-            if (st.source === "environment") {
-                h += encHeader("alert-success", "fa-lock", "Encryption is on",
-                    'Key loaded from the <strong>environment</strong>. ' + encSummary(st.report));
-            } else {
-                h += encHeader("alert-warning", "fa-lock", "Encryption is on &mdash; session key",
-                    'The key is held in memory only. Set <code>ANGLERPHISH_ENCRYPTION_KEY</code> before the next restart or the system will start locked. ' +
-                    encSummary(st.report));
+            var pct = n.total ? Math.floor(n.encrypted * 100 / n.total) : 100;
+            var session = st.source !== "environment";
+            rows += encRow((session || n.plaintext > 0) ? "warning" : "success", "fa-lock", "Encryption is on",
+                session ? "Key held for this session only." : "Key loaded from the environment.",
+                '<span class="enc-percent">' + pct + '%</span>',
+                '<div class="enc-row-extra"><div class="progress enc-progress"><div class="progress-bar progress-bar-' +
+                (pct === 100 ? 'success' : 'warning') + '" style="width: ' + pct + '%;"></div></div>' +
+                '<div class="text-muted">' + n.encrypted + ' of ' + n.total + ' stored values encrypted</div></div>');
+            if (session) {
+                rows += encRow("warning", "fa-key", "Save the key",
+                    "Add it to your environment as <code>ANGLERPHISH_ENCRYPTION_KEY</code>. Otherwise it is lost on restart and Anglerphish starts locked.", "");
             }
-            h += encFieldTable(st.report);
-            if (st.plaintext_count > 0) {
-                h += '<div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> ' + st.plaintext_count +
-                    ' value(s) are still stored as plaintext. Run <strong>Encrypt existing data</strong> to encrypt them.</div>';
+            if (n.plaintext > 0) {
+                rows += encRow("info", "fa-database", n.plaintext + " value(s) not encrypted yet",
+                    "Only new data is encrypted automatically.",
+                    '<button class="btn btn-default" id="encPreviewEncryptBtn"' + dis + '>Preview</button> ' +
+                    '<button class="btn btn-primary" id="encEncryptBtn"' + dis + '>Encrypt existing data</button>');
             }
-            h += '<div id="encResults"></div>' +
-                '<div class="row">' +
-                '<div class="col-sm-6"><h5><strong>Existing data</strong></h5>' +
-                '<button class="btn btn-default" id="encPreviewEncryptBtn"' + dis + '><i class="fa fa-eye"></i> Preview encryption</button> &nbsp;' +
-                '<button class="btn btn-primary" id="encEncryptBtn"' + dis + '><i class="fa fa-lock"></i> Encrypt existing data</button></div>' +
-                '<div class="col-sm-6"><h5><strong>Turn off</strong></h5>' +
-                '<button class="btn btn-default" id="encPreviewDecryptBtn"' + dis + '><i class="fa fa-eye"></i> Preview decryption</button> &nbsp;' +
-                '<button class="btn btn-danger" id="encDisableBtn"' + dis + '><i class="fa fa-unlock-alt"></i> Disable encryption</button></div>' +
-                '</div>';
+            rows += '<div id="encResults"></div>';
+            rows += encDetailsRow(st.report);
+            rows += encRow("muted", "fa-power-off", "Turn off encryption", "Decrypts all stored data and unloads the key.",
+                '<button class="btn btn-default" id="encPreviewDecryptBtn"' + dis + '>Preview</button> ' +
+                '<button class="btn btn-danger" id="encDisableBtn"' + dis + '>Disable encryption</button>');
         } else if (st.state === "locked") {
-            h += encHeader("alert-danger", "fa-exclamation-circle", "Encryption is locked",
+            rows += encRow("danger", "fa-exclamation-circle", "Encryption is locked",
                 escapeHtml(ENC_LOCKED_REASONS[st.locked_reason] || "The encryption key is unavailable.") +
-                (st.plaintext_count > 0 ? ' ' + Number(st.plaintext_count) + ' value(s) are stored as plaintext.' : '')) +
-                '<div class="form-group"><label for="encUnlockKey" class="control-label">Encryption key</label>' +
-                '<input type="password" class="form-control" id="encUnlockKey" autocomplete="off" spellcheck="false" style="max-width: 480px;" /></div>' +
-                '<button class="btn btn-primary" id="encUnlockBtn"' + dis + '><i class="fa fa-unlock"></i> Unlock</button>' +
-                '<hr><a href="#encDiscardSection" data-toggle="collapse" class="text-danger">Discard encrypted data</a>' +
-                '<div id="encDiscardSection" class="collapse"><br /><div class="alert alert-danger">' +
-                '<p><i class="fa fa-exclamation-triangle"></i> This permanently clears every encrypted value. It cannot be undone. The following will be lost:</p>' +
-                encFieldTable(st.report) +
+                (st.plaintext_count > 0 ? ' ' + Number(st.plaintext_count) + ' value(s) were saved unencrypted meanwhile.' : ''), "",
+                '<div class="enc-row-extra"><div class="enc-inline">' +
+                '<input type="password" class="form-control" id="encUnlockKey" autocomplete="off" spellcheck="false" placeholder="Paste the encryption key" />' +
+                '<button class="btn btn-primary" id="encUnlockBtn"' + dis + '>Unlock</button></div></div>');
+            rows += encDetailsRow(st.report);
+            rows += encRow("muted", "fa-trash", "Key lost?", "Discarding deletes all encrypted data for good.",
+                '<a href="#encDiscardSection" data-toggle="collapse" class="btn btn-default">Discard&hellip;</a>',
+                '<div id="encDiscardSection" class="collapse enc-row-extra">' +
                 '<p>Type <code>' + ENC_DISCARD_PHRASE + '</code> to confirm.</p>' +
-                '<input type="text" class="form-control" id="encDiscardPhrase" autocomplete="off" style="max-width: 480px;" /><br />' +
-                '<button class="btn btn-danger" id="encDiscardBtn" disabled><i class="fa fa-trash"></i> Discard encrypted data</button></div></div>';
+                '<div class="enc-inline"><input type="text" class="form-control" id="encDiscardPhrase" autocomplete="off" />' +
+                '<button class="btn btn-danger" id="encDiscardBtn" disabled>Discard encrypted data</button></div></div>');
         } else if (st.state === "disabling") {
-            h += encHeader("alert-warning", "fa-exclamation-triangle", "Encryption is being disabled",
-                'Some values could not be decrypted. Retry to finish.') +
-                encResultsHtml(encLastResults) + encFieldTable(st.report) +
-                '<button class="btn btn-danger" id="encRetryDisableBtn"' + dis + '>Retry disable</button>';
+            rows += encRow("warning", "fa-exclamation-triangle", "Encryption is being disabled",
+                "Some values could not be decrypted yet.",
+                '<button class="btn btn-danger" id="encRetryDisableBtn"' + dis + '>Retry disable</button>',
+                encLastResults && encLastResults.length ? '<div class="enc-row-extra">' + encResultsHtml(encLastResults) + '</div>' : '');
+            rows += encDetailsRow(st.report);
         }
+        h += '<div class="enc-panel">' + rows + '</div>';
         $("#encryptionContent").html(h);
     }
 
@@ -941,5 +957,275 @@ $(document).ready(function () {
             .fail(function (xhr) {
                 errorFlash(encMessage(xhr, "Failed to discard encrypted data"));
             });
+    });
+
+    // ── SSO ────────────────────────────────────────────────────────────────
+    var ssoStatus = null;       // status string from the last load/save
+    var ssoPreset = "generic";  // preset whose defaults the fields may still hold
+    var SSO_PRESETS = {
+        entra:    { username_from_email: "local_part", allow_unverified_email: true },
+        keycloak: { username_from_email: "local_part", allow_unverified_email: false },
+        okta:     { username_from_email: "local_part", allow_unverified_email: false },
+        generic:  { username_from_email: "local_part", allow_unverified_email: false }
+    };
+    var SSO_ISSUER_HINTS = {
+        entra: "https://login.microsoftonline.com/<tenant-id>/v2.0",
+        keycloak: "https://<host>/realms/<realm>",
+        okta: "https://<your-org>.okta.com/oauth2/default",
+        generic: "https://idp.example.com"
+    };
+    var SSO_GROUP_HINTS = {
+        entra: " Use the group's Object ID (GUID), not its name.",
+        keycloak: " Group name, the leading / is optional.",
+        okta: "",
+        generic: ""
+    };
+    var SSO_TIPS = {
+        ssoEnabledTip: "While SSO is on, only the admin account can sign in with a password. Users must already exist in Anglerphish.",
+        ssoClientIdTip: "The client (application) ID registered with your identity provider.",
+        ssoClientSecretTip: "Write-only: it is never shown again. Leave empty to keep the stored secret.",
+        ssoRedirectTip: "Register this URL with your identity provider.",
+        ssoGroupsClaimTip: "The token claim that lists the user's groups. Leave empty to use groups, which most providers send.",
+        ssoUsernameMapTip: "How the email from your provider maps to an existing Anglerphish username."
+    };
+
+    // ssoTip returns a tooltip icon; its text is set after render with ssoSetTip.
+    function ssoTip(id) {
+        return ' <i class="fa fa-question-circle" id="' + id + '" data-toggle="tooltip" data-placement="right"></i>';
+    }
+
+    function ssoSetTip(id, text) {
+        $("#" + id).attr("title", text).tooltip("fixTitle");
+    }
+
+    function ssoStatusLine(st, locked) {
+        if (st === "enabled") {
+            return '<span class="label label-success">Enabled</span>';
+        }
+        if (st === "unavailable") {
+            return '<span class="label label-danger">Unavailable</span> <span class="text-danger">' +
+                (locked ? "Client secret unavailable while encryption is locked" : "Saved settings are invalid, SSO is off") + '</span>';
+        }
+        return '<span class="label label-default">Disabled</span>';
+    }
+
+    function ssoApplyHints(provider) {
+        $("#ssoIssuer").attr("placeholder", SSO_ISSUER_HINTS[provider] || SSO_ISSUER_HINTS.generic);
+        ssoSetTip("ssoIssuerTip", "The issuer URL from your identity provider's OIDC settings. The example in the field shows the format for " +
+            $("#ssoProvider option:selected").text() + ".");
+        ssoSetTip("ssoGroupTip", "Users must be in this group to sign in." + (SSO_GROUP_HINTS[provider] || ""));
+        ssoSetTip("ssoUnverifiedTip", "Skip the email_verified check. " + (provider === "entra" ?
+            "Microsoft Entra ID never sends the email_verified claim, so this must be on for Entra." :
+            "Only needed for providers that don't send the email_verified claim."));
+    }
+
+    // A field is only overwritten when it is empty or still holds the
+    // previous preset's default, so values the admin typed are kept.
+    function ssoApplyPreset(next) {
+        var prev = SSO_PRESETS[ssoPreset] || SSO_PRESETS.generic;
+        var def = SSO_PRESETS[next] || SSO_PRESETS.generic;
+        var $map = $("#ssoUsernameMap");
+        if ($map.val() === "" || $map.val() === prev.username_from_email) {
+            $map.val(def.username_from_email);
+        }
+        var $unv = $("#ssoAllowUnverified");
+        if ($unv.prop("checked") === prev.allow_unverified_email) {
+            $unv.prop("checked", def.allow_unverified_email);
+        }
+        ssoPreset = next;
+        ssoApplyHints(next);
+    }
+
+    function renderSSO(d) {
+        ssoStatus = d.status;
+        ssoPreset = SSO_PRESETS[d.provider] ? d.provider : "generic";
+        var redirect = d.redirect_url || (window.location.origin + "/auth/oidc/callback");
+        var secretPh = d.secret_set ? "•••• set — leave empty to keep" : "";
+        var opts = "";
+        $.each([["entra", "Microsoft Entra ID"], ["keycloak", "Keycloak"], ["okta", "Okta"], ["generic", "Generic"]], function (_, o) {
+            opts += '<option value="' + o[0] + '"' + (o[0] === ssoPreset ? " selected" : "") + ">" + o[1] + "</option>";
+        });
+        var fullEmail = d.username_from_email === "full_email";
+        var h = "";
+        if (d.encryption_locked) {
+            h += '<div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> ' +
+                'Encryption is locked. A new client secret saved now is stored unencrypted until you unlock. ' +
+                '<a href="/settings#encryptionSettings" id="ssoEncLink">DB Encryption settings</a></div>';
+        } else if (!d.encryption_enabled) {
+            h += '<div class="alert alert-warning"><i class="fa fa-exclamation-triangle"></i> ' +
+                'Database encryption is off. The client secret is stored unencrypted. ' +
+                '<a href="/settings#encryptionSettings" id="ssoEncLink">DB Encryption settings</a></div>';
+        }
+        h += '<div class="row"><div class="col-md-12">' +
+            '<div class="sso-enable-row">' +
+            '<div class="checkbox checkbox-primary"><input type="checkbox" id="ssoEnabled"' + (d.enabled ? " checked" : "") + '><label for="ssoEnabled"><strong>Enable SSO</strong>' + ssoTip("ssoEnabledTip") + '</label></div>' +
+            '<div class="sso-status">' + ssoStatusLine(d.status, d.encryption_locked) + '</div>' +
+            '</div>' +
+
+            '<div class="row">' +
+            '<div class="col-lg-6">' +
+            '<div class="panel panel-default">' +
+            '<div class="panel-heading"><h3 class="panel-title">Identity provider</h3></div>' +
+            '<div class="panel-body">' +
+            '<div class="form-group"><label class="control-label" for="ssoProvider">Provider</label>' +
+            '<select class="form-control" id="ssoProvider">' + opts + '</select></div>' +
+            '<div class="form-group"><label class="control-label" for="ssoIssuer">Issuer URL</label>' + ssoTip("ssoIssuerTip") +
+            '<input type="text" class="form-control" id="ssoIssuer" autocomplete="off" spellcheck="false"></div>' +
+            '<div class="form-group"><label class="control-label" for="ssoClientId">Client ID</label>' + ssoTip("ssoClientIdTip") +
+            '<input type="text" class="form-control" id="ssoClientId" autocomplete="off" spellcheck="false"></div>' +
+            '<div class="form-group"><label class="control-label" for="ssoClientSecret">Client secret</label>' + ssoTip("ssoClientSecretTip") +
+            '<div class="input-group"><input type="password" class="form-control" id="ssoClientSecret" autocomplete="new-password">' +
+            '<span class="input-group-btn"><button class="btn btn-default" type="button" id="ssoSecretToggle" title="Show what you typed"><i class="fa fa-eye"></i></button></span></div></div>' +
+            '<div class="form-group sso-last"><label class="control-label" for="ssoRedirectUrl">Redirect URL</label>' + ssoTip("ssoRedirectTip") +
+            '<div class="input-group"><input type="text" class="form-control" id="ssoRedirectUrl" autocomplete="off" spellcheck="false">' +
+            '<span class="input-group-btn"><button class="btn btn-default" type="button" id="ssoCopyRedirect"><i class="fa fa-copy"></i> Copy</button></span></div></div>' +
+            '</div>' +
+            '<div class="panel-footer">' +
+            '<button class="btn btn-default btn-sm" type="button" id="ssoTestBtn"><i class="fa fa-plug"></i> Test connection</button> ' +
+            '<span id="ssoTestResult" class="text-muted">Checks that the issuer URL is reachable and speaks OIDC.</span>' +
+            '</div></div></div>' +
+
+            '<div class="col-lg-6">' +
+            '<div class="panel panel-default">' +
+            '<div class="panel-heading"><h3 class="panel-title">User access</h3></div>' +
+            '<div class="panel-body">' +
+            '<div class="form-group"><label class="control-label" for="ssoRequiredGroup">Required group</label>' + ssoTip("ssoGroupTip") +
+            '<input type="text" class="form-control" id="ssoRequiredGroup" autocomplete="off" spellcheck="false"></div>' +
+            '<div class="form-group"><label class="control-label" for="ssoGroupsClaim">Groups claim</label>' + ssoTip("ssoGroupsClaimTip") +
+            '<input type="text" class="form-control" id="ssoGroupsClaim" placeholder="groups" autocomplete="off" spellcheck="false"></div>' +
+            '<div class="form-group"><label class="control-label" for="ssoUsernameMap">Username mapping</label>' + ssoTip("ssoUsernameMapTip") +
+            '<select class="form-control" id="ssoUsernameMap">' +
+            '<option value="local_part"' + (fullEmail ? "" : " selected") + '>Part before the @ (jane.doe@example.com becomes jane.doe)</option>' +
+            '<option value="full_email"' + (fullEmail ? " selected" : "") + '>Full email address (jane.doe@example.com)</option>' +
+            '</select></div>' +
+            '<div class="checkbox checkbox-primary sso-last"><input type="checkbox" id="ssoAllowUnverified"' + (d.allow_unverified_email ? " checked" : "") + '><label for="ssoAllowUnverified">Allow unverified email' + ssoTip("ssoUnverifiedTip") + '</label></div>' +
+            '</div></div></div>' +
+            '</div>' +
+
+            '<div class="text-right">' +
+            '<button class="btn btn-default" type="button" id="ssoCancelBtn">Cancel</button> ' +
+            '<button class="btn btn-primary" type="button" id="ssoSaveBtn"><i class="fa fa-save"></i> Save changes</button>' +
+            '</div>' +
+            '</div></div>';
+        $("#ssoContent").html(h);
+        $("#ssoIssuer").val(d.issuer || "");
+        $("#ssoClientId").val(d.client_id || "");
+        $("#ssoClientSecret").attr("placeholder", secretPh);
+        $("#ssoRedirectUrl").val(redirect);
+        $("#ssoRequiredGroup").val(d.required_group || "");
+        $("#ssoGroupsClaim").val(d.groups_claim || "");
+        $.each(SSO_TIPS, ssoSetTip);
+        ssoApplyHints(ssoPreset);
+    }
+
+    function loadSSO() {
+        api.sso.get()
+            .done(renderSSO)
+            .fail(function (xhr) {
+                errorFlash(escapeHtml(encMessage(xhr, "Failed to load SSO settings")));
+            });
+    }
+
+    $('a[href="#ssoSettings"]').on("shown.bs.tab", loadSSO);
+    if (window.location.hash === "#ssoSettings") {
+        loadSSO();
+    }
+
+    $("#ssoContent").on("change", "#ssoProvider", function () {
+        ssoApplyPreset($(this).val());
+    });
+
+    $("#ssoContent").on("click", "#ssoSecretToggle", function () {
+        var $in = $("#ssoClientSecret");
+        var show = $in.attr("type") === "password";
+        $in.attr("type", show ? "text" : "password");
+        $(this).find("i").toggleClass("fa-eye", !show).toggleClass("fa-eye-slash", show);
+    });
+
+    // Cancel discards unsaved edits by reloading the stored settings.
+    $("#ssoContent").on("click", "#ssoCancelBtn", loadSSO);
+
+    $("#ssoContent").on("click", "#ssoEncLink", function (e) {
+        e.preventDefault();
+        $('a[href="#encryptionSettings"]').tab("show");
+    });
+
+    $("#ssoContent").on("click", "#ssoCopyRedirect", function () {
+        var input = document.getElementById("ssoRedirectUrl");
+        var $btn = $("#ssoCopyRedirect");
+        input.select();
+        function copied() {
+            $btn.html('<i class="fa fa-check"></i> Copied');
+            $btn.addClass("btn-success").removeClass("btn-default");
+            setTimeout(function () {
+                $btn.html('<i class="fa fa-copy"></i> Copy');
+                $btn.addClass("btn-default").removeClass("btn-success");
+            }, 2000);
+        }
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(input.value).then(copied, function () {
+                    errorFlash("Could not copy");
+                });
+            } else {
+                document.execCommand("copy");
+                copied();
+            }
+        } catch (err) {
+            errorFlash("Failed to copy URL");
+        }
+    });
+
+    $("#ssoContent").on("click", "#ssoTestBtn", function () {
+        var $out = $("#ssoTestResult");
+        $out.attr("class", "text-muted").text("Testing...");
+        api.sso.test($("#ssoIssuer").val().trim())
+            .done(function (data) {
+                $out.attr("class", "text-success").text(data.message || "Issuer found.");
+            })
+            .fail(function (xhr) {
+                $out.attr("class", "text-danger").text(encMessage(xhr, "Test failed"));
+            });
+    });
+
+    function ssoSave() {
+        var payload = {
+            enabled: $("#ssoEnabled").prop("checked"),
+            provider: $("#ssoProvider").val(),
+            issuer: $("#ssoIssuer").val().trim(),
+            client_id: $("#ssoClientId").val().trim(),
+            client_secret: $("#ssoClientSecret").val(),
+            redirect_url: $("#ssoRedirectUrl").val().trim(),
+            required_group: $("#ssoRequiredGroup").val().trim(),
+            groups_claim: $("#ssoGroupsClaim").val().trim(),
+            username_from_email: $("#ssoUsernameMap").val(),
+            allow_unverified_email: $("#ssoAllowUnverified").prop("checked")
+        };
+        var $btns = $("#ssoSaveBtn, #ssoEnableConfirmBtn").prop("disabled", true);
+        api.sso.put(payload)
+            .always(function () {
+                $btns.prop("disabled", false);
+            })
+            .done(function (data) {
+                renderSSO(data);
+                successFlash("SSO settings saved");
+            })
+            .fail(function (xhr) {
+                var msg = encMessage(xhr, "Failed to save SSO settings");
+                errorFlash(escapeHtml(msg.replace(/^invalid sso settings: /, "")));
+            });
+    }
+
+    $("#ssoContent").on("click", "#ssoSaveBtn", function () {
+        if ($("#ssoEnabled").prop("checked") && ssoStatus !== "enabled") {
+            $("#ssoEnableModal").modal("show");
+            return;
+        }
+        ssoSave();
+    });
+
+    $("#ssoEnableConfirmBtn").click(function () {
+        $("#ssoEnableModal").modal("hide");
+        ssoSave();
     });
 });

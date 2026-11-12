@@ -960,7 +960,8 @@ Response: 200 OK
     "SMTPPasswords": {"Total": 2, "Encrypted": 2, "Plaintext": 0, "Empty": 0},
     "SMSConfigs":    {"Total": 1, "Encrypted": 1, "Plaintext": 0, "Empty": 0},
     "IMAPPasswords": {"Total": 1, "Encrypted": 1, "Plaintext": 0, "Empty": 0},
-    "EventDetails":  {"Total": 40, "Encrypted": 12, "Plaintext": 0, "Empty": 28}
+    "EventDetails":  {"Total": 40, "Encrypted": 12, "Plaintext": 0, "Empty": 28},
+    "OIDCSecrets":   {"Total": 1, "Encrypted": 1, "Plaintext": 0, "Empty": 0}
   },
   "plaintext_count": 0,
   "migration_running": false
@@ -1018,7 +1019,8 @@ Response: 200 OK
     "SMTP passwords: 2 encrypted, 0 skipped",
     "SMS provider configs: 1 encrypted, 0 skipped",
     "IMAP passwords: 1 encrypted, 0 skipped",
-    "Event details (captured data): 12 encrypted, 0 skipped"
+    "Event details (captured data): 12 encrypted, 0 skipped",
+    "SSO client secret: 1 encrypted, 0 skipped"
   ],
   "status": { ... }
 }</code></pre>
@@ -1043,6 +1045,99 @@ Response: 200 OK
 {
   "discarded": { ... },
   "status": { ... }
+}</code></pre>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SSO API -->
+    <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="ssoApiHeading">
+            <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" href="#ssoApiCollapse" aria-expanded="false" aria-controls="ssoApiCollapse">
+                    <i class="fa fa-sign-in"></i> SSO API
+                    <i class="fa fa-chevron-down pull-right"></i>
+                </a>
+            </h4>
+        </div>
+        <div id="ssoApiCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="ssoApiHeading">
+            <div class="panel-body">
+            <p>Manage admin SSO (OIDC) settings. See the <strong>Admin SSO (OIDC)</strong> tab for how SSO works.</p>
+            <ul>
+                <li>All endpoints require the <em>Modify System</em> permission. Other users get <code>403</code>.</li>
+                <li>Changes apply immediately, with no restart.</li>
+                <li>The client secret is never returned. <code>secret_set</code> reports whether one is stored.</li>
+                <li>Errors return <code>{"success": false, "message": "..."}</code>.</li>
+            </ul>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/sso</strong>
+                <p>Returns the current SSO settings. Sent with <code>Cache-Control: no-store</code>. <a class="example-toggle" data-toggle="collapse" data-target="#ssoGetExample"><small>[Show Example]</small></a></p>
+                <div id="ssoGetExample" class="collapse">
+                <pre><code>Response: 200 OK
+{
+  "enabled": true,
+  "provider": "keycloak",
+  "issuer": "https://keycloak.example.com/realms/your-realm",
+  "client_id": "anglerphish-admin",
+  "redirect_url": "https://admin.example.com:3333/auth/oidc/callback",
+  "required_group": "anglerphish-admins",
+  "groups_claim": "groups",
+  "username_from_email": "local_part",
+  "allow_unverified_email": false,
+  "secret_set": true,
+  "status": "enabled",
+  "encryption_enabled": true,
+  "encryption_locked": false
+}</code></pre>
+                <p><code>status</code> is <code>enabled</code>, <code>disabled</code> or <code>unavailable</code> (enabled but unable to start, for example because the client secret is locked). <code>encryption_enabled</code> and <code>encryption_locked</code> report whether database encryption is on and whether it is locked.</p>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-warning">PUT</span> /api/sso</strong>
+                <p>Saves the SSO settings and applies them live. An empty <code>client_secret</code> keeps the stored one. Returns the same body as <code>GET</code>. <code>400</code> invalid settings. <code>500</code> the settings could not be saved. <a class="example-toggle" data-toggle="collapse" data-target="#ssoPutExample"><small>[Show Example]</small></a></p>
+                <div id="ssoPutExample" class="collapse">
+                <pre><code>Request:
+{
+  "enabled": true,
+  "provider": "keycloak",
+  "issuer": "https://keycloak.example.com/realms/your-realm",
+  "client_id": "anglerphish-admin",
+  "client_secret": "&lt;secret, or empty to keep the stored one&gt;",
+  "redirect_url": "https://admin.example.com:3333/auth/oidc/callback",
+  "required_group": "anglerphish-admins",
+  "groups_claim": "groups",
+  "username_from_email": "local_part",
+  "allow_unverified_email": false
+}
+
+Response: 200 OK
+{ ... }</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/sso/test</strong>
+                <p>Checks that an issuer serves OIDC discovery. It does not check the client ID, secret or a full login. Returns <code>200</code> on success, <code>400</code> with a <code>message</code> otherwise. <a class="example-toggle" data-toggle="collapse" data-target="#ssoTestExample"><small>[Show Example]</small></a></p>
+                <div id="ssoTestExample" class="collapse">
+                <pre><code>Request:
+{
+  "issuer": "https://keycloak.example.com/realms/your-realm"
+}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Issuer found. Sign in with SSO in a private window to check the full login."
+}
+
+Response: 400 Bad Request
+{
+  "success": false,
+  "message": "Could not reach the issuer"
 }</code></pre>
                 </div>
             </div>
@@ -1203,83 +1298,147 @@ Response: 200 OK
         <!-- Tab 3: Database Encryption -->
         <div role="tabpanel" class="tab-pane" id="database-encryption">
             <h3><i class="fa fa-lock"></i> Database Encryption</h3>
-            <ul>
-                <li>Anglerphish can encrypt sensitive database fields with AES-256-GCM.</li>
-                <li>Encryption is optional, and encrypted and plaintext values can coexist.</li>
-                <li>Administrators manage it from <strong>Settings &rarr; DB Encryption</strong>.</li>
-                <li>Other users don't see the tab.</li>
-            </ul>
+            <p>Encrypt sensitive data in the database. Manage it in <strong>Settings &rarr; DB Encryption</strong>.</p>
 
             <div class="alert alert-warning">
-                <i class="fa fa-exclamation-triangle"></i> <strong>Keep a copy of your key.</strong> Without it, encrypted values cannot be recovered.
+                <i class="fa fa-exclamation-triangle"></i> Keep a copy of your key. Without it, encrypted data can't be recovered.
             </div>
 
             <h4>What Gets Encrypted</h4>
-            <table class="table table-bordered table-striped">
-                <thead>
-                    <tr>
-                        <th>Model</th>
-                        <th>Field</th>
-                        <th>Contents</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr><td>SMTP (Sending Profiles)</td><td><code>password</code></td><td>SMTP server password</td></tr>
-                    <tr><td>SMS (SMS Profiles)</td><td><code>provider_config</code></td><td>Twilio/Vonage API credentials</td></tr>
-                    <tr><td>IMAP</td><td><code>password</code></td><td>IMAP server password</td></tr>
-                    <tr><td>Events (Campaign Results)</td><td><code>details</code></td><td>Credentials and form data submitted by targets</td></tr>
-                </tbody>
-            </table>
+            <ul>
+                <li>SMTP, SMS and IMAP passwords</li>
+                <li>Data submitted by targets</li>
+                <li>The SSO client secret</li>
+            </ul>
 
-            <h4>Turning Encryption On</h4>
-            <p>Choose one of two ways. Either way, the key's long-term home is the <code>ANGLERPHISH_ENCRYPTION_KEY</code> environment variable &mdash; never <code>config.json</code>, the database or the application folder.</p>
-            <ol>
-                <li><strong>Generate the key in the platform.</strong> Click <em>Generate key</em>, save the key (it is shown only once), and paste it back to confirm. Encryption turns on immediately, no restart. Then add the key to your environment or secret manager &mdash; until you do, a banner reminds you that the key lives only in memory and will be lost on restart.</li>
-                <li><strong>Bring your own key.</strong> Generate a 32-byte base64url key (44 characters), set it as <code>ANGLERPHISH_ENCRYPTION_KEY</code> (by hand or via your KMS / secret manager) and restart. The tab then shows <em>On (environment)</em>.
-                    <pre><code>openssl rand -base64 32 | tr '+/' '-_'</code></pre>
+            <h4>Turn It On</h4>
+            <ul class="nav nav-pills doc-pills" role="tablist">
+                <li role="presentation" class="active">
+                    <a href="#enc-doc-generate" aria-controls="enc-doc-generate" role="tab" data-toggle="tab"><i class="fa fa-magic"></i> Generate in Anglerphish</a>
                 </li>
-            </ol>
-            <p>Turning encryption on only encrypts <em>new</em> writes. To encrypt values already stored, click <em>Preview encryption</em> to see what will change, then <em>Encrypt existing data</em>.</p>
-
-            <h4>Status</h4>
-            <table class="table table-bordered table-striped">
-                <thead>
-                    <tr>
-                        <th style="width: 20%;">State</th>
-                        <th style="width: 80%;">Meaning</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr><td><strong>Off</strong></td><td>No key loaded. Data is stored in plaintext.</td></tr>
-                    <tr><td><strong>On</strong></td><td>A key is loaded, from the <em>environment</em> or for <em>this session only</em>. New writes are encrypted.</td></tr>
-                    <tr><td><strong>Locked</strong></td><td>Encrypted data exists but no valid key is loaded. See below.</td></tr>
-                    <tr><td><strong>Disabling</strong></td><td>Decryption has started but values remain encrypted. Retry <em>Disable encryption</em>.</td></tr>
-                </tbody>
-            </table>
-
-            <h4>When the Platform Is Locked</h4>
-            <p>At startup, if encrypted data exists but the key is missing (<code>missing_key</code>), doesn't match (<code>wrong_key</code>) or is malformed (<code>invalid_key</code>), Anglerphish still starts but locks:</p>
-            <ul>
-                <li>Admins see a red banner. Other users see a generic &ldquo;sending unavailable&rdquo; notice.</li>
-                <li>Sending with an SMTP, SMS or IMAP profile whose credential is still encrypted fails with <code>encryption key unavailable</code>. Profiles with plaintext credentials keep working.</li>
-                <li>New data is saved unencrypted until you unlock and run <em>Encrypt existing data</em>.</li>
+                <li role="presentation">
+                    <a href="#enc-doc-own" aria-controls="enc-doc-own" role="tab" data-toggle="tab"><i class="fa fa-key"></i> Use your own key</a>
+                </li>
             </ul>
-            <p>To recover:</p>
-            <ul>
-                <li><strong>You have the key</strong> &mdash; paste it into <em>Unlock</em>. Everything works again immediately. Then fix the environment variable so it doesn't happen at the next restart.</li>
-                <li><strong>The key is lost</strong> &mdash; use <em>Discard encrypted data</em> and type <code>DISCARD ENCRYPTED DATA</code>. Encrypted values are cleared for good: re-enter the affected SMTP, SMS and IMAP passwords. That captured data is gone. If an environment key is still set, remove it, or keep it knowingly &mdash; it becomes the new key at the next restart.</li>
-            </ul>
-            <p>A malformed key with nothing encrypted yet doesn't lock. The platform starts with encryption Off and logs a warning.</p>
+            <div class="tab-content doc-pills-content">
+                <div role="tabpanel" class="tab-pane active" id="enc-doc-generate">
+                    <ol>
+                        <li>Click <strong>Generate key</strong> and save the key.</li>
+                        <li>Paste it back to confirm. Encryption is on.</li>
+                        <li>Add the key to your environment as <code>ANGLERPHISH_ENCRYPTION_KEY</code>, so it survives a restart.</li>
+                    </ol>
+                </div>
+                <div role="tabpanel" class="tab-pane" id="enc-doc-own">
+                    <ol>
+                        <li>Create a key:
+                            <table class="table table-bordered table-condensed sso-values">
+                                <tbody>
+                                    <tr><th>Linux / macOS</th><td><code>openssl rand -base64 32 | tr '+/' '-_'</code></td></tr>
+                                    <tr><th>Windows (PowerShell)</th><td><code>$b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b).Replace('+','-').Replace('/','_')</code></td></tr>
+                                </tbody>
+                            </table>
+                            <p class="text-muted">The key is 44 characters. Hex keys don't work.</p>
+                        </li>
+                        <li>Set it as <code>ANGLERPHISH_ENCRYPTION_KEY</code> in your environment.</li>
+                        <li>Restart Anglerphish. Encryption is on.</li>
+                    </ol>
+                </div>
+            </div>
+            <div class="alert alert-info">
+                <i class="fa fa-info-circle"></i> Only new data is encrypted at first. Click <strong>Encrypt existing data</strong> to encrypt the rest.
+            </div>
 
-            <h4>Turning Encryption Off</h4>
-            <p>Click <em>Preview decryption</em>, then <em>Disable encryption</em>. All values are decrypted and the key is unloaded once none remain encrypted. Then remove <code>ANGLERPHISH_ENCRYPTION_KEY</code> &mdash; if it is still set at the next restart, encryption turns back on.</p>
+            <div class="panel panel-default">
+                <div class="panel-heading" role="tab" id="encLockedHeading">
+                    <h4 class="panel-title">
+                        <a role="button" data-toggle="collapse" href="#encLockedCollapse" aria-expanded="false" aria-controls="encLockedCollapse">
+                            <i class="fa fa-exclamation-circle"></i> If it's locked
+                            <i class="fa fa-chevron-down pull-right"></i>
+                        </a>
+                    </h4>
+                </div>
+                <div id="encLockedCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="encLockedHeading">
+                    <div class="panel-body">
+                        <p>A red <strong>Encryption locked</strong> badge means Anglerphish started without the right key. Profiles with encrypted passwords can't send until you fix it.</p>
+                        <table class="table table-bordered table-condensed sso-values">
+                            <tbody>
+                                <tr><th>You have the key</th><td>Paste it into <strong>Unlock</strong>. Then fix the environment variable.</td></tr>
+                                <tr><th>The key is lost</th><td>Click <strong>Discard encrypted data</strong>. Encrypted data is deleted, so re-enter your passwords and the SSO secret.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
-            <h4>Deployment Examples</h4>
-            <p>Replace the paths and names with your own. In split deployments (<code>--mode admin</code> and <code>--mode phish</code> as separate processes), always use the environment variable: a key entered in the UI exists only in the process where it was entered.</p>
-            <div class="endpoint-doc">
-                <p>systemd with an environment file: <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample2"><small>[Show Example]</small></a></p>
-                <div id="encryptProdExample2" class="collapse">
-                <pre><code>sudo mkdir -p /etc/anglerphish
+            <div class="panel panel-default">
+                <div class="panel-heading" role="tab" id="encOffHeading">
+                    <h4 class="panel-title">
+                        <a role="button" data-toggle="collapse" href="#encOffCollapse" aria-expanded="false" aria-controls="encOffCollapse">
+                            <i class="fa fa-unlock-alt"></i> Turn it off
+                            <i class="fa fa-chevron-down pull-right"></i>
+                        </a>
+                    </h4>
+                </div>
+                <div id="encOffCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="encOffHeading">
+                    <div class="panel-body">
+                        <ol>
+                            <li>Click <strong>Disable encryption</strong>.</li>
+                            <li>Remove <code>ANGLERPHISH_ENCRYPTION_KEY</code> from your environment. Otherwise encryption turns back on at the next restart.</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel panel-default">
+                <div class="panel-heading" role="tab" id="encChangeHeading">
+                    <h4 class="panel-title">
+                        <a role="button" data-toggle="collapse" href="#encChangeCollapse" aria-expanded="false" aria-controls="encChangeCollapse">
+                            <i class="fa fa-refresh"></i> Change the key
+                            <i class="fa fa-chevron-down pull-right"></i>
+                        </a>
+                    </h4>
+                </div>
+                <div id="encChangeCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="encChangeHeading">
+                    <div class="panel-body">
+                        <ol>
+                            <li>With the old key still set, click <strong>Disable encryption</strong>.</li>
+                            <li>Set the new key and restart.</li>
+                            <li>Click <strong>Encrypt existing data</strong>.</li>
+                        </ol>
+                        <p class="text-muted">Starting with a new key while data is still encrypted with the old one locks Anglerphish.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel panel-default">
+                <div class="panel-heading" role="tab" id="encDeployHeading">
+                    <h4 class="panel-title">
+                        <a role="button" data-toggle="collapse" href="#encDeployCollapse" aria-expanded="false" aria-controls="encDeployCollapse">
+                            <i class="fa fa-server"></i> Setting the key on a server
+                            <i class="fa fa-chevron-down pull-right"></i>
+                        </a>
+                    </h4>
+                </div>
+                <div id="encDeployCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="encDeployHeading">
+                    <div class="panel-body">
+                        <p>Keep the key out of <code>config.json</code> and the application folder. Replace the paths below with your own.</p>
+                        <ul class="nav nav-pills doc-pills" role="tablist">
+                            <li role="presentation" class="active">
+                                <a href="#enc-doc-envfile" aria-controls="enc-doc-envfile" role="tab" data-toggle="tab">systemd file</a>
+                            </li>
+                            <li role="presentation">
+                                <a href="#enc-doc-credential" aria-controls="enc-doc-credential" role="tab" data-toggle="tab">systemd credential</a>
+                            </li>
+                            <li role="presentation">
+                                <a href="#enc-doc-docker" aria-controls="enc-doc-docker" role="tab" data-toggle="tab">Docker secrets</a>
+                            </li>
+                            <li role="presentation">
+                                <a href="#enc-doc-vault" aria-controls="enc-doc-vault" role="tab" data-toggle="tab">Vault Agent</a>
+                            </li>
+                        </ul>
+                        <div class="tab-content doc-pills-content">
+                            <div role="tabpanel" class="tab-pane active" id="enc-doc-envfile">
+                            <pre><code>sudo mkdir -p /etc/anglerphish
 echo "ANGLERPHISH_ENCRYPTION_KEY=your-key" | sudo tee /etc/anglerphish/secrets.env
 sudo chmod 600 /etc/anglerphish/secrets.env
 sudo chown root:root /etc/anglerphish/secrets.env
@@ -1288,21 +1447,15 @@ sudo chown root:root /etc/anglerphish/secrets.env
 [Service]
 EnvironmentFile=/etc/anglerphish/secrets.env
 ExecStart=/opt/anglerphish/anglerphish</code></pre>
-                </div>
-            </div>
-            <div class="endpoint-doc">
-                <p>systemd <code>LoadCredential</code>: <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample3"><small>[Show Example]</small></a></p>
-                <div id="encryptProdExample3" class="collapse">
-                <pre><code># /etc/systemd/system/anglerphish.service
+                            </div>
+                            <div role="tabpanel" class="tab-pane" id="enc-doc-credential">
+                            <pre><code># /etc/systemd/system/anglerphish.service
 [Service]
 LoadCredential=encryption_key:/etc/anglerphish/encryption_key
 ExecStart=/bin/sh -c 'ANGLERPHISH_ENCRYPTION_KEY="$$(cat "%d/encryption_key")" exec /opt/anglerphish/anglerphish'</code></pre>
-                </div>
-            </div>
-            <div class="endpoint-doc">
-                <p>Docker secrets: <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample4"><small>[Show Example]</small></a></p>
-                <div id="encryptProdExample4" class="collapse">
-                <pre><code># docker-compose.yml
+                            </div>
+                            <div role="tabpanel" class="tab-pane" id="enc-doc-docker">
+                            <pre><code># docker-compose.yml
 services:
   anglerphish:
     image: your-anglerphish-image
@@ -1313,17 +1466,19 @@ services:
 secrets:
   anglerphish_encryption_key:
     file: ./anglerphish_encryption_key.txt</code></pre>
-                </div>
-            </div>
-            <div class="endpoint-doc">
-                <p>Vault Agent (renders an environment file for <code>EnvironmentFile=</code>): <a class="example-toggle" data-toggle="collapse" data-target="#encryptProdExample5"><small>[Show Example]</small></a></p>
-                <div id="encryptProdExample5" class="collapse">
-                <pre><code># vault-agent.hcl
+                            </div>
+                            <div role="tabpanel" class="tab-pane" id="enc-doc-vault">
+                            <p>Vault Agent writes an environment file. Load it with <code>EnvironmentFile=</code> as in the first example.</p>
+                            <pre><code># vault-agent.hcl
 template {
   contents    = "ANGLERPHISH_ENCRYPTION_KEY=&#123;&#123; with secret \"secret/data/anglerphish\" &#125;&#125;&#123;&#123; .Data.data.encryption_key &#125;&#125;&#123;&#123; end &#125;&#125;\n"
   destination = "/etc/anglerphish/secrets.env"
   perms       = "0600"
 }</code></pre>
+                            </div>
+                        </div>
+                        <p class="text-muted">If the admin and phishing servers run as separate processes, always set the key in the environment.</p>
+                    </div>
                 </div>
             </div>
 
@@ -1333,72 +1488,149 @@ template {
         <!-- Tab 4: Admin SSO (OIDC) -->
         <div role="tabpanel" class="tab-pane" id="admin-sso">
             <h3><i class="fa fa-sign-in"></i> Admin SSO (OIDC)</h3>
-            <p>Anglerphish supports optional OIDC login for the admin UI, compatible with any standard OpenID Connect provider (Keycloak, Microsoft Entra ID, and others). Users in a configured IdP group are mapped to pre-provisioned local accounts. Password login is restricted to the <code>admin</code> break-glass account when SSO is enabled.</p>
+            <p>Let users sign in to Anglerphish with your identity provider. Set it up in <strong>Settings &rarr; SSO</strong>, and changes apply right away.</p>
 
-            <div class="panel panel-default">
-                <div class="panel-heading"><h4 class="panel-title">Configuration</h4></div>
-                <div class="panel-body">
-                    <p>OIDC is configured in <code>config.json</code>. There is no admin UI for these settings. Restart Anglerphish after changes.</p>
-                    <pre><code>{
-  "oidc": {
-    "enabled": true,
-    "issuer": "https://keycloak.example.com/realms/your-realm",
-    "client_id": "anglerphish-admin",
-    "redirect_url": "https://admin.example.com:3333/auth/oidc/callback",
-    "required_group": "anglerphish-admins",
-    "groups_claim": "groups",
-    "username_from_email": "local_part",
-    "allow_unverified_email": false
-  }
-}</code></pre>
-                    <p><code>allow_unverified_email</code> defaults to <code>false</code>, requiring the IdP to assert <code>email_verified: true</code>. Set it to <code>true</code> for providers such as Microsoft Entra ID that do not emit that claim. When no <code>email</code> claim is present, the username is sourced from <code>preferred_username</code>.</p>
-                    <p>Set the client secret via environment variable — do not commit it to config:</p>
-                    <pre><code>export GOPHISH_OIDC_CLIENT_SECRET="your-client-secret"</code></pre>
-                </div>
+            <div class="alert alert-info">
+                <i class="fa fa-info-circle"></i> While SSO is on, only the <code>admin</code> account can sign in with a password. Keep that password: it's your way back in if SSO breaks.
             </div>
 
-            <div class="panel panel-default">
-                <div class="panel-heading"><h4 class="panel-title">Keycloak Setup</h4></div>
-                <div class="panel-body">
+            <h4>How It Works</h4>
+            <p>Users sign in at your provider. Anglerphish lets them in if they are in the <strong>Required group</strong> and a user with the same name exists in <strong>User Management</strong> (<code>jane.doe@example.com</code> signs in as <code>jane.doe</code>). Accounts are not created automatically.</p>
+
+            <h4>Set Up Your Provider</h4>
+            <ul class="nav nav-pills sso-provider-pills" role="tablist">
+                <li role="presentation" class="active">
+                    <a href="#sso-doc-entra" aria-controls="sso-doc-entra" role="tab" data-toggle="tab">
+                        <svg class="sso-provider-logo" viewBox="0 0 22 22" aria-hidden="true"><rect x="0" y="0" width="10" height="10" fill="#f25022"/><rect x="12" y="0" width="10" height="10" fill="#7fba00"/><rect x="0" y="12" width="10" height="10" fill="#00a4ef"/><rect x="12" y="12" width="10" height="10" fill="#ffb900"/></svg>
+                        Microsoft Entra ID
+                    </a>
+                </li>
+                <li role="presentation">
+                    <a href="#sso-doc-keycloak" aria-controls="sso-doc-keycloak" role="tab" data-toggle="tab">
+                        <svg class="sso-provider-logo" viewBox="0 0 24 24" aria-hidden="true"><polygon points="6,2 18,2 24,12 18,22 6,22 0,12" fill="#4d4d4d"/><polygon points="8,6 11,6 8,12 11,18 8,18 5,12" fill="#00b8e3"/><polygon points="16,6 13,6 16,12 13,18 16,18 19,12" fill="#33c6e9"/></svg>
+                        Keycloak
+                    </a>
+                </li>
+                <li role="presentation">
+                    <a href="#sso-doc-okta" aria-controls="sso-doc-okta" role="tab" data-toggle="tab">
+                        <svg class="sso-provider-logo" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="#007dc1" stroke-width="5"/></svg>
+                        Okta
+                    </a>
+                </li>
+                <li role="presentation">
+                    <a href="#sso-doc-generic" aria-controls="sso-doc-generic" role="tab" data-toggle="tab">
+                        <i class="fa fa-key sso-provider-logo" aria-hidden="true"></i>
+                        Generic OIDC
+                    </a>
+                </li>
+            </ul>
+
+            <div class="tab-content sso-provider-content">
+
+                <!-- Entra ID -->
+                <div role="tabpanel" class="tab-pane active" id="sso-doc-entra">
                     <ol>
-                        <li>Create a <strong>confidential OIDC client</strong> with the standard authorization code flow.</li>
-                        <li>Add redirect URI: <code>https://&lt;admin-host&gt;/auth/oidc/callback</code> — must match <code>redirect_url</code> exactly.</li>
-                        <li>Add a <strong>group mapper</strong> so the ID token or UserInfo includes a <code>groups</code> claim (array of group names).</li>
-                        <li>Create a realm group (e.g. <code>anglerphish-admins</code>) and assign authorized users.</li>
-                        <li>Set <code>required_group</code> to match the group name Keycloak sends — leading <code>/</code> is normalized automatically.</li>
-                        <li>Pre-create matching local users in the Anglerphish Users page before first SSO login. With <code>username_from_email: "local_part"</code>, email <code>firstlast@example.com</code> maps to local username <code>firstlast</code>. The identity provider must include a verified email claim (<code>email_verified: true</code>) for SSO login to succeed.</li>
-                        <li>Provision SSO users with <strong>password_change_required disabled</strong> — SSO sessions skip the forced password-reset redirect if misconfigured.</li>
+                        <li><strong>App registrations &rarr; New registration.</strong> Add a <em>Web</em> redirect URI: the Redirect URL from Settings &rarr; SSO.</li>
+                        <li>Copy the <strong>Application (client) ID</strong> and <strong>Directory (tenant) ID</strong>.</li>
+                        <li><strong>Certificates &amp; secrets</strong>: create a client secret and copy its <strong>Value</strong>.</li>
+                        <li><strong>Token configuration &rarr; Add groups claim &rarr; Security groups.</strong></li>
                     </ol>
+                    <table class="table table-bordered table-condensed sso-values">
+                        <tbody>
+                            <tr><th>Issuer URL</th><td><code>https://login.microsoftonline.com/&lt;tenant-id&gt;/v2.0</code></td></tr>
+                            <tr><th>Required group</th><td>The group's <strong>Object ID</strong> (Groups &rarr; your group &rarr; Overview)</td></tr>
+                            <tr><th>Groups claim</th><td>Leave empty</td></tr>
+                            <tr><th>Allow unverified email</th><td><strong>On</strong> (Entra doesn't send <code>email_verified</code>)</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="text-muted">Users in more than 200 groups? Use an <strong>app role</strong> instead: set Required group to the role's value and Groups claim to <code>roles</code>.</p>
                 </div>
-            </div>
 
-            <div class="panel panel-default">
-                <div class="panel-heading"><h4 class="panel-title">Microsoft Entra ID Setup</h4></div>
-                <div class="panel-body">
+                <!-- Keycloak -->
+                <div role="tabpanel" class="tab-pane" id="sso-doc-keycloak">
                     <ol>
-                        <li>Register an application (<strong>App registrations &rarr; New registration</strong>) with a <strong>Web</strong> redirect URI of <code>https://&lt;admin-host&gt;/auth/oidc/callback</code>.</li>
-                        <li>Note the <strong>Application (client) ID</strong> and <strong>Directory (tenant) ID</strong> from the Overview page.</li>
-                        <li>Under <strong>Certificates &amp; secrets</strong>, create a client secret and set it via <code>GOPHISH_OIDC_CLIENT_SECRET</code>.</li>
-                        <li>Under <strong>App roles</strong>, create a role (e.g. value <code>anglerphish-admins</code>) and assign users in <strong>Enterprise applications &rarr; Users and groups</strong>. Set <code>groups_claim: "roles"</code> and <code>required_group</code> to the role value.</li>
-                        <li>Set <code>issuer</code> to <code>https://login.microsoftonline.com/&lt;tenant-id&gt;/v2.0</code> and <code>allow_unverified_email: true</code> — Entra ID does not emit the <code>email_verified</code> claim.</li>
-                        <li>Pre-create matching local users. The address comes from the <code>email</code> claim, falling back to <code>preferred_username</code> (the UPN); with <code>username_from_email: "local_part"</code>, <code>jsmith@contoso.com</code> maps to local username <code>jsmith</code>.</li>
+                        <li><strong>Clients &rarr; Create client</strong> (OpenID Connect) with <em>Client authentication</em> on.</li>
+                        <li><strong>Valid redirect URIs</strong>: the Redirect URL from Settings &rarr; SSO.</li>
+                        <li>Copy the secret from the <strong>Credentials</strong> tab.</li>
+                        <li>Add a <strong>Group Membership</strong> mapper named <code>groups</code> to the client's dedicated scope, with <em>Add to ID token</em> on.</li>
                     </ol>
-                    <p>Entra ID does not connect inbound to the admin console — the callback is delivered by the user's browser. Only the server's <em>outbound</em> access to <code>login.microsoftonline.com</code> (and <code>graph.microsoft.com</code>) is required; allow-list by hostname, not IP.</p>
+                    <table class="table table-bordered table-condensed sso-values">
+                        <tbody>
+                            <tr><th>Issuer URL</th><td><code>https://&lt;host&gt;/realms/&lt;realm&gt;</code></td></tr>
+                            <tr><th>Required group</th><td>The group name, e.g. <code>anglerphish-admins</code></td></tr>
+                            <tr><th>Groups claim</th><td>Leave empty</td></tr>
+                            <tr><th>Allow unverified email</th><td>Off (mark users' emails as verified)</td></tr>
+                        </tbody>
+                    </table>
                 </div>
-            </div>
 
-            <div class="panel panel-default">
-                <div class="panel-heading"><h4 class="panel-title">Behaviour</h4></div>
-                <div class="panel-body">
+                <!-- Okta -->
+                <div role="tabpanel" class="tab-pane" id="sso-doc-okta">
+                    <ol>
+                        <li><strong>Applications &rarr; Create App Integration</strong>: OIDC, Web Application.</li>
+                        <li><strong>Sign-in redirect URIs</strong>: the Redirect URL from Settings &rarr; SSO. Copy the Client ID and secret.</li>
+                        <li><strong>Security &rarr; API &rarr; Authorization Servers &rarr; default &rarr; Claims</strong>: add a <code>groups</code> claim (ID token, type <em>Groups</em>, filter <em>Matches regex</em> <code>.*</code>).</li>
+                        <li>Assign your group to the app.</li>
+                    </ol>
+                    <table class="table table-bordered table-condensed sso-values">
+                        <tbody>
+                            <tr><th>Issuer URL</th><td><code>https://&lt;your-org&gt;.okta.com/oauth2/default</code></td></tr>
+                            <tr><th>Required group</th><td>The group name, e.g. <code>anglerphish-admins</code></td></tr>
+                            <tr><th>Groups claim</th><td>Leave empty</td></tr>
+                            <tr><th>Allow unverified email</th><td>Off</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="text-muted">No <code>default</code> authorization server? Use <code>https://&lt;your-org&gt;.okta.com</code> as the Issuer URL and set the groups claim on the app's <strong>Sign On</strong> tab instead.</p>
+                </div>
+
+                <!-- Generic -->
+                <div role="tabpanel" class="tab-pane" id="sso-doc-generic">
+                    <p>Any OpenID Connect provider works (Authentik, Google Workspace, Auth0, ADFS…) if it:</p>
                     <ul>
-                        <li>When OIDC is enabled, non-<code>admin</code> users must use <strong>Sign in with SSO</strong> on the login page.</li>
-                        <li>The <code>admin</code> account remains available for break-glass password login.</li>
-                        <li>API key authentication is unchanged.</li>
-                        <li>SSO login endpoints share the same per-IP rate limit as POST <code>/login</code> (default 5 requests per minute).</li>
-                        <li>If OIDC provider discovery fails during a login attempt, Anglerphish retries on the next attempt without requiring a restart.</li>
+                        <li>publishes <code>&lt;issuer&gt;/.well-known/openid-configuration</code> (what <strong>Test connection</strong> checks),</li>
+                        <li>supports the authorization code flow with a client secret,</li>
+                        <li>sends the user's email and groups in the ID token or UserInfo.</li>
                     </ul>
+                    <table class="table table-bordered table-condensed sso-values">
+                        <tbody>
+                            <tr><th>Issuer URL</th><td>From your provider's OIDC settings</td></tr>
+                            <tr><th>Required group</th><td>The group exactly as the provider sends it</td></tr>
+                            <tr><th>Groups claim</th><td>Leave empty if the claim is called <code>groups</code></td></tr>
+                            <tr><th>Allow unverified email</th><td>Only if the provider never sends <code>email_verified</code></td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
+
+            <h4>Finish in Settings &rarr; SSO</h4>
+            <ol>
+                <li>Create the users in <strong>User Management</strong> (e.g. <code>jane.doe</code>).</li>
+                <li>Pick the provider, fill in the fields, then click <strong>Test connection</strong>.</li>
+                <li>Tick <strong>Enable SSO</strong>, save, and try it in a private window.</li>
+            </ol>
+
+            <div class="panel panel-default">
+                <div class="panel-heading" role="tab" id="ssoFailHeading">
+                    <h4 class="panel-title">
+                        <a role="button" data-toggle="collapse" href="#ssoFailCollapse" aria-expanded="false" aria-controls="ssoFailCollapse">
+                            <i class="fa fa-exclamation-circle"></i> If sign-in fails
+                            <i class="fa fa-chevron-down pull-right"></i>
+                        </a>
+                    </h4>
+                </div>
+                <div id="ssoFailCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="ssoFailHeading">
+                    <div class="panel-body">
+                        <table class="table table-bordered table-condensed sso-values">
+                            <tbody>
+                                <tr><th>&ldquo;Access denied&rdquo; on the login page after signing in</th><td>Check that the user is in the Required group and exists in User Management. For Entra, turn on Allow unverified email.</td></tr>
+                                <tr><th>Error on the provider&rsquo;s page mentioning the redirect URI</th><td>Copy the Redirect URL from Settings &rarr; SSO and register exactly that at your provider.</td></tr>
+                                <tr><th>SSO shows &ldquo;Unavailable&rdquo; in Settings &rarr; SSO</th><td>The encryption key isn&rsquo;t loaded, so the client secret can&rsquo;t be read. Unlock it in Settings &rarr; DB Encryption.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
         <!-- End Tab 4: Admin SSO (OIDC) -->
 
@@ -1410,6 +1642,15 @@ template {
 
 {{define "scripts"}}
 <style>
+/* Admin SSO provider picker */
+.sso-provider-pills { margin: 10px 0 15px; }
+.sso-provider-pills > li > a { border: 1px solid rgba(128, 128, 128, 0.35); padding: 8px 14px; }
+.sso-provider-logo { width: 18px; height: 18px; vertical-align: -4px; margin-right: 6px; font-size: 16px; text-align: center; }
+.sso-provider-content { margin-bottom: 25px; }
+.sso-values th { width: 30%; font-weight: 600; }
+.doc-pills { margin: 10px 0 15px; }
+.doc-pills > li > a { border: 1px solid rgba(128, 128, 128, 0.35); padding: 8px 14px; }
+.doc-pills-content { margin-bottom: 20px; }
 /* Smaller, more readable fonts */
 .panel-title {
     font-size: 16px;

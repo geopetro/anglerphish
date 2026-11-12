@@ -120,6 +120,8 @@ func (as *Server) registerRoutes() {
 	router.HandleFunc("/encryption/migrate", mid.Use(as.EncryptionMigrate, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/encryption/disable", mid.Use(as.EncryptionDisable, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/encryption/discard", mid.Use(as.EncryptionDiscard, mid.RequirePermission(models.PermissionModifySystem)))
+	router.HandleFunc("/sso/test", mid.Use(as.SSOTest, mid.RequirePermission(models.PermissionModifySystem)))
+	router.HandleFunc("/sso", mid.Use(as.SSO, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/error_pages/404", mid.Use(as.ErrorPage, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/error_pages/404/reset", mid.Use(as.ErrorPageReset, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/global_variables", mid.Use(as.GlobalVariables))

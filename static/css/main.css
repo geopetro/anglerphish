@@ -31,6 +31,51 @@
     margin-right: 10px;
 }
 
+/* Settings > DB Encryption: one panel split into rows. Backgrounds stay
+   transparent so each theme keeps its own surface; colour is limited to the
+   small status icons, the progress bar and the buttons. */
+.enc-panel {
+    border: 1px solid rgba(128, 128, 128, 0.3);
+    border-radius: 6px;
+}
+.enc-row { padding: 16px 20px; }
+.enc-row + .enc-row,
+.enc-row + #encResults,
+#encResults + .enc-row { border-top: 1px solid rgba(128, 128, 128, 0.2); }
+#encResults:empty { display: none; }
+#encResults:not(:empty) { padding: 0 20px 16px; }
+.enc-row-main { display: flex; align-items: center; }
+.enc-row-text { flex: 1; min-width: 0; }
+.enc-row-title { font-weight: 600; font-size: 15px; }
+.enc-row-side { margin-left: 20px; white-space: nowrap; }
+.enc-row-extra { margin: 14px 0 0 52px; }
+.enc-icon {
+    flex: 0 0 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    margin-right: 16px;
+    color: #777;
+    background: rgba(128, 128, 128, 0.15);
+}
+.enc-icon.enc-info { color: #5bc0de; background: rgba(91, 192, 222, 0.15); }
+.enc-icon.enc-success { color: #5cb85c; background: rgba(92, 184, 92, 0.15); }
+.enc-icon.enc-warning { color: #f0ad4e; background: rgba(240, 173, 78, 0.15); }
+.enc-icon.enc-danger { color: #d9534f; background: rgba(217, 83, 79, 0.15); }
+.enc-percent { font-size: 26px; font-weight: 600; }
+.enc-progress { height: 6px; margin: 0 0 8px 0; box-shadow: none; }
+.enc-inline { display: flex; max-width: 520px; }
+.enc-inline .form-control { margin-right: 8px; }
+.enc-table { max-width: 520px; margin-bottom: 0; }
+@media (max-width: 767px) {
+    .enc-row-main { flex-wrap: wrap; }
+    .enc-row-side { margin: 10px 0 0 52px; }
+    .enc-row-extra { margin-left: 0; }
+}
+
 .sans {
     font-family: 'Open Sans', sans-serif !important;
 }
@@ -1026,3 +1071,8 @@ table.dataTable {
 .message-headers { table-layout: fixed; width: 100%; margin-bottom: 0; }
 .message-header-name { font-weight: 600; width: 220px; }
 .message-headers td { overflow-wrap: break-word; word-break: break-word; }
+/* SSO settings tab */
+.sso-enable-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
+.sso-enable-row .checkbox { margin: 0; }
+.sso-last { margin-bottom: 0; }
+#ssoTestResult { margin-left: 8px; }

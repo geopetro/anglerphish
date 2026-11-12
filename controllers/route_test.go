@@ -414,3 +414,49 @@ func TestPageTemplatesParse(t *testing.T) {
 		}()
 	}
 }
+
+func TestOIDCDisableLiveRemovesRestriction(t *testing.T) {
+	ctx := setupOIDCTest(t)
+	defer tearDown(t, ctx)
+	createBannerTestUser(t)
+
+	loginBody := func() string {
+		resp, err := http.Get(fmt.Sprintf("%s/login", ctx.adminServer.URL))
+		if err != nil {
+			t.Fatalf("error requesting /login: %v", err)
+		}
+		defer resp.Body.Close()
+		b, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("error reading response: %v", err)
+		}
+		return string(b)
+	}
+	if !strings.Contains(loginBody(), "/auth/oidc/login") {
+		t.Fatal("expected SSO link while enabled")
+	}
+	err := models.SaveOIDCSettings(models.OIDCSettingsInput{Enabled: false, Provider: "keycloak"})
+	if err != nil {
+		t.Fatalf("error disabling sso: %v", err)
+	}
+	if strings.Contains(loginBody(), "/auth/oidc/login") {
+		t.Fatal("expected no SSO link after disabling")
+	}
+	resp := attemptLogin(t, ctx, nil, "regular", "gophish", "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected non-admin password login to succeed, got %d", resp.StatusCode)
+	}
+}
+
+func TestOIDCRoutesNotFoundWhenDisabled(t *testing.T) {
+	ctx := setupTest(t)
+	defer tearDown(t, ctx)
+	resp, err := http.Get(fmt.Sprintf("%s/auth/oidc/login", ctx.adminServer.URL))
+	if err != nil {
+		t.Fatalf("error requesting oidc login: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", resp.StatusCode)
+	}
+}

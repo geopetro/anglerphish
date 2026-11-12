@@ -78,6 +78,7 @@ func verifyKey(key string) (bool, error) {
 		{"sms_profiles", "provider_config"},
 		{"imap", "password"},
 		{"events", "details"},
+		{"oidc_settings", "client_secret"},
 	}
 	for _, s := range sources {
 		var values []string
@@ -103,7 +104,7 @@ func countEncryptedValues() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return r.SMTPPasswords.Encrypted + r.SMSConfigs.Encrypted + r.IMAPPasswords.Encrypted + r.EventDetails.Encrypted, nil
+	return r.SMTPPasswords.Encrypted + r.SMSConfigs.Encrypted + r.IMAPPasswords.Encrypted + r.EventDetails.Encrypted + r.OIDCSecrets.Encrypted, nil
 }
 
 // countPlaintextValues returns the number of plaintext values across all
@@ -113,5 +114,5 @@ func countPlaintextValues() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return r.SMTPPasswords.Plaintext + r.SMSConfigs.Plaintext + r.IMAPPasswords.Plaintext + r.EventDetails.Plaintext, nil
+	return r.SMTPPasswords.Plaintext + r.SMSConfigs.Plaintext + r.IMAPPasswords.Plaintext + r.EventDetails.Plaintext + r.OIDCSecrets.Plaintext, nil
 }

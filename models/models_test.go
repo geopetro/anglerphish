@@ -3,6 +3,7 @@ package models
 import (
 	"testing"
 
+	"github.com/gophish/gophish/auth"
 	"github.com/gophish/gophish/config"
 	"gopkg.in/check.v1"
 )
@@ -50,6 +51,8 @@ func (s *ModelsSuite) TearDownTest(c *check.C) {
 	db.Delete(TrackedRequest{})
 	db.Delete(EncryptionMeta{})
 	db.Delete(IMAP{})
+	db.Delete(OIDCSettings{})
+	auth.SetActiveOIDCClient(nil)
 
 	// Reset users table to default state.
 	db.Not("id", 1).Delete(User{})

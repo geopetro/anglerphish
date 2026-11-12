@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"io/ioutil"
+	"strings"
 
 	log "github.com/gophish/gophish/logger"
 )
@@ -31,18 +32,6 @@ type Reports struct {
 	StoragePath string `json:"storage_path"`
 }
 
-// OIDC holds optional OpenID Connect settings for admin UI login.
-type OIDC struct {
-	Enabled              bool   `json:"enabled"`
-	Issuer               string `json:"issuer"`
-	ClientID             string `json:"client_id"`
-	RedirectURL          string `json:"redirect_url"`
-	RequiredGroup        string `json:"required_group"`
-	GroupsClaim          string `json:"groups_claim"`
-	UsernameFromEmail    string `json:"username_from_email"`
-	AllowUnverifiedEmail bool   `json:"allow_unverified_email"`
-}
-
 // Config represents the configuration information.
 type Config struct {
 	AdminConf      AdminServer `json:"admin_server"`
@@ -55,7 +44,8 @@ type Config struct {
 	ContactAddress string      `json:"contact_address"`
 	Logging        *log.Config `json:"logging"`
 	ReportsConf    Reports     `json:"reports"`
-	OIDC           OIDC        `json:"oidc"`
+	// LegacyOIDCBlock is true when the file has an ignored top-level "oidc" key.
+	LegacyOIDCBlock bool `json:"-"`
 }
 
 // Version contains the current gophish version
@@ -75,6 +65,15 @@ func LoadConfig(filepath string) (*Config, error) {
 	err = json.Unmarshal(configFile, config)
 	if err != nil {
 		return nil, err
+	}
+	var raw map[string]json.RawMessage
+	if err = json.Unmarshal(configFile, &raw); err != nil {
+		return nil, err
+	}
+	for k := range raw {
+		if strings.EqualFold(k, "oidc") {
+			config.LegacyOIDCBlock = true
+		}
 	}
 	if config.Logging == nil {
 		config.Logging = &log.Config{}

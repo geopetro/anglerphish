@@ -40,7 +40,6 @@ type AdminServer struct {
 	config     config.AdminServer
 	fullConfig *config.Config
 	limiter    *ratelimit.PostLimiter
-	oidc       *auth.OIDCClient
 }
 
 var defaultTLSConfig = &tls.Config{
@@ -90,13 +89,6 @@ func NewAdminServer(adminConfig config.AdminServer, fullConfig *config.Config, o
 	for _, opt := range options {
 		opt(as)
 	}
-	if as.fullConfig != nil && as.fullConfig.OIDC.Enabled {
-		oidcClient, err := auth.NewOIDCClient(oidcConfigFrom(as.fullConfig.OIDC))
-		if err != nil {
-			log.Fatal(err)
-		}
-		as.oidc = oidcClient
-	}
 	as.registerRoutes()
 	return as
 }
@@ -145,10 +137,8 @@ func (as *AdminServer) registerRoutes() {
 	// Base Front-end routes
 	router.HandleFunc("/", mid.Use(as.Base, mid.RequireLogin))
 	router.HandleFunc("/login", mid.Use(as.Login, as.limiter.Limit))
-	if as.oidc != nil {
-		router.HandleFunc("/auth/oidc/login", mid.Use(as.OIDCLogin, as.limiter.LimitGET))
-		router.HandleFunc("/auth/oidc/callback", mid.Use(as.OIDCCallback, as.limiter.LimitGET))
-	}
+	router.HandleFunc("/auth/oidc/login", mid.Use(as.OIDCLogin, as.limiter.LimitGET))
+	router.HandleFunc("/auth/oidc/callback", mid.Use(as.OIDCCallback, as.limiter.LimitGET))
 	router.HandleFunc("/logout", mid.Use(as.Logout, mid.RequireLogin))
 	router.HandleFunc("/reset_password", mid.Use(as.ResetPassword, mid.RequireLogin))
 	router.HandleFunc("/campaigns", mid.Use(as.Campaigns, mid.RequireLogin))
@@ -380,20 +370,7 @@ type loginParams struct {
 }
 
 func (as *AdminServer) oidcEnabled() bool {
-	return as.oidc != nil
-}
-
-func oidcConfigFrom(cfg config.OIDC) auth.OIDCConfig {
-	return auth.OIDCConfig{
-		Enabled:              cfg.Enabled,
-		Issuer:               cfg.Issuer,
-		ClientID:             cfg.ClientID,
-		RedirectURL:          cfg.RedirectURL,
-		RequiredGroup:        cfg.RequiredGroup,
-		GroupsClaim:          cfg.GroupsClaim,
-		UsernameFromEmail:    cfg.UsernameFromEmail,
-		AllowUnverifiedEmail: cfg.AllowUnverifiedEmail,
-	}
+	return auth.ActiveOIDCClient() != nil
 }
 
 func (as *AdminServer) renderLogin(w http.ResponseWriter, r *http.Request, params loginParams, status int) {
@@ -458,7 +435,8 @@ func (as *AdminServer) Impersonate(w http.ResponseWriter, r *http.Request) {
 
 // OIDCLogin starts the OIDC authorization-code flow.
 func (as *AdminServer) OIDCLogin(w http.ResponseWriter, r *http.Request) {
-	if as.oidc == nil {
+	client := auth.ActiveOIDCClient()
+	if client == nil {
 		http.NotFound(w, r)
 		return
 	}
@@ -470,7 +448,7 @@ func (as *AdminServer) OIDCLogin(w http.ResponseWriter, r *http.Request) {
 		as.handleOIDCLoginFailure(w, r, "Access denied")
 		return
 	}
-	authURL, err := as.oidc.AuthCodeURL(r.Context(), state)
+	authURL, err := client.AuthCodeURL(r.Context(), state)
 	if err != nil {
 		switch err {
 		case auth.ErrOIDCDiscoveryFailed:
@@ -486,7 +464,8 @@ func (as *AdminServer) OIDCLogin(w http.ResponseWriter, r *http.Request) {
 
 // OIDCCallback completes the OIDC flow and creates an admin session.
 func (as *AdminServer) OIDCCallback(w http.ResponseWriter, r *http.Request) {
-	if as.oidc == nil {
+	client := auth.ActiveOIDCClient()
+	if client == nil {
 		http.NotFound(w, r)
 		return
 	}
@@ -509,7 +488,7 @@ func (as *AdminServer) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		as.handleOIDCLoginFailure(w, r, "Access denied")
 		return
 	}
-	claims, err := as.oidc.Exchange(r.Context(), code)
+	claims, err := client.Exchange(r.Context(), code)
 	if err != nil {
 		switch err {
 		case auth.ErrOIDCAccessDenied:
@@ -522,7 +501,7 @@ func (as *AdminServer) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		as.handleOIDCLoginFailure(w, r, "Access denied")
 		return
 	}
-	username, err := auth.UsernameFromEmail(claims.Email, as.oidc.UsernameMapping())
+	username, err := auth.UsernameFromEmail(claims.Email, client.UsernameMapping())
 	if err != nil {
 		log.Warn("OIDC login could not map email to username")
 		as.handleOIDCLoginFailure(w, r, "Access denied")

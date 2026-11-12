@@ -534,6 +534,18 @@ var api = {
             return query("/encryption/discard", "POST", { confirmation: confirmation }, true)
         }
     },
+    // sso contains the endpoints for /sso
+    sso: {
+        get: function () {
+            return query("/sso", "GET", {}, true)
+        },
+        put: function (data) {
+            return query("/sso", "PUT", data, true)
+        },
+        test: function (issuer) {
+            return query("/sso/test", "POST", { issuer: issuer }, true)
+        }
+    },
     // errorPages contains the endpoints for /error_pages
     errorPages: {
         // get404() - Fetches the current 404 page HTML
