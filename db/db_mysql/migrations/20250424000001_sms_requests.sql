@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS `sms_requests` (
     `first_name` varchar(255),
     `last_name` varchar(255),
     `email` varchar(255),
+    `phone` varchar(255),
     `position` varchar(255),
     `custom` varchar(255),
     PRIMARY KEY (`id`)

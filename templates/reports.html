@@ -54,11 +54,39 @@
                     
                     <!-- Campaign selection (shown when source is "campaign") -->
                     <div id="campaign_select_container" class="form-group">
-                        <label>Select Campaign(s)</label>
-                        <select id="campaign_select" class="form-control" multiple>
-                            <!-- Will be populated via API -->
-                        </select>
-                        <span class="help-block">Hold Ctrl/Cmd to select multiple campaigns</span>
+                        <div class="campaign-picker-label-row">
+                            <label for="campaign_picker_toggle">Select Campaign(s)</label>
+                            <div class="checkbox checkbox-primary campaign-picker-filter">
+                                <input type="checkbox" id="campaign_picker_completed">
+                                <label for="campaign_picker_completed">Completed only</label>
+                            </div>
+                        </div>
+                        <div class="campaign-picker" id="campaign_picker">
+                            <div class="form-control campaign-picker-toggle" id="campaign_picker_toggle" tabindex="0"
+                                role="button" aria-haspopup="listbox" aria-expanded="false">
+                                <span class="campaign-picker-chips" id="campaign_picker_chips">
+                                    <span class="text-muted">Loading campaigns...</span>
+                                </span>
+                                <i class="fa fa-caret-down campaign-picker-caret"></i>
+                            </div>
+                            <div class="dropdown-menu campaign-picker-menu" id="campaign_picker_menu">
+                                <div class="campaign-picker-search">
+                                    <input type="text" class="form-control input-sm" id="campaign_picker_search"
+                                        placeholder="Search campaigns..." autocomplete="off" aria-label="Search campaigns">
+                                </div>
+                                <ul class="dropdown-menu campaign-picker-list" id="campaign_picker_list"
+                                    role="listbox" aria-multiselectable="true"></ul>
+                                <div class="campaign-picker-footer">
+                                    <span class="text-muted" id="campaign_picker_count"></span>
+                                    <span>
+                                        <a href="#" id="campaign_picker_all">Select all</a>
+                                        <a href="#" id="campaign_picker_clear">Clear</a>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- The picker writes its selection here; report generation reads it -->
+                        <select id="campaign_select" class="hidden" multiple aria-hidden="true"></select>
                     </div>
                     
                     <!-- Campaign set selection (hidden by default) -->
@@ -87,7 +115,7 @@
                                 <label for="anonymize_emails">
                                     Anonymize email addresses/phone numbers
                                 </label>
-                                <p class="help-block">Replace actual email addresses with hashed values and phones with asterisks</p>
+                                <p class="help-block">Mask email addresses and phone numbers, and redact names, positions and submitted form values</p>
                             </div>
                             
                             <div class="checkbox checkbox-primary">
@@ -95,7 +123,7 @@
                                 <label for="anonymize_ips">
                                     Anonymize IP addresses
                                 </label>
-                                <p class="help-block">Mask portions of IP addresses (e.g., 192.168.x.x)</p>
+                                <p class="help-block">Mask the host part of IP addresses (e.g., 192.168.1.***), hide coordinates and show locations at country level only</p>
                             </div>
                             
                         </div>
@@ -119,8 +147,8 @@
                         </div>
                         <div class="panel-body">
                             <!-- Statistics -->
-                            <div class="row" id="report-stats" style="margin-bottom: 20px;">
-                                <div class="col-sm-3">
+                            <div class="row report-stats" id="report-stats">
+                                <div class="report-stat">
                                     <div class="panel panel-info">
                                         <div class="panel-body text-center">
                                             <h4 id="stats-total">0</h4>
@@ -128,7 +156,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-sm-3">
+                                <div class="report-stat">
                                     <div class="panel panel-warning">
                                         <div class="panel-body text-center">
                                             <h4 id="stats-queued">0</h4>
@@ -136,7 +164,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-sm-3">
+                                <div class="report-stat">
                                     <div class="panel panel-primary">
                                         <div class="panel-body text-center">
                                             <h4 id="stats-processing">0</h4>
@@ -144,11 +172,19 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-sm-3">
+                                <div class="report-stat">
                                     <div class="panel panel-success">
                                         <div class="panel-body text-center">
                                             <h4 id="stats-completed">0</h4>
                                             <p>Completed</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="report-stat">
+                                    <div class="panel panel-danger">
+                                        <div class="panel-body text-center">
+                                            <h4 id="stats-failed">0</h4>
+                                            <p>Failed</p>
                                         </div>
                                     </div>
                                 </div>
@@ -263,5 +299,6 @@
 {{end}}
 
 {{define "scripts"}}
+<link href="/css/reports.css" rel="stylesheet" type="text/css">
 <script src="/js/dist/app/reports.min.js"></script>
 {{end}}

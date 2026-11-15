@@ -150,6 +150,7 @@ func (as *AdminServer) registerRoutes() {
 	router.HandleFunc("/sending_profiles", mid.Use(as.SendingProfiles, mid.RequireLogin))
 	router.HandleFunc("/non_campaign_reports", mid.Use(as.NonCampaignReports, mid.RequireLogin))
 	router.HandleFunc("/reports", mid.Use(as.Reports, mid.RequireLogin))
+	router.HandleFunc("/people", mid.Use(as.People, mid.RequireLogin))
 	router.HandleFunc("/qr_code_generator", mid.Use(as.QRGenerator, mid.RequireLogin))
 	router.HandleFunc("/settings", mid.Use(as.Settings, mid.RequireLogin))
 	router.HandleFunc("/api_documentation", mid.Use(as.APIDocumentation, mid.RequireLogin))
@@ -298,6 +299,13 @@ func (as *AdminServer) Reports(w http.ResponseWriter, r *http.Request) {
 	params := newTemplateParams(r)
 	params.Title = "Reports"
 	getTemplate(w, "reports").ExecuteTemplate(w, "base", params)
+}
+
+// People handles the people page
+func (as *AdminServer) People(w http.ResponseWriter, r *http.Request) {
+	params := newTemplateParams(r)
+	params.Title = "People"
+	getTemplate(w, "people").ExecuteTemplate(w, "base", params)
 }
 
 // Settings handles the changing of settings

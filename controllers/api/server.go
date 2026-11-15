@@ -66,6 +66,8 @@ func (as *Server) registerRoutes() {
 	router.HandleFunc("/imap/replies", as.IMAPReplies)
 	router.HandleFunc("/tracked_requests", as.TrackedRequestsEndpoint)
 	router.HandleFunc("/tracked_requests/export", as.TrackedRequestsExport)
+	router.HandleFunc("/people/", as.People)
+	router.HandleFunc("/people/timeline", as.PeopleTimeline)
 	router.HandleFunc("/reset", as.Reset)
 	router.HandleFunc("/campaigns/", as.Campaigns)
 	router.HandleFunc("/campaigns/summary", as.CampaignsSummary)
@@ -122,6 +124,7 @@ func (as *Server) registerRoutes() {
 	router.HandleFunc("/encryption/discard", mid.Use(as.EncryptionDiscard, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/sso/test", mid.Use(as.SSOTest, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/sso", mid.Use(as.SSO, mid.RequirePermission(models.PermissionModifySystem)))
+	router.HandleFunc("/report_settings", mid.Use(as.ReportSettings, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/error_pages/404", mid.Use(as.ErrorPage, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/error_pages/404/reset", mid.Use(as.ErrorPageReset, mid.RequirePermission(models.PermissionModifySystem)))
 	router.HandleFunc("/global_variables", mid.Use(as.GlobalVariables))
@@ -137,7 +140,7 @@ func (as *Server) registerRoutes() {
 	router.HandleFunc("/reports/{id:[0-9]+}", as.DeleteReport)            // Delete report (DELETE)
 
 	// Legacy and utility report endpoints
-	router.HandleFunc("/reports/campaign_set", as.GenerateCampaignSetReport)   // Campaign Set Reports endpoint (sync)
+	router.HandleFunc("/reports/campaign_set", as.GenerateCampaignSetReport)   // Queue a campaign set report (POST, same as /reports/queue)
 	router.HandleFunc("/reports/dependencies", as.CheckDependencies)           // Check Python dependencies endpoint
 	router.HandleFunc("/reports/dependencies/install", as.InstallDependencies) // Install Python dependencies endpoint
 	as.handler = router

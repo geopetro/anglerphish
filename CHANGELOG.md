@@ -4,20 +4,47 @@ All notable changes to Anglerphish are documented here.
 
 ---
 
-## [Unreleased]
+## [1.5.0] - 2026-11-15
 
 ### Added
-- **Encryption management in the admin UI** - A new admin-only **Settings > DB Encryption** tab replaces the encryption CLI flags: generate a key (shown once, with paste-back confirmation) and turn encryption on without a restart, preview and run **Encrypt existing data**, preview decryption and **Disable encryption**, **Unlock** with a pasted key, and **Discard encrypted data** (locked only, confirmed by typing `DISCARD ENCRYPTED DATA`). The matching `/api/encryption/*` endpoints are documented in the API documentation. `ANGLERPHISH_ENCRYPTION_KEY` remains the long-term source of the key; the key is never stored.
-- **Locked state and banners** - If encrypted data exists but the key is missing or wrong, Anglerphish now starts in a locked state instead of failing. Admins see a locked banner (and a warning when the key is active for the session only); other users see a generic notice. Sending with a still-encrypted SMTP, SMS or IMAP credential is refused with `encryption key unavailable` until the key is provided.
-- **SSO settings in the admin UI** - A new admin-only **Settings > SSO** tab configures admin SSO (OIDC) without editing `config.json` or restarting. Changes apply live. It has provider presets for Microsoft Entra ID, Keycloak, Okta and Generic, and a **Test connection** button. The client secret is stored in the database and covered by DB encryption. The API documentation has step-by-step setup for each provider and documents the matching `/api/sso` endpoints.
+- **Encryption settings** - Manage database encryption from **Settings > DB Encryption** instead of the command line: generate a key, turn encryption on or off, encrypt existing data, and unlock with a key. The key itself is never stored, so keep providing it through `ANGLERPHISH_ENCRYPTION_KEY`.
+- **Locked mode** - If the encryption key is missing or wrong, Anglerphish now starts in a locked mode instead of refusing to start. Admins see a banner and can unlock from Settings. Until then, nothing that needs an encrypted password (sending, mailbox checks) will run.
+- **SSO settings** - Set up admin single sign-on from **Settings > SSO**, with presets for Microsoft Entra ID, Keycloak and Okta and a button to test the connection. Changes apply without a restart.
+- **Report Generation settings** - A new admin-only **Settings > Report Generation** tab sets the GeoLite2 database path, the online lookup, a time limit per report (default 30 minutes) and how long reports are kept (default 30 days). Changes apply without a restart. Reports older than the retention period are now deleted automatically, files included.
+- **People page** - See everyone you've targeted across all your campaigns in one place. Each person gets a phish-prone % (how often they clicked, submitted data, opened an attachment, ran a macro or replied), a report rate and a High/Medium/Low risk level, with their full campaign history one click away. Filter by date, campaign set or group, and export to CSV.
 
 ### Changed
-- **SSO config.json and environment variable no longer read** - The `oidc` block in `config.json` and `GOPHISH_OIDC_CLIENT_SECRET` are ignored (a warning is logged if the block is present). This is a breaking change: existing SSO setups must re-enter their settings in **Settings > SSO** after upgrading.
-- **Encryption CLI flags removed** - `--generate-encryption-key`, `--migrate-encryption`, `--migrate-decryption`, `--encryption-status` and `--dry-run` no longer exist. This is a breaking change for any scripts that use them; use Settings > DB Encryption instead.
+- **SSO is no longer read from `config.json`** - The `oidc` block and `GOPHISH_OIDC_CLIENT_SECRET` are ignored. If you use SSO, re-enter your settings in **Settings > SSO** after upgrading.
+- **Encryption command-line flags removed** - `--generate-encryption-key`, `--migrate-encryption`, `--migrate-decryption`, `--encryption-status` and `--dry-run` are gone. Use **Settings > DB Encryption** instead.
+- **Report IP lookups stay on your server by default** - Reports no longer send target IP addresses to an online geolocation service. Locations come from a local GeoLite2 database if you have one. Admins can turn the online lookup back on in **Settings > Report Generation**.
+- **Reports count every action, the same way as the rest of the app** - Opening the attachment and running a macro now count as failures in reports, as they already did on the People page. Reports also show attachment opens, macro runs (with the data the macro sent back), captured MFA codes and delivery errors. The phish-prone %, report rate and high-risk count are calculated as on the People page, so the numbers match, and recipients who were never sent anything are no longer counted.
+- **`POST /api/reports/campaign_set` now queues the report** - Like `POST /api/reports/queue`, it returns a job ID instead of the file. The undocumented `POST /api/reports/` is gone.
+- **Report anonymisation covers more** - "Anonymize emails" now also hides names, positions, submitted form values and data sent back by macros. "Anonymize IPs" also masks IPv6 addresses, hides coordinates and shows locations at country level only.
+- **Report timestamps are in UTC** - Times in Word and Excel reports now say "UTC", so times from different places line up.
+- **Readable report file names** - Downloads are named after the campaign or campaign set and the date, for example `Anglerphish_Q3_Finance_2026-11-15.xlsx`.
+- **Report generation needs Python 3.9 or newer** - The Python packages reports use are now pinned to tested versions, and unused ones were dropped. If Reports shows "Dependencies: Not Installed" after upgrading, click it and install them again.
+- **"Reporting Settings" is now called "IMAP"** - The Settings tab for the mailboxes checked for reported phishing has a clearer name, so it isn't confused with the new Report Generation tab.
+
+### Improved
+- **Choosing campaigns for a report** - The campaign list on the Reports page is now searchable, with checkboxes, the selected campaigns shown as removable chips, **Select all** / **Clear**, and a **Completed only** filter.
+- **Report history** - Shows how many reports failed, and the status boxes are now the same width.
+- **Settings tabs** - Each tab now has an icon.
 
 ### Fixed
-- A malformed `ANGLERPHISH_ENCRYPTION_KEY` no longer aborts startup. If encrypted data exists, Anglerphish starts locked (`invalid_key`) and the key can be corrected from the UI; otherwise it starts with encryption off and logs a startup warning.
-- Encrypted credentials are never sent as passwords: an SMTP, SMS or IMAP credential that is still encrypted is no longer used as if it were plaintext.
+- A malformed `ANGLERPHISH_ENCRYPTION_KEY` no longer stops Anglerphish from starting.
+- Fresh installs on MySQL no longer stop partway through setting up the database, which left Anglerphish unable to start. If an earlier MySQL install got stuck this way, upgrading lets the setup finish. No manual steps are needed.
+- Sending a test SMS no longer fails on MySQL with an "Unknown column 'phone'" error.
+- Campaign sets no longer count an SMS recipient who also has an email address as two people.
+- Creating a sending profile with invalid details through the API now returns a 400 error instead of a 500.
+- Reports now work for every user. Before, they failed for everyone except the first admin account.
+- Reports with "Anonymize IPs" no longer show full IP addresses in the IP statistics section.
+- Excel reports can no longer contain formulas taken from captured form data.
+- Changing `storage_path` for reports no longer breaks downloads.
+- Reports interrupted by a restart are generated again instead of staying "processing" forever, and a stuck report now fails after a timeout instead of blocking the queue.
+- Report numbers are now consistent. Word and Excel give the same totals, people are no longer counted twice when their email differs only in case, SMS recipients count towards the phish-prone %, "% never reported" can no longer go negative, and time-to-click uses the first click.
+- Someone who ran a macro or opened the attachment is no longer shown as "no action" in reports.
+- Excel reports no longer list an "Email Sent" event dated 0001-01-01 for recipients who were never sent anything.
+- Failed reports now show why they failed in the report history.
 
 ---
 

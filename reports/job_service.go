@@ -1,22 +1,40 @@
 package reports
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
 	log "github.com/gophish/gophish/logger"
 	"github.com/gophish/gophish/models"
+	"github.com/jinzhu/gorm"
+)
+
+const (
+	pollInterval    = 5 * time.Second
+	cleanupInterval = time.Hour
+	maxErrorLength  = 4000
 )
 
 // JobService handles background processing of report generation jobs
 type JobService struct {
-	pythonService *PythonService
-	fileManager   *FileManager
-	running       bool
-	stopChan      chan struct{}
-	wg            sync.WaitGroup
-	mutex         sync.RWMutex
+	python *PythonService
+	files  *FileManager
+	// settings returns the current settings; it is called for every job so
+	// changes made in Settings > Report Generation apply without a restart.
+	settings func() Settings
+
+	mutex   sync.Mutex
+	running bool
+	ctx     context.Context
+	cancel  context.CancelFunc
+	wake    chan struct{}
+	wg      sync.WaitGroup
 }
 
 // JobStatus represents the current status of a job
@@ -31,212 +49,227 @@ type JobStatus struct {
 	Error       string  `json:"error,omitempty"`
 }
 
-// NewJobService creates a new job service instance
-func NewJobService() *JobService {
+// NewJobService creates a job service that stores files through files.
+func NewJobService(files *FileManager) *JobService {
 	return &JobService{
-		pythonService: NewPythonService(),
-		fileManager:   NewFileManager(),
-		stopChan:      make(chan struct{}),
+		python:   NewPythonService(),
+		files:    files,
+		settings: LoadSettings,
+		wake:     make(chan struct{}, 1),
 	}
 }
 
-// Start begins the job processing loop
+// Python returns the Python service used by this job service.
+func (js *JobService) Python() *PythonService {
+	return js.python
+}
+
+// Start begins the job processing loop. Reports left "processing" by a
+// previous run are queued again first.
 func (js *JobService) Start() {
 	js.mutex.Lock()
 	defer js.mutex.Unlock()
-
 	if js.running {
 		return
 	}
-
-	js.running = true
-	log.Info("Starting report job service")
-
-	js.wg.Add(1)
-	go js.processJobsLoop()
-}
-
-// Stop gracefully stops the job processing
-func (js *JobService) Stop() {
-	js.mutex.Lock()
-	defer js.mutex.Unlock()
-
-	if !js.running {
-		return
+	if n, err := models.RequeueProcessingReports(); err != nil {
+		log.Errorf("Error re-queueing interrupted reports: %v", err)
+	} else if n > 0 {
+		log.Infof("Re-queued %d report(s) interrupted by a previous shutdown", n)
 	}
 
-	log.Info("Stopping report job service")
-	close(js.stopChan)
-	js.running = false
+	js.ctx, js.cancel = context.WithCancel(context.Background())
+	js.running = true
+	log.Info("Starting report job service")
+	js.wg.Add(1)
+	go js.processJobsLoop(js.ctx)
+}
 
-	// Wait for background goroutine to finish
+// Stop cancels any running report (it is queued again for the next start)
+// and waits for the processing loop to exit.
+func (js *JobService) Stop() {
+	js.mutex.Lock()
+	if !js.running {
+		js.mutex.Unlock()
+		return
+	}
+	log.Info("Stopping report job service")
+	js.running = false
+	js.cancel()
+	js.mutex.Unlock()
+
 	js.wg.Wait()
 	log.Info("Report job service stopped")
 }
 
 // IsRunning returns whether the service is currently running
 func (js *JobService) IsRunning() bool {
-	js.mutex.RLock()
-	defer js.mutex.RUnlock()
+	js.mutex.Lock()
+	defer js.mutex.Unlock()
 	return js.running
 }
 
-// processJobsLoop is the main processing loop that runs in a goroutine
-func (js *JobService) processJobsLoop() {
+func (js *JobService) notify() {
+	select {
+	case js.wake <- struct{}{}:
+	default:
+	}
+}
+
+func (js *JobService) processJobsLoop(ctx context.Context) {
 	defer js.wg.Done()
 
-	ticker := time.NewTicker(5 * time.Second) // Check for new jobs every 5 seconds
+	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
+	cleanup := time.NewTicker(cleanupInterval)
+	defer cleanup.Stop()
 
+	js.CleanupExpiredReports()
+	js.processQueuedJobs(ctx)
 	for {
 		select {
-		case <-js.stopChan:
-			log.Info("Job processing loop stopped")
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			js.processQueuedJobs()
+			js.processQueuedJobs(ctx)
+		case <-js.wake:
+			js.processQueuedJobs(ctx)
+		case <-cleanup.C:
+			js.CleanupExpiredReports()
 		}
 	}
 }
 
-// processQueuedJobs processes all jobs in the queue
-func (js *JobService) processQueuedJobs() {
-	queuedReports, err := models.GetQueuedReports()
+func (js *JobService) processQueuedJobs(ctx context.Context) {
+	queued, err := models.GetQueuedReports()
 	if err != nil {
 		log.Errorf("Error getting queued reports: %v", err)
 		return
 	}
-
-	if len(queuedReports) == 0 {
-		return
-	}
-
-	log.Infof("Processing %d queued reports", len(queuedReports))
-
-	for _, report := range queuedReports {
-		select {
-		case <-js.stopChan:
-			log.Info("Job processing interrupted by stop signal")
+	for _, report := range queued {
+		if ctx.Err() != nil {
 			return
-		default:
-			js.processReport(report)
 		}
+		js.processReport(ctx, report)
 	}
 }
 
-// processReport processes a single report
-func (js *JobService) processReport(report models.Report) {
+func (js *JobService) processReport(ctx context.Context, report models.Report) {
+	claimed, err := models.ClaimReport(report.Id)
+	if err != nil || !claimed {
+		return
+	}
 	log.Infof("Processing report %d for user %d", report.Id, report.UserId)
 
-	// Update status to processing
-	err := models.UpdateReportStatus(report.Id, models.ReportStatusProcessing)
-	if err != nil {
-		log.Errorf("Error updating report %d status to processing: %v", report.Id, err)
-		return
-	}
+	settings := js.settings()
+	jobCtx, cancel := context.WithTimeout(ctx, settings.JobTimeout)
+	defer cancel()
 
-	// Generate the report
-	err = js.generateReport(report)
-	if err != nil {
+	err = js.generateReport(jobCtx, report, settings)
+	switch {
+	case err == nil:
+		log.Infof("Successfully completed report %d", report.Id)
+	case ctx.Err() != nil:
+		// The service is stopping: run this report again on the next start
+		log.Infof("Report %d interrupted by shutdown; it will run again on restart", report.Id)
+		models.RequeueReport(report.Id)
+	case jobCtx.Err() == context.DeadlineExceeded:
+		models.UpdateReportError(report.Id, fmt.Sprintf("Generation timed out after %s", settings.JobTimeout))
+	default:
 		log.Errorf("Error generating report %d: %v", report.Id, err)
-		models.UpdateReportError(report.Id, fmt.Sprintf("Generation failed: %v", err))
-		return
+		models.UpdateReportError(report.Id, truncate(fmt.Sprintf("Generation failed: %v", err), maxErrorLength))
 	}
-
-	log.Infof("Successfully completed report %d", report.Id)
 }
 
-// generateReport handles the actual report generation
-func (js *JobService) generateReport(report models.Report) error {
-	// Parse options
-	options, err := report.GetOptions()
-	if err != nil {
-		return fmt.Errorf("error parsing report options: %v", err)
+func (js *JobService) generateReport(ctx context.Context, report models.Report, settings Settings) error {
+	var options ReportOptions
+	if report.OptionsJson != "" {
+		if err := json.Unmarshal([]byte(report.OptionsJson), &options); err != nil {
+			return fmt.Errorf("error parsing report options: %v", err)
+		}
+	}
+	format := ReportFormat(report.Format)
+	if !format.Valid() {
+		return fmt.Errorf("unsupported report format %q", report.Format)
 	}
 
-	// Convert options to ReportOptions struct
-	reportOptions := ReportOptions{
-		AnonymizeEmails:      getBoolFromOptions(options, "anonymize_emails", false),
-		AnonymizeIPs:         getBoolFromOptions(options, "anonymize_ips", false),
-		IncludeGDPRStatement: getBoolFromOptions(options, "include_gdpr_statement", false),
-		IncludeTOC:           getBoolFromOptions(options, "include_toc", false),
-	}
-
-	// Determine the format
-	format := FormatWord
-	if report.Format == "excel" {
-		format = FormatExcel
-	}
-
-	var reportData []byte
-
-	// Generate report for either campaign set or individual campaigns
+	var data *ReportData
+	var err error
 	if report.CampaignSetId != nil {
-		log.Infof("Generating report for campaign set %d", *report.CampaignSetId)
-		// Note: Validation for campaign sets would need to be implemented separately
-		// For now, we proceed with generation
-		reportData, err = GenerateReportForCampaignSet(format, *report.CampaignSetId, reportOptions)
+		data, err = FetchCampaignSetData(*report.CampaignSetId, report.UserId)
 	} else {
-		log.Infof("Generating report for campaigns: %s", report.CampaignIds)
-		campaignIds, err := report.GetCampaignIdsSlice()
-		if err != nil {
-			return fmt.Errorf("error parsing campaign IDs: %v", err)
+		campaignIDs, perr := report.GetCampaignIdsSlice()
+		if perr != nil {
+			return fmt.Errorf("error parsing campaign IDs: %v", perr)
 		}
-
-		// Validate campaigns before generation
-		validation, err := ValidateCampaignData(campaignIds)
-		if err != nil {
-			return fmt.Errorf("error validating campaigns: %v", err)
+		validation, verr := ValidateCampaignData(campaignIDs, report.UserId)
+		if verr != nil {
+			return fmt.Errorf("error validating campaigns: %v", verr)
 		}
-
-		// If validation found errors, fail the report
 		if !validation.Valid {
-			errorMsg := "Campaign validation failed"
+			msg := "Campaign validation failed"
 			if len(validation.Errors) > 0 {
-				errorMsg = fmt.Sprintf("%s: %s", errorMsg, validation.Errors[0])
+				msg = fmt.Sprintf("%s: %s", msg, validation.Errors[0])
 			}
-			return fmt.Errorf("%s", errorMsg)
+			return errors.New(msg)
 		}
-
-		// Log warnings but proceed with generation
-		if len(validation.Warnings) > 0 {
-			log.Warnf("Report generation proceeding with %d warnings:", len(validation.Warnings))
-			for _, warning := range validation.Warnings {
-				log.Warnf("  - %s", warning)
-			}
+		for _, warning := range validation.Warnings {
+			log.Warnf("Report %d: %s", report.Id, warning)
 		}
-
-		reportData, err = GenerateReport(format, campaignIds, reportOptions)
+		data, err = FetchCampaignData(campaignIDs, report.UserId)
 	}
-
 	if err != nil {
-		return fmt.Errorf("report generation failed: %v", err)
+		return err
 	}
 
-	if len(reportData) == 0 {
-		return fmt.Errorf("report generation produced empty data")
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("error encoding report data: %v", err)
+	}
+	reportData, err := js.python.GenerateReport(ctx, format, payload, options, settings)
+	if err != nil {
+		return err
 	}
 
-	// Save the report file
-	fileName := fmt.Sprintf("report_%d_%d.%s", report.Id, time.Now().Unix(), getFileExtension(format))
-	filePath, err := js.fileManager.SaveReport(report.Id, fileName, reportData)
+	// Stored under a unique server-side name; downloaded under a readable one
+	diskName := fmt.Sprintf("report_%d_%d.%s", report.Id, time.Now().Unix(), format.Extension())
+	filePath, err := js.files.SaveReport(diskName, reportData)
 	if err != nil {
 		return fmt.Errorf("error saving report file: %v", err)
 	}
-
-	// Update the report with file information
-	err = models.UpdateReportFile(report.Id, filePath, fileName, int64(len(reportData)))
+	displayName := DownloadFileName(data.reportTitle(), time.Now(), format)
+	err = models.UpdateReportFile(report.Id, filePath, displayName, int64(len(reportData)))
 	if err != nil {
+		js.files.DeleteReportFile(filePath)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Infof("Report %d was deleted during generation; discarded its file", report.Id)
+			return nil
+		}
 		return fmt.Errorf("error updating report file info: %v", err)
 	}
+	return models.UpdateReportStatus(report.Id, models.ReportStatusCompleted)
+}
 
-	// Mark as completed
-	err = models.UpdateReportStatus(report.Id, models.ReportStatusCompleted)
-	if err != nil {
-		return fmt.Errorf("error updating report status to completed: %v", err)
+var unsafeFileChars = regexp.MustCompile(`[^A-Za-z0-9._-]+`)
+
+// DownloadFileName builds a safe, readable file name such as
+// "Anglerphish_Q3_Finance_Campaign_2026-11-15.docx".
+func DownloadFileName(title string, when time.Time, format ReportFormat) string {
+	name := strings.Trim(unsafeFileChars.ReplaceAllString(title, "_"), "_.")
+	if len(name) > 60 {
+		name = strings.TrimRight(name[:60], "_.")
 	}
+	if name == "" {
+		name = "Report"
+	}
+	return fmt.Sprintf("Anglerphish_%s_%s.%s", name, when.Format("2006-01-02"), format.Extension())
+}
 
-	return nil
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "…"
 }
 
 // GetJobStatus returns the current status of a job
@@ -252,11 +285,8 @@ func (js *JobService) GetJobStatus(reportId int64, userId int64) (*JobStatus, er
 		CreatedAt: report.CreatedAt.Format(time.RFC3339),
 		Error:     report.ErrorMessage,
 	}
-
-	// Set progress based on status
 	switch report.Status {
 	case models.ReportStatusQueued:
-		status.Progress = 0
 		status.Message = "Report queued for generation"
 	case models.ReportStatusProcessing:
 		status.Progress = 50
@@ -265,120 +295,94 @@ func (js *JobService) GetJobStatus(reportId int64, userId int64) (*JobStatus, er
 		status.Progress = 100
 		status.Message = "Report completed successfully"
 	case models.ReportStatusFailed:
-		status.Progress = 0
 		status.Message = "Report generation failed"
 	}
-
 	if report.StartedAt != nil {
 		startedAt := report.StartedAt.Format(time.RFC3339)
 		status.StartedAt = &startedAt
 	}
-
 	if report.CompletedAt != nil {
 		completedAt := report.CompletedAt.Format(time.RFC3339)
 		status.CompletedAt = &completedAt
 	}
-
 	return status, nil
 }
 
-// QueueReport creates a new report job and queues it for processing
+func (js *JobService) newReport(userId int64, campaignIds []int64, format ReportFormat, options ReportOptions) (models.Report, error) {
+	expiresAt := time.Now().UTC().Add(js.settings().Retention)
+	report := models.Report{
+		UserId:    userId,
+		Format:    string(format),
+		Status:    models.ReportStatusQueued,
+		ExpiresAt: &expiresAt,
+	}
+	if err := report.SetCampaignIdsSlice(campaignIds); err != nil {
+		return report, fmt.Errorf("error setting campaign IDs: %v", err)
+	}
+	optionsJSON, err := json.Marshal(options)
+	if err != nil {
+		return report, fmt.Errorf("error setting options: %v", err)
+	}
+	report.OptionsJson = string(optionsJSON)
+	return report, nil
+}
+
+// QueueReport creates a new report job for individual campaigns
 func (js *JobService) QueueReport(userId int64, campaignIds []int64, format ReportFormat, options ReportOptions) (int64, error) {
-	report := models.Report{
-		UserId: userId,
-		Format: string(format),
-		Status: models.ReportStatusQueued,
-	}
-
-	// Set campaign IDs
-	err := report.SetCampaignIdsSlice(campaignIds)
-	if err != nil {
-		return 0, fmt.Errorf("error setting campaign IDs: %v", err)
-	}
-
-	// Set options
-	optionsMap := map[string]interface{}{
-		"anonymize_emails":       options.AnonymizeEmails,
-		"anonymize_ips":          options.AnonymizeIPs,
-		"include_gdpr_statement": options.IncludeGDPRStatement,
-		"include_toc":            options.IncludeTOC,
-	}
-	err = report.SetOptions(optionsMap)
-	if err != nil {
-		return 0, fmt.Errorf("error setting options: %v", err)
-	}
-
-	// Create the report
-	err = models.PostReport(&report)
-	if err != nil {
-		return 0, fmt.Errorf("error creating report: %v", err)
-	}
-
-	log.Infof("Queued report %d for user %d with %d campaigns", report.Id, userId, len(campaignIds))
-	return report.Id, nil
-}
-
-// QueueCampaignSetReport creates a new campaign set report job and queues it for processing
-func (js *JobService) QueueCampaignSetReport(userId, campaignSetId int64, format ReportFormat, options ReportOptions) (int64, error) {
-	report := models.Report{
-		UserId:        userId,
-		CampaignSetId: &campaignSetId,
-		Format:        string(format),
-		Status:        models.ReportStatusQueued,
-		CampaignIds:   "[]", // Empty array for campaign set reports
-	}
-
-	// Set options
-	optionsMap := map[string]interface{}{
-		"anonymize_emails":       options.AnonymizeEmails,
-		"anonymize_ips":          options.AnonymizeIPs,
-		"include_gdpr_statement": options.IncludeGDPRStatement,
-		"include_toc":            options.IncludeTOC,
-	}
-	err := report.SetOptions(optionsMap)
-	if err != nil {
-		return 0, fmt.Errorf("error setting options: %v", err)
-	}
-
-	// Create the report
-	err = models.PostReport(&report)
-	if err != nil {
-		return 0, fmt.Errorf("error creating report: %v", err)
-	}
-
-	log.Infof("Queued campaign set report %d for user %d, campaign set %d", report.Id, userId, campaignSetId)
-	return report.Id, nil
-}
-
-// CleanupExpiredReports removes expired reports using the file manager
-func (js *JobService) CleanupExpiredReports() (int, error) {
-	count, err := models.CleanupExpiredReports()
+	report, err := js.newReport(userId, campaignIds, format, options)
 	if err != nil {
 		return 0, err
 	}
-
-	// The file cleanup will be handled by the FileManager through periodic cleanup
-	return count, nil
+	if err := models.PostReport(&report); err != nil {
+		return 0, fmt.Errorf("error creating report: %v", err)
+	}
+	log.Infof("Queued report %d for user %d with %d campaigns", report.Id, userId, len(campaignIds))
+	js.notify()
+	return report.Id, nil
 }
 
-// Helper functions
+// QueueCampaignSetReport creates a new report job for a campaign set.
+// campaignIds records the set's campaigns at queue time (for display).
+func (js *JobService) QueueCampaignSetReport(userId, campaignSetId int64, campaignIds []int64, format ReportFormat, options ReportOptions) (int64, error) {
+	report, err := js.newReport(userId, campaignIds, format, options)
+	if err != nil {
+		return 0, err
+	}
+	report.CampaignSetId = &campaignSetId
+	if err := models.PostReport(&report); err != nil {
+		return 0, fmt.Errorf("error creating report: %v", err)
+	}
+	log.Infof("Queued campaign set report %d for user %d, campaign set %d", report.Id, userId, campaignSetId)
+	js.notify()
+	return report.Id, nil
+}
 
-func getBoolFromOptions(options map[string]interface{}, key string, defaultValue bool) bool {
-	if val, exists := options[key]; exists {
-		if boolVal, ok := val.(bool); ok {
-			return boolVal
+// CleanupExpiredReports deletes expired reports and their files.
+func (js *JobService) CleanupExpiredReports() int {
+	expired, err := models.GetExpiredReports()
+	if err != nil {
+		log.Errorf("Error finding expired reports: %v", err)
+		return 0
+	}
+	count := 0
+	for _, report := range expired {
+		if report.Status == models.ReportStatusProcessing {
+			continue
 		}
+		if report.FilePath != "" {
+			if err := js.files.DeleteReportFile(report.FilePath); err != nil {
+				log.Errorf("Error deleting file of expired report %d: %v", report.Id, err)
+				continue
+			}
+		}
+		if err := models.DeleteReport(report.Id, report.UserId); err != nil {
+			log.Errorf("Error deleting expired report %d: %v", report.Id, err)
+			continue
+		}
+		count++
 	}
-	return defaultValue
-}
-
-func getFileExtension(format ReportFormat) string {
-	switch format {
-	case FormatExcel:
-		return "xlsx"
-	case FormatWord:
-		return "docx"
-	default:
-		return "docx"
+	if count > 0 {
+		log.Infof("Cleaned up %d expired report(s)", count)
 	}
+	return count
 }

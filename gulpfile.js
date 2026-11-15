@@ -70,7 +70,8 @@ scripts = function () {
             app_directory + 'passwords.js',
             app_directory + 'non_campaign_reports.js',
             app_directory + 'message_modal.js',
-            app_directory + 'reports.js'
+            app_directory + 'reports.js',
+            app_directory + 'people.js'
         ])
         .pipe(rename({
             suffix: '.min'

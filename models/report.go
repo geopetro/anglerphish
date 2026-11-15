@@ -5,6 +5,7 @@ import (
 	"time"
 
 	log "github.com/gophish/gophish/logger"
+	"github.com/jinzhu/gorm"
 )
 
 // Report represents a report generation job
@@ -162,15 +163,43 @@ func GetQueuedReports() ([]Report, error) {
 	return reports, nil
 }
 
-// GetProcessingReports returns all reports with status 'processing'
-func GetProcessingReports() ([]Report, error) {
-	reports := []Report{}
-	err := db.Where("status = ?", ReportStatusProcessing).Order("created_at ASC").Find(&reports).Error
+// ClaimReport atomically moves a queued report to processing. It returns
+// false when another worker already claimed it or it no longer exists.
+func ClaimReport(id int64) (bool, error) {
+	res := db.Model(&Report{}).
+		Where("id = ? AND status = ?", id, ReportStatusQueued).
+		Updates(map[string]interface{}{
+			"status":     ReportStatusProcessing,
+			"started_at": time.Now().UTC(),
+		})
+	if res.Error != nil {
+		log.Error(res.Error)
+		return false, res.Error
+	}
+	return res.RowsAffected == 1, nil
+}
+
+// RequeueReport puts a report back in the queue, e.g. when the server
+// stops while it is being generated.
+func RequeueReport(id int64) error {
+	err := db.Model(&Report{}).Where("id = ? AND status = ?", id, ReportStatusProcessing).
+		Updates(map[string]interface{}{"status": ReportStatusQueued, "started_at": nil}).Error
 	if err != nil {
 		log.Error(err)
-		return reports, err
 	}
-	return reports, nil
+	return err
+}
+
+// RequeueProcessingReports re-queues reports left in "processing" by a
+// previous run that stopped or crashed mid-generation. It returns how many
+// reports were re-queued.
+func RequeueProcessingReports() (int64, error) {
+	res := db.Model(&Report{}).Where("status = ?", ReportStatusProcessing).
+		Updates(map[string]interface{}{"status": ReportStatusQueued, "started_at": nil})
+	if res.Error != nil {
+		log.Error(res.Error)
+	}
+	return res.RowsAffected, res.Error
 }
 
 // UpdateReportStatus updates only the status of a report
@@ -206,15 +235,20 @@ func UpdateReportStatus(id int64, status string) error {
 
 // UpdateReportFile updates the file information for a report
 func UpdateReportFile(id int64, filePath, fileName string, fileSize int64) error {
-	err := db.Model(&Report{}).Where("id = ?", id).Updates(map[string]interface{}{
+	res := db.Model(&Report{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"file_path": filePath,
 		"file_name": fileName,
 		"file_size": fileSize,
-	}).Error
-	if err != nil {
-		log.Error(err)
+	})
+	if res.Error != nil {
+		log.Error(res.Error)
+		return res.Error
 	}
-	return err
+	if res.RowsAffected == 0 {
+		// The report was deleted while it was being generated
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 // UpdateReportError updates the error message for a report
@@ -230,77 +264,43 @@ func UpdateReportError(id int64, errorMessage string) error {
 	return err
 }
 
-// CleanupExpiredReports removes expired reports and their files
-func CleanupExpiredReports() (int, error) {
+// GetExpiredReports returns every report whose expiry date has passed.
+// The caller deletes the report files and then the records.
+func GetExpiredReports() ([]Report, error) {
 	expired := []Report{}
-	err := db.Where("expires_at < ?", time.Now().UTC()).Find(&expired).Error
+	err := db.Where("expires_at IS NOT NULL AND expires_at < ?", time.Now().UTC()).Find(&expired).Error
 	if err != nil {
 		log.Error(err)
-		return 0, err
 	}
-
-	count := 0
-	for _, report := range expired {
-		// Delete the file if it exists
-		if report.FilePath != "" {
-			// File deletion will be handled by the FileManager
-			log.Infof("Cleaning up expired report %d, file: %s", report.Id, report.FilePath)
-		}
-
-		// Delete the database record
-		err = DeleteReport(report.Id, report.UserId)
-		if err != nil {
-			log.Errorf("Error deleting expired report %d: %v", report.Id, err)
-			continue
-		}
-		count++
-	}
-
-	if count > 0 {
-		log.Infof("Cleaned up %d expired reports", count)
-	}
-
-	return count, nil
+	return expired, err
 }
 
 // GetReportStats returns statistics about reports for a user
 func GetReportStats(uid int64) (map[string]int, error) {
 	stats := map[string]int{
-		"total":      0,
-		"queued":     0,
-		"processing": 0,
-		"completed":  0,
-		"failed":     0,
+		"total":                0,
+		ReportStatusQueued:     0,
+		ReportStatusProcessing: 0,
+		ReportStatusCompleted:  0,
+		ReportStatusFailed:     0,
 	}
 
-	// Get total count
-	var totalCount int64
-	err := db.Model(&Report{}).Where("user_id = ?", uid).Count(&totalCount).Error
-	if err != nil {
-		log.Error(err)
-		return stats, err
-	}
-	stats["total"] = int(totalCount)
-
-	// Get count by status
-	type StatusCount struct {
+	type statusCount struct {
 		Status string
 		Count  int
 	}
-
-	var statusCounts []StatusCount
-	err = db.Model(&Report{}).Select("status, COUNT(*) as count").
+	var counts []statusCount
+	err := db.Model(&Report{}).Select("status, COUNT(*) as count").
 		Where("user_id = ?", uid).
 		Group("status").
-		Scan(&statusCounts).Error
+		Scan(&counts).Error
 	if err != nil {
 		log.Error(err)
 		return stats, err
 	}
-
-	for _, sc := range statusCounts {
+	for _, sc := range counts {
 		stats[sc.Status] = sc.Count
+		stats["total"] += sc.Count
 	}
-
 	return stats, nil
 }

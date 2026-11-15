@@ -28,6 +28,7 @@ type PhishServer struct {
 }
 
 // Reports represents the reports configuration details
+// Other report options are edited in Settings > Report Generation.
 type Reports struct {
 	StoragePath string `json:"storage_path"`
 }

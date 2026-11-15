@@ -546,6 +546,15 @@ var api = {
             return query("/sso/test", "POST", { issuer: issuer }, true)
         }
     },
+    // reportSettings contains the endpoints for /report_settings (admin only)
+    reportSettings: {
+        get: function () {
+            return query("/report_settings", "GET", {}, true)
+        },
+        put: function (data) {
+            return query("/report_settings", "PUT", data, true)
+        }
+    },
     // errorPages contains the endpoints for /error_pages
     errorPages: {
         // get404() - Fetches the current 404 page HTML

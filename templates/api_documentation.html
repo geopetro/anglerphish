@@ -5,7 +5,7 @@
     <!-- Official Gophish Documentation -->
     <div class="alert alert-info">
         <strong><i class="fa fa-book"></i> Official Gophish API Documentation:</strong>
-        <a href="https://docs.getgophish.com/api-documentation/" target="_blank" class="alert-link">
+        <a href="https://docs.getgophish.com/api-documentation/" target="_blank" rel="noopener" class="alert-link doc-official-link">
             https://docs.getgophish.com/api-documentation/
         </a>
         <p style="margin-top: 10px; margin-bottom: 0;">For standard Gophish API endpoints (campaigns, templates, landing pages, groups, sending profiles, etc.), please refer to the official documentation above.</p>
@@ -366,21 +366,23 @@ Response: 201 Created
 
             <div class="endpoint-doc">
                 <strong><span class="label label-primary">POST</span> /api/reports/queue</strong>
-                <p>Queues a new report for asynchronous generation. <a class="example-toggle" data-toggle="collapse" data-target="#reportsQueueExample"><small>[Show Example]</small></a></p>
+                <p>Queues a new report for asynchronous generation. Send either <code>campaign_ids</code> or a <code>campaign_set_id</code>. <code>format</code> is <code>word</code> or <code>excel</code>. <a class="example-toggle" data-toggle="collapse" data-target="#reportsQueueExample"><small>[Show Example]</small></a></p>
                 <div id="reportsQueueExample" class="collapse">
                 <pre><code>Request Body:
 {
-  "campaign_set_id": 1,
-  "format": "excel"
+  "campaign_ids": [1, 2],
+  "format": "excel",
+  "options": {
+    "anonymize_emails": true,
+    "anonymize_ips": true
+  }
 }
 
-Response: 201 Created
+Response: 200 OK
 {
-  "id": 1,
-  "campaign_set_id": 1,
+  "job_id": 1,
   "status": "queued",
-  "format": "excel",
-  "created_date": "2024-01-01T00:00:00Z"
+  "message": "Report queued successfully"
 }</code></pre>
                 </div>
             </div>
@@ -411,18 +413,19 @@ Response: 201 Created
 
             <div class="endpoint-doc">
                 <strong><span class="label label-primary">POST</span> /api/reports/campaign_set</strong>
-                <p><em>Legacy endpoint:</em> Synchronously generates a campaign set report (not recommended for large datasets). <a class="example-toggle" data-toggle="collapse" data-target="#reportsCampaignSetExample"><small>[Show Example]</small></a></p>
+                <p><em>Legacy endpoint:</em> Queues a campaign set report, the same as <code>POST /api/reports/queue</code> with a <code>campaign_set_id</code>. Poll the status endpoint and download the file when it completes. <a class="example-toggle" data-toggle="collapse" data-target="#reportsCampaignSetExample"><small>[Show Example]</small></a></p>
                 <div id="reportsCampaignSetExample" class="collapse">
                 <pre><code>Request Body:
 {
-  "campaign_set_id": 1
+  "campaign_set_id": 1,
+  "format": "word"
 }
 
 Response: 200 OK
 {
-  "success": true,
-  "message": "Report generated",
-  "file_path": "/path/to/report.xlsx"
+  "job_id": 2,
+  "status": "queued",
+  "message": "Report queued successfully"
 }</code></pre>
                 </div>
             </div>
@@ -443,6 +446,30 @@ Response: 200 OK
 {
   "success": true,
   "message": "Dependencies installed successfully"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> / <span class="label label-warning">PUT</span> /api/report_settings</strong>
+                <p>Returns or updates the report generation settings (admin only). Changes apply to the next report without a restart. <code>online_geolocation</code> sends target IP addresses to freeipapi.com; <code>geoip_db_path</code> must point to an existing file or be empty; <code>job_timeout_minutes</code> is 1&ndash;1440 and <code>retention_days</code> is 1&ndash;3650. <a class="example-toggle" data-toggle="collapse" data-target="#reportSettingsExample"><small>[Show Example]</small></a></p>
+                <div id="reportSettingsExample" class="collapse">
+                <pre><code>Request Body (PUT):
+{
+  "online_geolocation": false,
+  "geoip_db_path": "/usr/share/GeoIP/GeoLite2-City.mmdb",
+  "job_timeout_minutes": 30,
+  "retention_days": 30
+}
+
+Response: 200 OK
+{
+  "online_geolocation": false,
+  "geoip_db_path": "/usr/share/GeoIP/GeoLite2-City.mmdb",
+  "job_timeout_minutes": 30,
+  "retention_days": 30,
+  "max_job_timeout_minutes": 1440,
+  "max_retention_days": 3650
 }</code></pre>
                 </div>
             </div>
@@ -1642,6 +1669,18 @@ template {
 
 {{define "scripts"}}
 <style>
+/* Bootstrap's .alert-link navy is unreadable on the themes. */
+.alert .doc-official-link,
+.alert .doc-official-link:focus {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+.alert .doc-official-link:hover {
+    color: var(--dark-accent, #23527c);
+    text-decoration: underline;
+}
+
 /* Admin SSO provider picker */
 .sso-provider-pills { margin: 10px 0 15px; }
 .sso-provider-pills > li > a { border: 1px solid rgba(128, 128, 128, 0.35); padding: 8px 14px; }

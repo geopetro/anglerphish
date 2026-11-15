@@ -138,7 +138,9 @@ func (s *ModelsSuite) TestSaveOIDCSecretEncryptedWhenKeyLoaded(c *check.C) {
 }
 
 func (s *ModelsSuite) TestReloadOIDCInvalidSettingsLeavesOff(c *check.C) {
-	c.Assert(db.Exec("INSERT INTO oidc_settings (enabled, issuer, updated_at) VALUES (1, '', CURRENT_TIMESTAMP)").Error, check.IsNil)
+	// client_secret is listed because it is TEXT NOT NULL with no default,
+	// which strict MySQL requires in an INSERT.
+	c.Assert(db.Exec("INSERT INTO oidc_settings (enabled, issuer, client_secret, updated_at) VALUES (1, '', '', CURRENT_TIMESTAMP)").Error, check.IsNil)
 	c.Assert(ReloadOIDC(), check.NotNil)
 	c.Assert(auth.ActiveOIDCClient() == nil, check.Equals, true)
 	c.Assert(CurrentOIDCStatus(), check.Equals, OIDCStatusUnavailable)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math/rand"
 	"net/url"
+	"sort"
 	"time"
 
 	log "github.com/gophish/gophish/logger"
@@ -507,13 +508,82 @@ func newRecipientFlags() recipientFlags {
 	}
 }
 
+// applyRecipientImplications applies the logical implications between a
+// recipient's flags in place. They are monotonic: they only ever set flags to
+// true.
+func applyRecipientImplications(f recipientFlags) {
+	if f["submitted_data"] {
+		f["clicked"] = true
+		f["opened"] = true
+	}
+	if f["clicked"] {
+		f["opened"] = true
+	}
+	if f["replied"] {
+		f["opened"] = true
+	}
+	if f["macro_executed"] {
+		f["attachment_opened"] = true
+	}
+	if f["attachment_opened"] {
+		f["opened"] = true
+	}
+	// Note: "reported" remains standalone - no implications
+}
+
+// eventRecipientFlags maps each recipient-tracking event message to the flags
+// it sets. Messages not listed here don't affect recipient stats.
+var eventRecipientFlags = map[string][]string{
+	EventSent:             {"sent"},
+	EventSMSSent:          {"sent"},
+	EventOpened:           {"opened"},
+	EventAttachmentOpened: {"attachment_opened", "opened"},
+	EventMacroExecuted:    {"macro_executed"},
+	EventClicked:          {"clicked"},
+	EventDataSubmit:       {"submitted_data"},
+	EventReplied:          {"replied"},
+	EventReported:         {"reported"},
+}
+
+// trackedEventMessages returns the event messages in eventRecipientFlags,
+// sorted, for use in SQL filters.
+func trackedEventMessages() []string {
+	messages := make([]string, 0, len(eventRecipientFlags))
+	for m := range eventRecipientFlags {
+		messages = append(messages, m)
+	}
+	sort.Strings(messages)
+	return messages
+}
+
+// applyEventFlag sets the flags implied by a single event message.
+func applyEventFlag(f recipientFlags, message string) {
+	for _, flag := range eventRecipientFlags[message] {
+		f[flag] = true
+	}
+}
+
+// applyResultFlags sets the flags recorded on a result row itself.
+func applyResultFlags(f recipientFlags, reported, replied bool, status string) {
+	if reported {
+		f["reported"] = true
+	}
+	if replied {
+		f["replied"] = true
+	}
+	if status == Error || status == StatusRetry {
+		f["error"] = true
+	}
+}
+
 // buildRecipientStats loads the results and events for a campaign and returns a
 // per-recipient map of action flags, plus the number of result rows (the
 // campaign's target count).
 //
 // Recipients are keyed by email address, falling back to phone number for SMS
 // campaigns. SMS events store the phone number in the event's email column, so
-// both sides of the join agree on the key.
+// for an SMS target that also has an email, events for its phone are mapped
+// back to its email key.
 //
 // Logical implications are applied before returning. They are monotonic — they
 // only ever set flags to true — which is what makes it safe to union these maps
@@ -532,6 +602,10 @@ func buildRecipientStats(cid int64) (map[string]recipientFlags, int64, error) {
 	}
 
 	recipientStats := make(map[string]recipientFlags)
+	// SMS events are recorded against the phone number, while a target with
+	// both an email and a phone is keyed by email. alias maps such phones to
+	// the recipient's key so both sides land on one recipient.
+	alias := make(map[string]string)
 
 	for _, result := range results {
 		email := result.Email
@@ -541,18 +615,13 @@ func buildRecipientStats(cid int64) (map[string]recipientFlags, int64, error) {
 		if email == "" {
 			continue
 		}
+		if result.SMSTarget && result.Phone != "" && result.Phone != email {
+			alias[result.Phone] = email
+		}
 		if recipientStats[email] == nil {
 			recipientStats[email] = newRecipientFlags()
 		}
-		if result.Reported {
-			recipientStats[email]["reported"] = true
-		}
-		if result.Replied {
-			recipientStats[email]["replied"] = true
-		}
-		if result.Status == Error || result.Status == StatusRetry {
-			recipientStats[email]["error"] = true
-		}
+		applyResultFlags(recipientStats[email], result.Reported, result.Replied, result.Status)
 	}
 
 	for _, event := range events {
@@ -564,48 +633,17 @@ func buildRecipientStats(cid int64) (map[string]recipientFlags, int64, error) {
 			// phantom "" recipient key.
 			continue
 		}
+		if a, ok := alias[email]; ok {
+			email = a
+		}
 		if recipientStats[email] == nil {
 			recipientStats[email] = newRecipientFlags()
 		}
-		switch event.Message {
-		case EventSent, EventSMSSent:
-			recipientStats[email]["sent"] = true
-		case EventOpened:
-			recipientStats[email]["opened"] = true
-		case EventAttachmentOpened:
-			recipientStats[email]["attachment_opened"] = true
-			recipientStats[email]["opened"] = true
-		case EventMacroExecuted:
-			recipientStats[email]["macro_executed"] = true
-		case EventClicked:
-			recipientStats[email]["clicked"] = true
-		case EventDataSubmit:
-			recipientStats[email]["submitted_data"] = true
-		case EventReplied:
-			recipientStats[email]["replied"] = true
-		case EventReported:
-			recipientStats[email]["reported"] = true
-		}
+		applyEventFlag(recipientStats[email], event.Message)
 	}
 
 	for _, stats := range recipientStats {
-		if stats["submitted_data"] {
-			stats["clicked"] = true
-			stats["opened"] = true
-		}
-		if stats["clicked"] {
-			stats["opened"] = true
-		}
-		if stats["replied"] {
-			stats["opened"] = true
-		}
-		if stats["macro_executed"] {
-			stats["attachment_opened"] = true
-		}
-		if stats["attachment_opened"] {
-			stats["opened"] = true
-		}
-		// Note: "reported" remains standalone - no implications
+		applyRecipientImplications(stats)
 	}
 
 	return recipientStats, int64(len(results)), nil

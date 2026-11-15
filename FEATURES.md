@@ -39,6 +39,21 @@
 
 ---
 
+## People
+
+| Feature | Description | Relevant Context / Use Case |
+| :--- | :--- | :--- |
+| **People Page** | Lists every person targeted across your campaigns, matched by **lowercased email** (or **phone** for SMS targets), with per-person counts for campaigns sent, opened, clicked, attachment opened, macro executed, submitted data, replied and reported. Only campaigns actually sent to the person count. | Shows how individuals behave across repeated assessments, not just per campaign. |
+| **Phish-Prone %** | Campaigns where the person **clicked, submitted data, opened an attachment, ran a macro, or replied**, divided by campaigns sent to them. **Opening an email alone is not a failure.** | Measures risky behaviour per person, without counting harmless opens. |
+| **Report Rate %** | Campaigns where the person **reported** the phishing email, divided by campaigns sent to them. | Tracks how often people flag simulated phishing. |
+| **People Overview & Risk** | Summary cards show **total people**, **overall phish-prone %** (failed campaigns ÷ campaigns sent, across everyone shown), **high-risk people** and **reports made**. Each person shows their current **groups** and a **risk level**: **High** at 40%+ phish-prone, **Medium** above 0%, **Low** at 0%. | Spot the people who need follow-up training at a glance. |
+| **People Filters** | Filter by **launch date range** (from/to, inclusive), **campaign set**, and **group** (people currently in that group), and search by name, email, position or group. | Narrow the view to a period, a campaign set or a team. |
+| **Per-Person Timeline** | Clicking a row shows that person's **per-campaign timeline** of events. | Reviews an individual's history in detail. |
+| **People CSV Export** | Exports all rows for the current filters to **CSV**, including each person's counts, rates, groups and last failure. | Hand clients a per-person breakdown they can open in any spreadsheet. |
+| **People API** | `GET /api/people/` and `GET /api/people/timeline?key=` accept the same filters (`from`, `to` as `YYYY-MM-DD`, `campaign_set_id`, `group_id`). | Integrate per-person stats into other tooling. |
+
+---
+
 ## Templates, Variables, & Group Management
 
 | Feature | Description | Relevant Context / Use Case |

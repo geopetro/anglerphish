@@ -52,6 +52,7 @@ func (s *ModelsSuite) TearDownTest(c *check.C) {
 	db.Delete(EncryptionMeta{})
 	db.Delete(IMAP{})
 	db.Delete(OIDCSettings{})
+	db.Delete(ReportSettings{})
 	auth.SetActiveOIDCClient(nil)
 
 	// Reset users table to default state.

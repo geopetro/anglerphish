@@ -191,7 +191,7 @@ def get_platform_advice(os_info, issue_type):
         elif os_info["is_windows"]:
             return "Ensure Python 3 is properly installed from python.org with pip included"
     
-    return "Please ensure Python 3.7+ is installed with pip support"
+    return "Please ensure Python 3.9+ is installed with pip support"
 
 
 def upgrade_pip():

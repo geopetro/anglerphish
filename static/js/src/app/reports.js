@@ -11,12 +11,10 @@ var reports = {
     
     // Package descriptions for user understanding
     packageDescriptions: {
-        "python-docx": "Create and modify Word documents",
-        "openpyxl": "Generate Excel spreadsheets",
-        "requests": "HTTP library for API calls and web operations",
-        "traceback2": "Enhanced error reporting and debugging",
-        "user-agents": "Parse and analyze user agent strings",
-        "geoip2": "IP geolocation lookup functionality"
+        "python-docx": "Create Word documents (required)",
+        "openpyxl": "Generate Excel spreadsheets (required)",
+        "user-agents": "Show browser and OS names (optional)",
+        "geoip2": "Offline IP geolocation with a GeoLite2 database (optional)"
     },
     
     // Initialization
@@ -125,44 +123,255 @@ var reports = {
         }
     },
     
+    // Searchable multi-select for campaigns. The hidden #campaign_select
+    // stays the source of truth, so report generation and the saved
+    // selection work as before; the picker only reads and writes it.
+    picker: {
+        MAX_CHIPS: 8, // more selected campaigns collapse into "+N more"
+        expanded: false, // "+N more" was clicked: show every chip
+        bound: false,
+
+        init: function() {
+            var p = reports.picker;
+            if (!p.bound) {
+                p.bindEvents();
+                p.bound = true;
+            }
+            $("#campaign_picker_search").val("");
+            p.render();
+        },
+
+        selectedIds: function() {
+            return $("#campaign_select").val() || [];
+        },
+
+        setSelected: function(ids) {
+            $("#campaign_select").val(ids).trigger("change");
+            reports.picker.render();
+        },
+
+        toggleId: function(id) {
+            var ids = reports.picker.selectedIds();
+            var i = ids.indexOf(id);
+            if (i === -1) {
+                ids.push(id);
+            } else {
+                ids.splice(i, 1);
+            }
+            reports.picker.setSelected(ids);
+        },
+
+        completedOnly: function() {
+            return $("#campaign_picker_completed").is(":checked");
+        },
+
+        // Campaigns matching the search box and the "Completed only" filter
+        visibleCampaigns: function() {
+            var term = ($("#campaign_picker_search").val() || "").trim().toLowerCase();
+            var completedOnly = reports.picker.completedOnly();
+            return reports.campaigns.filter(function(c) {
+                if (completedOnly && c.status !== "Completed") return false;
+                return !term || c.name.toLowerCase().indexOf(term) !== -1;
+            });
+        },
+
+        render: function() {
+            var p = reports.picker;
+            var ids = p.selectedIds();
+            var byId = {};
+            $.each(reports.campaigns, function(i, c) { byId[String(c.id)] = c; });
+
+            // Chips for the selection
+            var $chips = $("#campaign_picker_chips").empty();
+            if (reports.campaigns.length === 0) {
+                $chips.append($('<span class="text-muted">').text("No campaigns available"));
+            } else if (ids.length === 0) {
+                $chips.append($('<span class="text-muted">').text("Choose one or more campaigns"));
+            } else {
+                var shown = p.expanded ? ids : ids.slice(0, p.MAX_CHIPS);
+                $.each(shown, function(i, id) {
+                    var c = byId[id];
+                    if (!c) return;
+                    $chips.append(
+                        $('<span class="label label-primary campaign-picker-chip">').append(
+                            $('<span class="campaign-picker-chip-name">').text(c.name),
+                            $('<button type="button" class="campaign-picker-chip-remove">')
+                                .attr({ "data-id": id, "aria-label": "Remove " + c.name, title: "Remove" })
+                                .html('<i class="fa fa-times"></i>')
+                        )
+                    );
+                });
+                if (ids.length > p.MAX_CHIPS) {
+                    $chips.append($('<a href="#" class="campaign-picker-more">').text(
+                        p.expanded ? "Show less" : "+" + (ids.length - p.MAX_CHIPS) + " more"));
+                }
+            }
+
+            // Checkbox list, filtered by the search box
+            var $list = $("#campaign_picker_list").empty();
+            var visible = p.visibleCampaigns();
+            if (visible.length === 0) {
+                var empty = "No campaigns available";
+                if (reports.campaigns.length) {
+                    empty = $("#campaign_picker_search").val().trim() ? "No campaigns match your search"
+                        : "No completed campaigns";
+                }
+                $list.append($('<li class="campaign-picker-empty text-muted">').text(empty));
+            }
+            $.each(visible, function(i, c) {
+                var checked = ids.indexOf(String(c.id)) !== -1;
+                var $a = $('<a href="#" role="option">')
+                    .attr({ "data-id": c.id, "aria-selected": checked })
+                    .append(
+                        $('<i class="fa">').addClass(checked ? "fa-check-square" : "fa-square-o"),
+                        $('<span class="campaign-picker-item-name">').text(c.name)
+                    );
+                if (c.status) {
+                    $a.append($('<small class="text-muted campaign-picker-item-status">').text(c.status));
+                }
+                $list.append($("<li>").append($a));
+            });
+
+            $("#campaign_picker_count").text(ids.length + " of " + reports.campaigns.length + " selected");
+        },
+
+        open: function() {
+            $("#campaign_picker").addClass("open");
+            $("#campaign_picker_toggle").attr("aria-expanded", "true");
+            $("#campaign_picker_search").focus();
+        },
+
+        close: function() {
+            $("#campaign_picker").removeClass("open");
+            $("#campaign_picker_toggle").attr("aria-expanded", "false");
+        },
+
+        isOpen: function() {
+            return $("#campaign_picker").hasClass("open");
+        },
+
+        bindEvents: function() {
+            var p = reports.picker;
+
+            $("#campaign_picker_toggle").on("click", function(e) {
+                // Removing a chip or expanding them shouldn't open or close the list
+                if ($(e.target).closest(".campaign-picker-chip-remove, .campaign-picker-more").length) return;
+                p.isOpen() ? p.close() : p.open();
+            }).on("keydown", function(e) {
+                if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
+                    e.preventDefault();
+                    p.open();
+                }
+            });
+
+            $("#campaign_picker_chips").on("click", ".campaign-picker-chip-remove", function(e) {
+                e.preventDefault();
+                p.toggleId(String($(this).data("id")));
+            }).on("click", ".campaign-picker-more", function(e) {
+                e.preventDefault();
+                p.expanded = !p.expanded;
+                p.render();
+            });
+
+            reports.restoreCheckboxState("campaign_picker_completed", false);
+            $("#campaign_picker_completed").on("change", function() {
+                localStorage.setItem("gophish.reports.campaign_picker_completed", this.checked);
+                p.render();
+            });
+
+            $("#campaign_picker_search").on("input", p.render).on("keydown", function(e) {
+                if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    $("#campaign_picker_list a").first().focus();
+                }
+            });
+
+            $("#campaign_picker_list").on("click", "a", function(e) {
+                e.preventDefault();
+                var id = String($(this).data("id"));
+                p.toggleId(id);
+                $('#campaign_picker_list a[data-id="' + id + '"]').focus();
+            }).on("keydown", "a", function(e) {
+                var $items = $("#campaign_picker_list a");
+                var i = $items.index(this);
+                if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    $items.eq(Math.min(i + 1, $items.length - 1)).focus();
+                } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    i === 0 ? $("#campaign_picker_search").focus() : $items.eq(i - 1).focus();
+                } else if (e.key === " ") {
+                    e.preventDefault();
+                    $(this).click();
+                }
+            });
+
+            // Select all / Clear act on the campaigns currently shown by the search
+            $("#campaign_picker_all").on("click", function(e) {
+                e.preventDefault();
+                var ids = p.selectedIds();
+                $.each(p.visibleCampaigns(), function(i, c) {
+                    if (ids.indexOf(String(c.id)) === -1) ids.push(String(c.id));
+                });
+                p.setSelected(ids);
+            });
+            $("#campaign_picker_clear").on("click", function(e) {
+                e.preventDefault();
+                var hide = {};
+                $.each(p.visibleCampaigns(), function(i, c) { hide[String(c.id)] = true; });
+                p.setSelected(p.selectedIds().filter(function(id) { return !hide[id]; }));
+            });
+
+            // Close on Escape or a click outside the picker. Clicking a
+            // campaign or chip re-renders it, so by the time the click
+            // reaches the document its target is no longer in the page;
+            // that is a click inside the picker, not outside it.
+            $(document).on("click", function(e) {
+                if (!p.isOpen() || !document.documentElement.contains(e.target)) return;
+                if (!$(e.target).closest("#campaign_picker").length) p.close();
+            });
+            $("#campaign_picker").on("keydown", function(e) {
+                if (e.key === "Escape" && p.isOpen()) {
+                    p.close();
+                    $("#campaign_picker_toggle").focus();
+                }
+            });
+        }
+    },
+
     // Load campaigns via API
     loadCampaigns: function() {
         api.campaigns.get()
             .success(function(campaigns) {
                 reports.campaigns = campaigns;
                 $("#campaign_select").empty();
-                
-                if (campaigns.length === 0) {
-                    $("#campaign_select").append('<option value="">No campaigns available</option>');
-                    return;
-                }
-                
+
                 // Sort campaigns by name
                 campaigns.sort(function(a, b) {
                     return a.name.localeCompare(b.name);
                 });
-                
-                // Add campaigns to select
+
+                // The hidden select holds the selection; the picker drives it
                 $.each(campaigns, function(i, campaign) {
-                    $("#campaign_select").append('<option value="' + campaign.id + '">' + escapeHtml(campaign.name) + '</option>');
+                    $("#campaign_select").append($("<option>").val(campaign.id).text(campaign.name));
                 });
-                
+
                 // Restore campaign selection from localStorage
                 var savedCampaignIds = localStorage.getItem("gophish.reports.campaign_ids");
                 if (savedCampaignIds) {
                     try {
-                        var campaignIds = JSON.parse(savedCampaignIds);
-                        $("#campaign_select").val(campaignIds);
+                        $("#campaign_select").val(JSON.parse(savedCampaignIds));
                     } catch (e) {
                         // Ignore parse errors
                     }
                 }
-                
+
                 // Save selection when it changes
-                $("#campaign_select").on("change", function() {
-                    var selectedIds = $(this).val();
-                    localStorage.setItem("gophish.reports.campaign_ids", JSON.stringify(selectedIds));
+                $("#campaign_select").off("change.save").on("change.save", function() {
+                    localStorage.setItem("gophish.reports.campaign_ids", JSON.stringify($(this).val() || []));
                 });
+
+                reports.picker.init();
             })
             .error(function(error) {
                 errorFlash("Error loading campaigns: " + error.message);
@@ -269,6 +478,7 @@ var reports = {
         $("#stats-queued").text(stats.queued || 0);
         $("#stats-processing").text(stats.processing || 0);
         $("#stats-completed").text(stats.completed || 0);
+        $("#stats-failed").text(stats.failed || 0);
         $("#report-count").text(stats.total || 0);
     },
     
@@ -322,7 +532,8 @@ var reports = {
                 var newRow = reports.createReportTableRow(report);
                 $tbody.prepend(newRow); // Add new reports at the top
                 $tbody.find('tr[data-report-id="' + report.id + '"]').hide().fadeIn(300);
-            } else if (oldReport && (oldReport.status !== report.status || oldReport.file_size !== report.file_size)) {
+            } else if (oldReport && (oldReport.status !== report.status || oldReport.file_size !== report.file_size ||
+                                     oldReport.error_message !== report.error_message)) {
                 // Report changed - update it with a brief highlight
                 var updatedRow = reports.createReportTableRow(report);
                 $existingRow.html($(updatedRow).html());
@@ -351,11 +562,16 @@ var reports = {
         var fileSize = reports.formatFileSize(report.file_size);
         var createdAt = reports.formatDate(report.created_at);
         
-        return '<tr data-report-id="' + report.id + '">' +
-            '<td>' + report.id + '</td>' +
-            '<td>' + report.format.charAt(0).toUpperCase() + report.format.slice(1) + '</td>' +
+        var format = String(report.format || '');
+        var campaigns = (report.campaign_count || 0) + ' campaign' + (report.campaign_count === 1 ? '' : 's');
+        if (report.campaign_set_id) {
+            campaigns += ' <span class="label label-default">set</span>';
+        }
+        return '<tr data-report-id="' + parseInt(report.id, 10) + '">' +
+            '<td>' + parseInt(report.id, 10) + '</td>' +
+            '<td>' + escapeHtml(format.charAt(0).toUpperCase() + format.slice(1)) + '</td>' +
             '<td>' + statusBadge + '</td>' +
-            '<td>' + (report.campaign_count || 0) + ' campaigns</td>' +
+            '<td>' + campaigns + '</td>' +
             '<td>' + createdAt + '</td>' +
             '<td>' + fileSize + '</td>' +
             '<td>' + actions + '</td>' +
@@ -386,8 +602,9 @@ var reports = {
                 break;
         }
         
+        status = String(status || '');
         return '<span class="label label-' + badgeClass + '">' +
-            '<i class="fa fa-' + icon + '"></i> ' + status.charAt(0).toUpperCase() + status.slice(1) +
+            '<i class="fa fa-' + icon + '"></i> ' + escapeHtml(status.charAt(0).toUpperCase() + status.slice(1)) +
             '</span>';
     },
     
@@ -400,6 +617,11 @@ var reports = {
                 '<i class="fa fa-download"></i></button> ';
         }
         
+        if (report.status === 'failed' && report.error_message) {
+            actions += '<button class="btn btn-warning btn-sm" onclick="reports.showReportError(' + parseInt(report.id, 10) + ')" title="Why did this fail?">' +
+                '<i class="fa fa-exclamation-circle"></i></button> ';
+        }
+
         if (report.status === 'processing' || report.status === 'queued') {
             actions += '<button class="btn btn-info btn-sm" onclick="reports.checkReportStatus(' + report.id + ')" title="Check Status">' +
                 '<i class="fa fa-refresh"></i></button> ';
@@ -411,6 +633,21 @@ var reports = {
         return actions;
     },
     
+    // Show why a report failed
+    showReportError: function(reportId) {
+        var report = reports.currentReports.find(function(r) { return r.id === reportId; });
+        if (!report) {
+            return;
+        }
+        Swal.fire({
+            title: "Report #" + reportId + " failed",
+            html: '<pre style="text-align:left; white-space:pre-wrap; max-height:400px; overflow:auto;">' +
+                escapeHtml(report.error_message || "No error details were recorded.") + '</pre>',
+            type: "error",
+            width: 700
+        });
+    },
+
     // Format file size for display
     formatFileSize: function(bytes) {
         if (!bytes || bytes === 0) return '-';
@@ -458,10 +695,11 @@ var reports = {
         
         // Get campaign IDs or campaign set ID
         if ($("#report_source").val() === "campaign") {
-            var selectedIds = $("#campaign_select").val();
-            var campaignIds = Array.isArray(selectedIds) ? selectedIds : [selectedIds];
-            reportOptions.campaign_ids = campaignIds.map(function(id) {
-                return parseInt(id);
+            var selectedIds = $("#campaign_select").val() || [];
+            reportOptions.campaign_ids = selectedIds.map(function(id) {
+                return parseInt(id, 10);
+            }).filter(function(id) {
+                return !isNaN(id);
             });
             
             if (!reportOptions.campaign_ids || reportOptions.campaign_ids.length === 0) {
@@ -837,14 +1075,14 @@ var reports = {
         // Step 6: More packages (after 12s)
         setTimeout(function() {
             if (xhr.readyState < 4) {
-                reports.updateInstallProgress(65, "requests", "Installing requests and other dependencies...");
+                reports.updateInstallProgress(65, "Optional packages", "Installing user-agents and geoip2...");
             }
         }, 12000);
         
         // Step 7: Still working message (after 20s)
         setTimeout(function() {
             if (xhr.readyState < 4) {
-                reports.updateInstallProgress(75, "Utility packages", "Installing utility packages (geoip2, user-agents)...");
+                reports.updateInstallProgress(75, "Finishing", "Finishing installation...");
                 reports.appendInstallLog("Still working... Large packages may take a while to download.", 'info');
             }
         }, 20000);

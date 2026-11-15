@@ -38,6 +38,12 @@ func (as *Server) SendingProfiles(w http.ResponseWriter, r *http.Request) {
 			log.Error(err)
 			return
 		}
+		// Invalid input is a 400, as on PUT; only a failed save is a 500.
+		err = s.Validate()
+		if err != nil {
+			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusBadRequest)
+			return
+		}
 		s.ModifiedDate = time.Now().UTC()
 		s.UserId = ctx.Get(r, "user_id").(int64)
 		err = models.PostSMTP(&s)

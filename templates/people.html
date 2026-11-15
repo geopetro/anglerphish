@@ -1,0 +1,713 @@
+{{define "body"}}
+<div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="people-header">
+                <div class="people-header-icon"><i class="fa fa-users"></i></div>
+                <div class="people-header-text">
+                    <h1>People</h1>
+                    <p class="text-muted">Phishing simulation results and risk for everyone you've targeted.</p>
+                </div>
+                <button type="button" class="btn btn-default people-export" id="people_export_btn">
+                    <i class="fa fa-download"></i> Export CSV
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="flashes" class="row"></div>
+    <div class="row people-cards">
+        <div class="col-sm-6 col-lg-3">
+            <div class="people-card people-card-total">
+                <div class="people-card-icon"><i class="fa fa-users"></i></div>
+                <div>
+                    <div class="people-card-label">Total people</div>
+                    <div class="people-card-value" id="people_stat_total">&ndash;</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="people-card people-card-prone">
+                <div class="people-card-icon"><i class="fa fa-envelope-o"></i></div>
+                <div>
+                    <div class="people-card-label">Overall phish-prone %
+                        <i class="fa fa-info-circle" data-toggle="tooltip" data-container="body" data-placement="bottom" title="Failed campaigns ÷ campaigns sent."></i>
+                    </div>
+                    <div class="people-card-value" id="people_stat_prone">&ndash;</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="people-card people-card-high">
+                <div class="people-card-icon"><i class="fa fa-exclamation-triangle"></i></div>
+                <div>
+                    <div class="people-card-label">High-risk people
+                        <i class="fa fa-info-circle" data-toggle="tooltip" data-container="body" data-placement="bottom" title="People with a phish-prone rate of 40% or more."></i>
+                    </div>
+                    <div class="people-card-value" id="people_stat_high">&ndash;</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="people-card people-card-reports">
+                <div class="people-card-icon"><i class="fa fa-flag-o"></i></div>
+                <div>
+                    <div class="people-card-label">Reports made
+                        <i class="fa fa-info-circle" data-toggle="tooltip" data-container="body" data-placement="bottom" title="Total times the email was reported."></i>
+                    </div>
+                    <div class="people-card-value" id="people_stat_reports">&ndash;</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <form class="people-filters" id="people_filters" onsubmit="return false;">
+                <div class="people-filter">
+                    <label for="people_from">From</label>
+                    <input type="date" class="form-control" id="people_from">
+                </div>
+                <div class="people-filter">
+                    <label for="people_to">To</label>
+                    <input type="date" class="form-control" id="people_to">
+                </div>
+                <div class="people-filter">
+                    <label for="people_campaign_set">Campaign set</label>
+                    <select class="form-control" id="people_campaign_set">
+                        <option value="">All campaign sets</option>
+                    </select>
+                </div>
+                <div class="people-filter">
+                    <label for="people_group">Group</label>
+                    <select class="form-control" id="people_group">
+                        <option value="">All groups</option>
+                    </select>
+                </div>
+                <div class="people-filter people-filter-actions">
+                    <button type="submit" class="btn btn-primary" id="people_apply_btn"><i class="fa fa-filter"></i> Apply filters</button>
+                    <button type="button" class="btn btn-link" id="people_clear_btn">Clear</button>
+                </div>
+                <div class="people-filter people-filter-search">
+                    <div class="people-search">
+                        <i class="fa fa-search"></i>
+                        <input type="search" class="form-control" id="people_search" placeholder="Search people (name, email, group...)">
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="people_loading"><i class="fa fa-spinner fa-spin"></i> Loading...</div>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="people-table-panel">
+                <table id="peopleTable" class="table table-hover" style="display:none; width:100%;">
+                    <thead>
+                        <tr>
+                            <th>Person</th>
+                            <th>Group</th>
+                            <th class="people-num">Campaigns</th>
+                            <th class="people-num">Clicked</th>
+                            <th class="people-num">Submitted</th>
+                            <th class="people-num">Reported</th>
+                            <th>Phish-prone %</th>
+                            <th data-toggle="tooltip" data-container="body" data-placement="top" title="High: 40% or more phish-prone. Medium: above 0%. Low: 0%.">Risk</th>
+                            <th>Last failed</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="personModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <div class="person-modal-who">
+                        <div class="people-avatar person-modal-avatar" id="personModalAvatar"></div>
+                        <div>
+                            <h4 class="modal-title" id="personModalTitle"></h4>
+                            <div class="text-muted" id="personModalSub"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <div class="row person-modal-cards">
+                        <div class="col-sm-6 col-md-3">
+                            <div class="people-card">
+                                <div class="people-card-icon"><i class="fa fa-paper-plane-o"></i></div>
+                                <div>
+                                    <div class="people-card-label">Campaigns</div>
+                                    <div class="people-card-value" id="personStatSent"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <div class="people-card people-card-high">
+                                <div class="people-card-icon"><i class="fa fa-exclamation-triangle"></i></div>
+                                <div>
+                                    <div class="people-card-label">Failures</div>
+                                    <div class="people-card-value" id="personStatFailures"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <div class="people-card people-card-high">
+                                <div class="people-card-icon"><i class="fa fa-bullseye"></i></div>
+                                <div>
+                                    <div class="people-card-label">Phish-prone rate</div>
+                                    <div class="people-card-value" id="personStatProne"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <div class="people-card people-card-reports">
+                                <div class="people-card-icon"><i class="fa fa-flag-o"></i></div>
+                                <div>
+                                    <div class="people-card-label">Reported</div>
+                                    <div class="people-card-value"><span id="personStatReported"></span>
+                                        <small class="person-card-note" id="personStatReportRate"></small></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Icons match the Actions column header (dashboard stage strip). -->
+                    <p class="text-muted person-modal-def"><strong>Failure</strong> =
+                        <span class="person-def-icons">
+                            <i class="fa fa-mouse-pointer" style="color:#F39C12" data-toggle="tooltip" data-container="body" data-placement="top" title="Clicked"></i>
+                            <i class="fa fa-exclamation-circle" style="color:#f05b4f" data-toggle="tooltip" data-container="body" data-placement="top" title="Submitted data"></i>
+                            <i class="fa fa-paperclip" style="color:#f0ad4e" data-toggle="tooltip" data-container="body" data-placement="top" title="Attachment opened"></i>
+                            <i class="fa fa-file-code-o" style="color:#c0392b" data-toggle="tooltip" data-container="body" data-placement="top" title="Macro enabled"></i>
+                            <i class="fa fa-reply" style="color:#E67E22" data-toggle="tooltip" data-container="body" data-placement="top" title="Replied"></i>
+                        </span></p>
+                    <div class="person-modal-tools">
+                        <div class="people-search person-search">
+                            <i class="fa fa-search"></i>
+                            <input type="search" class="form-control" id="personSearch" placeholder="Search campaigns...">
+                        </div>
+                        <label for="personOutcome">Outcome</label>
+                        <select class="form-control" id="personOutcome">
+                            <option value="">All outcomes</option>
+                            <option value="failed">Failed</option>
+                            <option value="reported">Reported</option>
+                            <option value="opened">Opened only</option>
+                            <option value="ignored">Ignored</option>
+                        </select>
+                        <span class="person-modal-count" id="personCount"></span>
+                    </div>
+                    <div id="personModalLoading"><i class="fa fa-spinner fa-spin"></i> Loading...</div>
+                    <div class="text-muted" id="personModalEmpty" style="display:none;">No campaigns were sent to this person for the current filters.</div>
+                    <div class="person-timeline-wrap">
+                        <table class="table table-hover" id="personTimeline" style="display:none; width:100%;">
+                            <thead>
+                                <tr>
+                                    <th>Campaign</th>
+                                    <th>Launched</th>
+                                    <th class="person-actions">
+                                        <!-- Same icon strip and dots as the dashboard's recent campaigns (main.css stage-*). -->
+                                        <span class="stage-legend">
+                                            <span class="stage-cell"><i class="fa fa-envelope-open-o" data-toggle="tooltip" data-container="body" data-placement="top" title="Opened"></i></span>
+                                            <span class="stage-cell"><i class="fa fa-mouse-pointer" data-toggle="tooltip" data-container="body" data-placement="top" title="Clicked"></i></span>
+                                            <span class="stage-cell"><i class="fa fa-exclamation-circle" data-toggle="tooltip" data-container="body" data-placement="top" title="Submitted data"></i></span>
+                                            <span class="stage-cell"><i class="fa fa-paperclip" data-toggle="tooltip" data-container="body" data-placement="top" title="Attachment opened"></i></span>
+                                            <span class="stage-cell"><i class="fa fa-file-code-o" data-toggle="tooltip" data-container="body" data-placement="top" title="Macro enabled"></i></span>
+                                            <span class="stage-cell"><i class="fa fa-reply" data-toggle="tooltip" data-container="body" data-placement="top" title="Replied"></i></span>
+                                            <span class="stage-cell"><i class="fa fa-bullhorn" data-toggle="tooltip" data-container="body" data-placement="top" title="Reported"></i></span>
+                                        </span>
+                                    </th>
+                                    <th>Outcome</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+    /* Page layout. Neutral surfaces use translucent greys so the page works
+       on every theme; only risk uses fixed red/amber/green. */
+    .people-header {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        padding: 20px 0 18px;
+    }
+
+    .people-header-icon {
+        font-size: 40px;
+        opacity: 0.85;
+    }
+
+    .people-header-text {
+        flex: 1 1 auto;
+    }
+
+    .people-header-text h1 {
+        margin: 0;
+        font-size: 34px;
+        font-weight: 700;
+    }
+
+    .people-header-text p {
+        margin: 2px 0 0;
+        font-size: 15px;
+    }
+
+    .people-cards > div {
+        margin-bottom: 18px;
+    }
+
+    .people-card {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 18px 20px;
+        border: 1px solid rgba(127, 127, 127, 0.25);
+        border-radius: 8px;
+        background-color: rgba(127, 127, 127, 0.06);
+    }
+
+    .people-card-icon {
+        flex: 0 0 52px;
+        height: 52px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        background-color: rgba(127, 127, 127, 0.15);
+    }
+
+    .people-card-label {
+        font-size: 14px;
+        opacity: 0.85;
+    }
+
+    .people-card-label .fa-info-circle {
+        opacity: 0.7;
+        margin-left: 4px;
+    }
+
+    .people-card-value {
+        font-size: 30px;
+        font-weight: 700;
+        line-height: 1.15;
+    }
+
+    .people-card-high {
+        border-color: rgba(231, 76, 60, 0.45);
+        background-color: rgba(231, 76, 60, 0.08);
+    }
+
+    .people-card-high .people-card-icon {
+        color: #e74c3c;
+        background-color: rgba(231, 76, 60, 0.18);
+    }
+
+    .people-card-reports {
+        border-color: rgba(52, 152, 219, 0.45);
+        background-color: rgba(52, 152, 219, 0.07);
+    }
+
+    .people-card-reports .people-card-icon {
+        color: #3498db;
+        background-color: rgba(52, 152, 219, 0.18);
+    }
+
+    .people-filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 14px 18px;
+        padding: 16px 20px;
+        margin-bottom: 18px;
+        border: 1px solid rgba(127, 127, 127, 0.25);
+        border-radius: 8px;
+        background-color: rgba(127, 127, 127, 0.04);
+    }
+
+    .people-filter label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .people-filter .form-control {
+        min-width: 160px;
+    }
+
+    .people-filter-actions {
+        display: flex;
+        gap: 4px;
+    }
+
+    .people-filter-search {
+        flex: 1 1 260px;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .people-search {
+        position: relative;
+        width: 100%;
+        max-width: 360px;
+    }
+
+    .people-search .fa-search {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: 0.6;
+    }
+
+    .people-search .form-control {
+        padding-left: 34px;
+        width: 100%;
+    }
+
+    .people-table-panel {
+        border: 1px solid rgba(127, 127, 127, 0.25);
+        border-radius: 8px;
+        padding: 0 0 12px;
+        margin-bottom: 30px;
+        overflow-x: auto;
+    }
+
+    #peopleTable {
+        margin-bottom: 0;
+    }
+
+    #peopleTable thead th {
+        white-space: nowrap;
+        padding: 14px 12px;
+        border-bottom-width: 1px;
+    }
+
+    #peopleTable tbody td {
+        vertical-align: middle;
+        padding: 12px;
+    }
+
+    #peopleTable tbody tr {
+        cursor: pointer;
+    }
+
+    #peopleTable tbody tr.people-row-high {
+        background-color: rgba(231, 76, 60, 0.10);
+    }
+
+    #peopleTable .people-num {
+        text-align: center;
+    }
+
+    .people-person {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 220px;
+    }
+
+    .people-avatar {
+        flex: 0 0 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 700;
+        font-size: 15px;
+    }
+
+    .people-person-name {
+        font-weight: 600;
+    }
+
+    .people-person-sub {
+        font-size: 13px;
+        opacity: 0.7;
+    }
+
+    .people-chip {
+        display: inline-block;
+        padding: 3px 9px;
+        margin: 2px 4px 2px 0;
+        border-radius: 4px;
+        font-size: 13px;
+        white-space: nowrap;
+        background-color: rgba(127, 127, 127, 0.18);
+    }
+
+    .people-prone {
+        min-width: 120px;
+    }
+
+    .people-prone-value {
+        font-weight: 600;
+    }
+
+    .people-bar {
+        height: 6px;
+        margin-top: 5px;
+        border-radius: 3px;
+        background-color: rgba(127, 127, 127, 0.25);
+        overflow: hidden;
+    }
+
+    .people-bar > span {
+        display: block;
+        height: 100%;
+        border-radius: 3px;
+    }
+
+    .people-risk {
+        display: inline-block;
+        padding: 3px 9px;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .people-risk-high {
+        color: #ff8a80;
+        background-color: rgba(231, 76, 60, 0.22);
+    }
+
+    .people-risk-medium {
+        color: #f5b041;
+        background-color: rgba(243, 156, 18, 0.2);
+    }
+
+    .people-risk-low {
+        color: #58d68d;
+        background-color: rgba(46, 204, 113, 0.18);
+    }
+
+    /* Reporting is the good outcome; it is shown in blue everywhere on the
+       page (card, popup summary, ticks and badge). */
+    .people-reported {
+        color: #3498db;
+    }
+
+    .label.people-label-reported {
+        background-color: #3498db;
+    }
+
+    /* The pale risk text above is for dark themes; darken it on the light one. */
+    body.light-sand-theme .people-risk-high {
+        color: #b03a2e;
+    }
+
+    body.light-sand-theme .people-risk-medium {
+        color: #9c640c;
+    }
+
+    body.light-sand-theme .people-risk-low {
+        color: #1e8449;
+    }
+
+    .people-bar-high {
+        background-color: #e74c3c;
+    }
+
+    .people-bar-medium {
+        background-color: #f39c12;
+    }
+
+    .people-bar-low {
+        background-color: #2ecc71;
+    }
+
+    .people-chevron {
+        opacity: 0.5;
+        text-align: right;
+    }
+
+    #peopleTable_wrapper .dataTables_info {
+        padding: 12px 16px 0;
+    }
+
+    #peopleTable_wrapper .dataTables_paginate {
+        padding: 8px 16px 0;
+    }
+
+    /* main.css pins every .modal-dialog to 700px; this modal needs room for
+       ten columns. */
+    #personModal .modal-dialog {
+        width: 95%;
+        max-width: 1100px;
+    }
+
+    #personModal .person-modal-who {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    #personModal .person-modal-avatar {
+        flex-basis: 52px;
+        height: 52px;
+        font-size: 19px;
+    }
+
+    #personModal .modal-header .modal-title {
+        font-size: 24px;
+        font-weight: 700;
+    }
+
+    #personModal .person-modal-cards > div {
+        margin-bottom: 14px;
+    }
+
+    #personModal .people-card {
+        padding: 14px 16px;
+    }
+
+    #personModal .people-card-value {
+        font-size: 26px;
+    }
+
+    #personModal .people-card-high .people-card-value {
+        color: #e74c3c;
+    }
+
+    #personModal .person-card-note {
+        font-size: 13px;
+        font-weight: 400;
+        opacity: 0.75;
+        margin-left: 6px;
+    }
+
+    #personModal .person-modal-def {
+        margin: 0 0 14px;
+    }
+
+    #personModal .person-def-icons i {
+        margin-left: 8px;
+        font-size: 15px;
+    }
+
+    #personModal .person-modal-tools {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 14px;
+        margin-bottom: 12px;
+    }
+
+    #personModal .person-modal-tools label {
+        margin: 0;
+        font-weight: 600;
+    }
+
+    #personModal .person-search {
+        flex: 0 1 280px;
+    }
+
+    #personModal #personOutcome {
+        width: auto;
+        min-width: 160px;
+    }
+
+    #personModal .person-modal-count {
+        margin-left: auto;
+        font-weight: 600;
+    }
+
+    #personModal .person-timeline-wrap {
+        border: 1px solid rgba(127, 127, 127, 0.25);
+        border-radius: 8px;
+        overflow-x: auto;
+        padding-bottom: 10px;
+    }
+
+    #personTimeline {
+        margin-bottom: 0;
+    }
+
+    #personTimeline thead th {
+        vertical-align: middle;
+        padding: 12px 10px;
+        border-bottom-width: 1px;
+    }
+
+    /* main.css sets 16px on modal DataTables cells; match the page instead. */
+    #personModal .dataTable tbody td {
+        font-size: 14px;
+    }
+
+    #personTimeline_wrapper .dataTables_info {
+        padding: 12px 14px 0;
+    }
+
+    #personTimeline_wrapper .dataTables_paginate {
+        padding: 8px 14px 0;
+    }
+
+    /* Fixed layout with set widths, so columns don't resize from page to page
+       with the length of the campaign names shown. Campaign takes the rest.
+       Actions fits the 7 stage cells (7 x 26px) plus padding; Outcome fits
+       two badges (Failed + Reported). */
+    #personTimeline {
+        table-layout: fixed;
+        min-width: 760px;
+    }
+
+    #personTimeline th:nth-child(2) {
+        width: 130px;
+    }
+
+    #personTimeline th:nth-child(3) {
+        width: 230px;
+    }
+
+    #personTimeline th:nth-child(4) {
+        width: 190px;
+    }
+
+    #personTimeline td {
+        vertical-align: middle;
+    }
+
+    #personTimeline .person-actions {
+        white-space: nowrap;
+    }
+
+    .label.people-label-opened {
+        background-color: #5d6d7e;
+    }
+
+    #personTimeline .person-date {
+        white-space: nowrap;
+    }
+
+    #personTimeline .person-campaign {
+        display: inline-block;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        vertical-align: bottom;
+    }
+
+
+    #personTimeline .person-outcome {
+        white-space: nowrap;
+    }
+
+    #personTimeline .person-outcome .label + .label {
+        margin-left: 4px;
+    }
+</style>
+{{end}}
+
+{{define "scripts"}}
+<script src="/js/dist/app/people.min.js"></script>
+{{end}}

@@ -399,7 +399,7 @@ func TestPageTemplatesParse(t *testing.T) {
 	pages := []string{
 		"api_documentation", "campaign_results", "campaign_sets", "campaigns",
 		"dashboard", "groups", "landing_pages", "non_campaign_reports",
-		"qr_code_generator", "reports", "reset_password", "sending_profiles",
+		"people", "qr_code_generator", "reports", "reset_password", "sending_profiles",
 		"settings", "templates", "users", "webhooks",
 		// sms_templates is omitted: SMSTemplates is unrouted and its file does not exist.
 	}
@@ -458,5 +458,61 @@ func TestOIDCRoutesNotFoundWhenDisabled(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", resp.StatusCode)
+	}
+}
+
+func TestPeoplePageRequiresLogin(t *testing.T) {
+	ctx := setupTest(t)
+	defer tearDown(t, ctx)
+	noRedirect := &http.Client{CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	resp, err := noRedirect.Get(fmt.Sprintf("%s/people", ctx.adminServer.URL))
+	if err != nil {
+		t.Fatalf("error requesting /people: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Fatalf("expected redirect to login, got %d", resp.StatusCode)
+	}
+	if loc, err := resp.Location(); err != nil || loc.Path != "/login" {
+		t.Fatalf("expected redirect to /login, got %v (%v)", loc, err)
+	}
+}
+
+func TestPeoplePageRenders(t *testing.T) {
+	ctx := setupTest(t)
+	defer tearDown(t, ctx)
+	u, err := models.GetUserByUsername("admin")
+	if err != nil {
+		t.Fatalf("error getting admin: %v", err)
+	}
+	u.PasswordChangeRequired = false
+	if err := models.PutUser(&u); err != nil {
+		t.Fatalf("error updating admin: %v", err)
+	}
+	noRedirect := &http.Client{CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	login := attemptLogin(t, ctx, noRedirect, "admin", "gophish", "")
+	login.Body.Close()
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/people", ctx.adminServer.URL), nil)
+	if err != nil {
+		t.Fatalf("error creating request: %v", err)
+	}
+	for _, c := range login.Cookies() {
+		req.AddCookie(c)
+	}
+	resp, err := noRedirect.Do(req)
+	if err != nil {
+		t.Fatalf("error requesting /people: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), "People") {
+		t.Fatal("expected People in page body")
 	}
 }

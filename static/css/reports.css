@@ -1,0 +1,199 @@
+/* Reports page: campaign picker.
+   Colours come from the active theme through the Bootstrap classes the
+   markup uses (.form-control, .dropdown-menu, .label, .text-muted); this
+   file only handles layout, so every theme styles it consistently. */
+
+.campaign-picker {
+    position: relative;
+}
+
+.campaign-picker-toggle {
+    display: flex;
+    align-items: center;
+    height: auto;
+    min-height: 34px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    cursor: pointer;
+}
+
+.campaign-picker-chips {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.campaign-picker-chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 4px 6px 4px 8px;
+    font-size: 12px;
+    font-weight: normal;
+}
+
+.campaign-picker-chip-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.campaign-picker-chip-remove {
+    margin-left: 6px;
+    padding: 0 2px;
+    border: 0;
+    background: none;
+    color: inherit;
+    line-height: 1;
+    opacity: .75;
+}
+
+.campaign-picker-chip-remove:hover,
+.campaign-picker-chip-remove:focus {
+    opacity: 1;
+}
+
+.campaign-picker-caret {
+    margin-left: 8px;
+    opacity: .7;
+}
+
+.campaign-picker-menu {
+    right: 0;
+    width: 100%;
+    padding: 0;
+}
+
+.campaign-picker.open .campaign-picker-menu {
+    display: block;
+}
+
+.campaign-picker-search {
+    padding: 8px;
+}
+
+/* The list is a nested .dropdown-menu so themes colour its items; undo the
+   floating-menu positioning so it sits inside the picker and scrolls. */
+.campaign-picker-menu .campaign-picker-list {
+    position: static;
+    display: block;
+    float: none;
+    width: 100%;
+    max-height: 220px;
+    margin: 0;
+    padding: 0 0 4px;
+    overflow-y: auto;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.campaign-picker-list > li > a {
+    display: flex;
+    align-items: center;
+    padding: 5px 12px;
+    white-space: normal;
+}
+
+.campaign-picker-list > li > a > .fa {
+    width: 18px;
+    flex: none;
+}
+
+.campaign-picker-item-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.campaign-picker-item-status {
+    margin-left: 8px;
+    font-size: 11px;
+}
+
+.campaign-picker-empty {
+    padding: 8px 12px;
+}
+
+.campaign-picker-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 12px;
+    border-top: 1px solid rgba(128, 128, 128, .25);
+    font-size: 12px;
+}
+
+.campaign-picker-footer a + a {
+    margin-left: 12px;
+}
+
+/* flat-ui's muted grey (#bdc3c7) is unreadable on white; use Bootstrap's.
+   The dark themes override .text-muted with !important. */
+.campaign-picker .text-muted {
+    color: #777;
+}
+
+/* Selected campaigns stand out even before the icons load */
+.campaign-picker-list a[aria-selected="true"] .campaign-picker-item-name {
+    font-weight: 600;
+}
+
+.campaign-picker-more {
+    margin-left: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* Report history stats: five equal boxes (Bootstrap's 12-column grid
+   can't split evenly into five), stacked on narrow screens. */
+.report-stats {
+    margin-bottom: 20px;
+}
+
+.report-stats .report-stat {
+    padding: 0 15px;
+}
+
+@media (min-width: 768px) {
+    .report-stats {
+        display: flex;
+    }
+
+    /* .row's clearfix pseudo-elements would become extra flex items */
+    .report-stats::before,
+    .report-stats::after {
+        display: none;
+    }
+
+    .report-stats .report-stat {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+}
+
+/* "Select Campaign(s)" label with the "Completed only" filter on the right */
+.campaign-picker-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.campaign-picker-label-row > label {
+    margin-bottom: 0;
+}
+
+.campaign-picker-label-row .campaign-picker-filter {
+    margin: 0;
+    font-size: 12px;
+}
+
+.campaign-picker-filter label {
+    font-weight: normal;
+}

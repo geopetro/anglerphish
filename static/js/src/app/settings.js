@@ -1228,4 +1228,91 @@ $(document).ready(function () {
         $("#ssoEnableModal").modal("hide");
         ssoSave();
     });
+
+    // ---------------------------------------------------------------
+    // Report Generation settings (admin only)
+    // ---------------------------------------------------------------
+    function renderReportSettings(d) {
+        var h = '<div class="row"><div class="col-lg-8">' +
+            '<div class="panel panel-default">' +
+            '<div class="panel-heading"><h3 class="panel-title">IP geolocation</h3></div>' +
+            '<div class="panel-body">' +
+            '<p>Reports show where a click or submission came from. Locations are looked up in a local ' +
+            'GeoLite2 database when one is available, so no data leaves this server.</p>' +
+            '<div class="form-group"><label class="control-label" for="rsGeoipPath">GeoLite2 database path</label>' +
+            '<input type="text" class="form-control" id="rsGeoipPath" autocomplete="off" spellcheck="false" ' +
+            'placeholder="e.g. /usr/share/GeoIP/GeoLite2-City.mmdb">' +
+            '<p class="help-block">A GeoLite2-City.mmdb file on this server. Leave empty to look in the usual places ' +
+            '(the working directory, your home directory and /usr/share/GeoIP).</p></div>' +
+            '<div class="checkbox checkbox-primary"><input type="checkbox" id="rsOnlineGeo"' + (d.online_geolocation ? " checked" : "") + '>' +
+            '<label for="rsOnlineGeo"><strong>Look up unknown IP locations online</strong></label></div>' +
+            '<div id="rsOnlineGeoWarning" class="alert alert-warning"' + (d.online_geolocation ? "" : ' style="display:none"') + '>' +
+            '<i class="fa fa-exclamation-triangle"></i> Target IP addresses will be sent to <strong>freeipapi.com</strong>, ' +
+            'a third-party service, whenever a report is generated. Check that this is allowed by your engagement ' +
+            'and privacy rules before turning it on.</div>' +
+            '</div></div>' +
+
+            '<div class="panel panel-default">' +
+            '<div class="panel-heading"><h3 class="panel-title">Generation</h3></div>' +
+            '<div class="panel-body">' +
+            '<div class="form-group"><label class="control-label" for="rsTimeout">Time limit per report (minutes)</label>' +
+            '<input type="number" class="form-control" id="rsTimeout" min="1" max="' + d.max_job_timeout_minutes + '">' +
+            '<p class="help-block">A report that takes longer fails, so it can\'t block the queue.</p></div>' +
+            '<div class="form-group"><label class="control-label" for="rsRetention">Keep reports for (days)</label>' +
+            '<input type="number" class="form-control" id="rsRetention" min="1" max="' + d.max_retention_days + '">' +
+            '<p class="help-block">Older reports and their files are deleted automatically. Applies to reports generated after you save.</p></div>' +
+            '</div></div>' +
+
+            '<div class="text-right">' +
+            '<button class="btn btn-default" type="button" id="rsCancelBtn">Cancel</button> ' +
+            '<button class="btn btn-primary" type="button" id="rsSaveBtn"><i class="fa fa-save"></i> Save changes</button>' +
+            '</div>' +
+            '</div></div>';
+        $("#reportSettingsContent").html(h);
+        $("#rsGeoipPath").val(d.geoip_db_path || "");
+        $("#rsTimeout").val(d.job_timeout_minutes);
+        $("#rsRetention").val(d.retention_days);
+    }
+
+    function loadReportSettings() {
+        api.reportSettings.get()
+            .done(renderReportSettings)
+            .fail(function (xhr) {
+                errorFlash(escapeHtml(encMessage(xhr, "Failed to load report settings")));
+            });
+    }
+
+    $('a[href="#reportGenerationSettings"]').on("shown.bs.tab", loadReportSettings);
+    if (window.location.hash === "#reportGenerationSettings") {
+        loadReportSettings();
+    }
+
+    $("#reportSettingsContent").on("change", "#rsOnlineGeo", function () {
+        $("#rsOnlineGeoWarning").toggle($(this).prop("checked"));
+    });
+
+    // Cancel discards unsaved edits by reloading the stored settings.
+    $("#reportSettingsContent").on("click", "#rsCancelBtn", loadReportSettings);
+
+    $("#reportSettingsContent").on("click", "#rsSaveBtn", function () {
+        var payload = {
+            online_geolocation: $("#rsOnlineGeo").prop("checked"),
+            geoip_db_path: $("#rsGeoipPath").val().trim(),
+            job_timeout_minutes: parseInt($("#rsTimeout").val(), 10) || 0,
+            retention_days: parseInt($("#rsRetention").val(), 10) || 0
+        };
+        var $btn = $("#rsSaveBtn").prop("disabled", true);
+        api.reportSettings.put(payload)
+            .always(function () {
+                $btn.prop("disabled", false);
+            })
+            .done(function (data) {
+                renderReportSettings(data);
+                successFlash("Report settings saved");
+            })
+            .fail(function (xhr) {
+                var msg = encMessage(xhr, "Failed to save report settings");
+                errorFlash(escapeHtml(msg.replace(/^invalid report settings: /, "")));
+            });
+    });
 });

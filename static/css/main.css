@@ -61,10 +61,21 @@
     color: #777;
     background: rgba(128, 128, 128, 0.15);
 }
-.enc-icon.enc-info { color: #5bc0de; background: rgba(91, 192, 222, 0.15); }
-.enc-icon.enc-success { color: #5cb85c; background: rgba(92, 184, 92, 0.15); }
-.enc-icon.enc-warning { color: #f0ad4e; background: rgba(240, 173, 78, 0.15); }
-.enc-icon.enc-danger { color: #d9534f; background: rgba(217, 83, 79, 0.15); }
+.enc-icon.enc-info { color: #31708f; background: rgba(49, 112, 143, 0.12); }
+.enc-icon.enc-success { color: #3c763d; background: rgba(60, 118, 61, 0.12); }
+.enc-icon.enc-warning { color: #8a6d3b; background: rgba(138, 109, 59, 0.14); }
+.enc-icon.enc-danger { color: #a94442; background: rgba(169, 68, 66, 0.12); }
+/* The darker colours above are unreadable on the dark themes. */
+html.dark-theme .enc-icon.enc-info, html.crimson-theme .enc-icon.enc-info,
+html.matrix-theme .enc-icon.enc-info, html.lagocephalus-theme .enc-icon.enc-info { color: #5bc0de; background: rgba(91, 192, 222, 0.15); }
+html.dark-theme .enc-icon.enc-success, html.crimson-theme .enc-icon.enc-success,
+html.matrix-theme .enc-icon.enc-success, html.lagocephalus-theme .enc-icon.enc-success { color: #5cb85c; background: rgba(92, 184, 92, 0.15); }
+html.dark-theme .enc-icon.enc-warning, html.crimson-theme .enc-icon.enc-warning,
+html.matrix-theme .enc-icon.enc-warning, html.lagocephalus-theme .enc-icon.enc-warning { color: #f0ad4e; background: rgba(240, 173, 78, 0.15); }
+html.dark-theme .enc-icon.enc-danger, html.crimson-theme .enc-icon.enc-danger,
+html.matrix-theme .enc-icon.enc-danger, html.lagocephalus-theme .enc-icon.enc-danger { color: #d9534f; background: rgba(217, 83, 79, 0.15); }
+/* Match .help-block; flat-ui's #bdc3c7 is unreadable on white. Other themes override with !important. */
+.enc-panel .text-muted { color: inherit; }
 .enc-percent { font-size: 26px; font-weight: 600; }
 .enc-progress { height: 6px; margin: 0 0 8px 0; box-shadow: none; }
 .enc-inline { display: flex; max-width: 520px; }

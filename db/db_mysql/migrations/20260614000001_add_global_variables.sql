@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS global_variables (
     email      VARCHAR(255) NOT NULL DEFAULT '',
     phone      VARCHAR(255) NOT NULL DEFAULT '',
     position   VARCHAR(255) NOT NULL DEFAULT '',
-    custom     TEXT NOT NULL DEFAULT ''
+    custom     TEXT NOT NULL -- MySQL doesn't allow a literal default on TEXT; the app always sets it
 );
 
 -- +goose Down

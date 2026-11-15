@@ -22,8 +22,6 @@ except ImportError:
 REQUIRED_PACKAGES = [
     {"name": "python-docx", "import_name": "docx", "required": True},
     {"name": "openpyxl", "import_name": "openpyxl", "required": True},
-    {"name": "requests", "import_name": "requests", "required": True},
-    {"name": "traceback2", "import_name": "traceback2", "required": False},
     {"name": "user-agents", "import_name": "user_agents", "required": False},
     {"name": "geoip2", "import_name": "geoip2", "required": False}
 ]

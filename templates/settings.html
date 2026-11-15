@@ -8,21 +8,23 @@
     <!-- Nav tabs -->
     <ul class="nav nav-tabs" role="tablist">
         <li class="active" role="mainSettings"><a href="#mainSettings" aria-controls="mainSettings" role="tab"
-                data-toggle="tab">Account Settings</a></li>
-        <li role="uiSettings"><a href="#uiSettings" aria-controls="uiSettings" role="tab" data-toggle="tab">UI
+                data-toggle="tab"><i class="fa fa-user-o fa-fw" aria-hidden="true"></i> Account Settings</a></li>
+        <li role="uiSettings"><a href="#uiSettings" aria-controls="uiSettings" role="tab" data-toggle="tab"><i class="fa fa-paint-brush fa-fw" aria-hidden="true"></i> UI
                 Settings</a></li>
         <li role="reportingSettings"><a href="#reportingSettings" aria-controls="reportingSettings" role="tab" id="reporttab"
-            data-toggle="tab">Reporting Settings</a></li>
+            data-toggle="tab"><i class="fa fa-inbox fa-fw" aria-hidden="true"></i> IMAP</a></li>
         {{- if .ModifySystem}}
         <li role="errorPageSettings"><a href="#errorPageSettings" aria-controls="errorPageSettings" role="tab"
-                data-toggle="tab">Default Error Page</a></li>
+                data-toggle="tab"><i class="fa fa-file-o fa-fw" aria-hidden="true"></i> Default Error Page</a></li>
         <li role="encryptionSettings"><a href="#encryptionSettings" aria-controls="encryptionSettings" role="tab"
-                data-toggle="tab">DB Encryption</a></li>
+                data-toggle="tab"><i class="fa fa-database fa-fw" aria-hidden="true"></i> DB Encryption</a></li>
         <li role="ssoSettings"><a href="#ssoSettings" aria-controls="ssoSettings" role="tab"
-                data-toggle="tab">SSO</a></li>
+                data-toggle="tab"><i class="fa fa-key fa-fw" aria-hidden="true"></i> SSO</a></li>
+        <li role="reportGenerationSettings"><a href="#reportGenerationSettings" aria-controls="reportGenerationSettings" role="tab"
+                data-toggle="tab"><i class="fa fa-file-text-o fa-fw" aria-hidden="true"></i> Report Generation</a></li>
         {{- end}}
         <li role="globalVariablesSettings"><a href="#globalVariablesSettings" aria-controls="globalVariablesSettings" role="tab"
-                data-toggle="tab">Global Variables</a></li>
+                data-toggle="tab"><i class="fa fa-code fa-fw" aria-hidden="true"></i> Global Variables</a></li>
     </ul>
     <!-- Tab Panes -->
     <div class="tab-content">
@@ -120,7 +122,7 @@
             <div class="form-group">
                 <label for="theme_selector" class="control-label">Theme:</label>
                 <select id="theme_selector" class="form-control" style="max-width: 300px;">
-                    <option value="default">Default (Light)</option>
+                    <option value="default">Gophish (Light)</option>
                     <option value="dark-teal">Teal (Dark)</option>
                     <option value="dark-crimson">Crimson (Dark)</option>
                     <option value="matrix">Matrix (Dark)</option>
@@ -131,7 +133,7 @@
                 <p class="help-block">Choose your preferred color theme for the interface</p>
             </div>
         </div>
-        <!-- Reporting Settings Begin -->
+        <!-- IMAP Settings (mailboxes checked for user-reported phishing) Begin -->
         <div role="tabpanel" class="tab-pane" id="reportingSettings">
             <br />
             <div class="row">
@@ -170,7 +172,7 @@
                 </div>
             </div>
         </div>
-        <!-- Reporting Settings End -->
+        <!-- IMAP Settings End -->
 
         <!-- 404 Error Page Settings Begin -->
         {{if .ModifySystem}}
@@ -232,6 +234,16 @@
         </div>
         {{end}}
         <!-- SSO Settings End -->
+
+        <!-- Report Generation Settings Begin -->
+        {{if .ModifySystem}}
+        <div role="tabpanel" class="tab-pane" id="reportGenerationSettings">
+            <br />
+            <div id="reportSettingsContent"><p class="text-muted">Loading...</p></div>
+            <br />
+        </div>
+        {{end}}
+        <!-- Report Generation Settings End -->
 
         <!-- Global Variables Settings Begin -->
         <div role="tabpanel" class="tab-pane" id="globalVariablesSettings">

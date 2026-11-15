@@ -92,7 +92,7 @@ def install_dependencies():
         
         return result
         
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         result["message"] = "Python executable not found"
         result["details"] = f"Could not find: {venv_python}"
         result["advice"] = "The virtual environment may be corrupted. Try recreating it."

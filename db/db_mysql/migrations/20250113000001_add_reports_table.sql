@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS reports (
     id BIGINT NOT NULL AUTO_INCREMENT,
-    user_id BIGINT NOT NULL,
+    user_id INT NOT NULL, -- must match users.id (INT) for the foreign key below
     campaign_ids TEXT NOT NULL, -- JSON array of campaign IDs
     campaign_set_id BIGINT NULL, -- For campaign set reports
     format VARCHAR(10) NOT NULL, -- 'word' or 'excel'

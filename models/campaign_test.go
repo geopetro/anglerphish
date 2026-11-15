@@ -651,6 +651,34 @@ func (s *ModelsSuite) TestGetCampaignStatsRegression(c *check.C) {
 	c.Assert(stats.EmailReported, check.Equals, int64(0))
 }
 
+// TestCampaignStatsSMSWithEmailAndPhone pins that an SMS target with both an
+// email and a phone counts as one recipient: its events (recorded against the
+// phone) and its result row (keyed by the email) are merged.
+func (s *ModelsSuite) TestCampaignStatsSMSWithEmailAndPhone(c *check.C) {
+	campaign := s.createSMSCampaign(c)
+	addPeopleEvents(c, campaign.Id, "+15551234567", EventSMSSent, EventClicked)
+	addPeopleEvents(c, campaign.Id, "+15552345678", EventSMSSent)
+	c.Assert(db.Model(&Result{}).Where("campaign_id = ? AND email = ?", campaign.Id, "test2@example.com").
+		Update("reported", true).Error, check.Equals, nil)
+
+	recipients, total, err := buildRecipientStats(campaign.Id)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(total, check.Equals, int64(4))
+	c.Assert(len(recipients), check.Equals, 4)
+	c.Assert(recipients["test1@example.com"]["sent"], check.Equals, true)
+	c.Assert(recipients["test1@example.com"]["clicked"], check.Equals, true)
+	c.Assert(recipients["test2@example.com"]["sent"], check.Equals, true)
+	c.Assert(recipients["test2@example.com"]["reported"], check.Equals, true)
+
+	stats, err := getCampaignStats(campaign.Id)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(stats.Total, check.Equals, int64(4))
+	c.Assert(stats.EmailsSent, check.Equals, int64(2))
+	c.Assert(stats.ClickedLink, check.Equals, int64(1))
+	c.Assert(stats.OpenedEmail, check.Equals, int64(1))
+	c.Assert(stats.EmailReported, check.Equals, int64(1))
+}
+
 func (s *ModelsSuite) TestEventDetailsRoundTripsMessage(c *check.C) {
 	details := EventDetails{
 		Message: NewMessageContent("I sent my password", "<p>I sent my password</p>",
@@ -746,4 +774,31 @@ func (s *ModelsSuite) TestGetRepliesNeverExposesCiphertext(c *check.C) {
 	c.Assert(len(replies), check.Equals, 1)
 	// The row is still listed, but carries no unreadable content.
 	c.Assert(replies[0].Message, check.IsNil)
+}
+
+func (s *ModelsSuite) TestApplyRecipientImplications(c *check.C) {
+	cases := []struct {
+		name string
+		in   []string
+		want []string
+		not  []string
+	}{
+		{"submitted", []string{"submitted_data"}, []string{"clicked", "opened"}, nil},
+		{"macro", []string{"macro_executed"}, []string{"attachment_opened", "opened"}, nil},
+		{"replied", []string{"replied"}, []string{"opened"}, nil},
+		{"reported", []string{"reported"}, nil, []string{"opened"}},
+	}
+	for _, tc := range cases {
+		f := newRecipientFlags()
+		for _, k := range tc.in {
+			f[k] = true
+		}
+		applyRecipientImplications(f)
+		for _, k := range tc.want {
+			c.Assert(f[k], check.Equals, true, check.Commentf("%s: %s", tc.name, k))
+		}
+		for _, k := range tc.not {
+			c.Assert(f[k], check.Equals, false, check.Commentf("%s: %s", tc.name, k))
+		}
+	}
 }
