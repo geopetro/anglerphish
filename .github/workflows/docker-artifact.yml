@@ -11,7 +11,6 @@ on:
 permissions:
   contents: read
 
-# Anuluj starsze buildy PR, ale nie przerywaj publikacji.
 concurrency:
   group: docker-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -52,7 +51,6 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-          # Klasyczne archiwum Docker do późniejszego docker load.
           provenance: false
           sbom: false
           outputs: type=docker,dest=${{ runner.temp }}/anglerphish.tar
