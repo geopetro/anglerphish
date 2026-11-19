@@ -1,0 +1,14 @@
+.git
+.github
+node_modules
+releases
+reports/files
+reports/python/venv
+**/__pycache__
+gophish
+gophish.exe
+*.db
+*.db-*
+gophish_admin.crt
+gophish_admin.key
+*.log

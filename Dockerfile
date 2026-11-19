@@ -1,5 +1,5 @@
 # Minify client side assets (JavaScript)
-FROM node:latest AS build-js
+FROM node:22 AS build-js
 
 RUN npm install gulp gulp-cli -g
 
@@ -23,20 +23,25 @@ FROM debian:stable-slim
 RUN useradd -m -d /opt/gophish -s /bin/bash app
 
 RUN apt-get update && \
-	apt-get install --no-install-recommends -y jq libcap2-bin ca-certificates && \
+	apt-get install --no-install-recommends -y jq libcap2-bin ca-certificates python3 python3-venv && \
 	apt-get clean && \
 	rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 WORKDIR /opt/gophish
-COPY --from=build-golang /go/src/github.com/gophish/gophish/ ./
-COPY --from=build-js /build/static/js/dist/ ./static/js/dist/
-COPY --from=build-js /build/static/css/dist/ ./static/css/dist/
-COPY --from=build-golang /go/src/github.com/gophish/gophish/config.json ./
-RUN chown app. config.json
+COPY --chown=app:app --from=build-golang /go/src/github.com/gophish/gophish/gophish ./
+COPY --chown=app:app --from=build-js /build/static/ ./static/
+COPY --chown=app:app db/ ./db/
+COPY --chown=app:app templates/ ./templates/
+COPY --chown=app:app docker/ ./docker/
+COPY --chown=app:app reports/python/requirements.txt ./reports/python/
+COPY --chown=app:app config.json VERSION ANGLERPHISH_VERSION LICENSE README.md ./
 
 RUN setcap 'cap_net_bind_service=+ep' /opt/gophish/gophish
 
 USER app
+RUN mkdir -p reports/files && \
+	python3 -m venv reports/python/venv && \
+	reports/python/venv/bin/pip install --no-cache-dir -r reports/python/requirements.txt
 RUN sed -i 's/127.0.0.1/0.0.0.0/g' config.json
 RUN touch config.json.tmp
 

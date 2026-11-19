@@ -4,6 +4,20 @@ All notable changes to Anglerphish are documented here.
 
 ---
 
+## [1.5.1] - 2026-11-19
+
+### Added
+- **Docker images** - Every push to `master` publishes `ghcr.io/geopetro/anglerphish:latest`, and every release tag publishes a matching version, for example `:v1.5.1`.
+
+### Fixed
+- **Report generation works in Docker** - The image now includes Python and the report packages, and can create its reports folder. Before, reports were unavailable in Docker.
+- **Docker image no longer includes the source code** - The image now holds only what Anglerphish needs to run, without the source code and git history.
+
+### Notes
+- The Docker image keeps its database inside the container. Mount a volume or set `DB_FILE_PATH` to keep your data when the container is replaced.
+
+---
+
 ## [1.5.0] - 2026-11-15
 
 ### Added
