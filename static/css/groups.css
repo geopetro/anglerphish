@@ -1,0 +1,328 @@
+/* Group modal. Colours come from the active theme, with the default theme as fallback. */
+#modal {
+    --gm-border: var(--dark-border, #dce4ec);
+    --gm-muted: var(--dark-text-secondary, #6b7b7c);
+    --gm-soft: var(--dark-bg-tertiary, #f4f6f8);
+    --gm-accent: var(--dark-accent, #1abc9c);
+    --gm-ok: #27ae60;
+    --gm-warn: #e67e22;
+    --gm-err: #e74c3c;
+}
+
+@media (min-width: 768px) {
+    #modal .modal-dialog {
+        width: 1200px;
+        max-width: calc(100% - 40px);
+    }
+}
+
+#modal .form-control {
+    height: 44px;
+}
+
+#modal .btn:focus-visible,
+#modal .gm-tabs > li > a:focus-visible,
+#modal .gm-info:focus-visible {
+    outline: 2px solid var(--gm-accent);
+    outline-offset: 2px;
+}
+
+.gm-btn {
+    min-height: 44px;
+    padding-left: 18px;
+    padding-right: 18px;
+}
+
+.gm-req {
+    color: var(--gm-err);
+}
+
+.gm-hint {
+    margin: 0;
+    font-size: 13px;
+    color: var(--gm-muted);
+}
+
+.gm-name {
+    margin-bottom: 22px;
+}
+
+/* Email and phone turn red when a person has neither. Scoped under #modal with !important
+   because the themes force their own .form-control border. */
+#modal .gm-invalid .form-control {
+    border-color: #e74c3c !important;
+    box-shadow: 0 0 0 3px rgba(231, 76, 60, .2) !important;
+}
+
+/* Section headings sit outside the cards */
+.gm-section-head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin: 0 0 10px;
+}
+
+.gm-section-head > .fa {
+    font-size: 18px;
+    color: var(--gm-muted);
+}
+
+.gm-section-head h5 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.gm-card {
+    margin-bottom: 22px;
+    border: 1px solid var(--gm-border);
+    border-radius: 8px;
+}
+
+.gm-card:last-child {
+    margin-bottom: 0;
+}
+
+/* Tabs */
+.gm-tabs {
+    padding: 8px 14px 0;
+    border-bottom: 1px solid var(--gm-border);
+}
+
+.gm-tabs > li > a {
+    margin-right: 4px;
+    padding: 10px 18px;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    border-radius: 6px 6px 0 0;
+    font-weight: 600;
+}
+
+.gm-tabs > li.active > a,
+.gm-tabs > li.active > a:hover,
+.gm-tabs > li.active > a:focus {
+    border: 0;
+    border-bottom: 3px solid var(--gm-accent);
+    background: var(--gm-soft);
+}
+
+/* Both panes share one grid cell so the card keeps the taller pane's height on either tab */
+.gm-add .tab-content {
+    display: grid;
+    padding: 18px 18px 14px;
+}
+
+.gm-add .tab-content > .tab-pane {
+    display: block;
+    grid-area: 1 / 1;
+    visibility: hidden;
+}
+
+.gm-add .tab-content > .tab-pane.active {
+    visibility: visible;
+}
+
+.gm-add .tab-content > #gm-tab-csv {
+    display: flex;
+    flex-direction: column;
+}
+
+#gm-tab-csv .gm-drop {
+    flex: 1;
+}
+
+/* Add a person */
+.gm-person {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px 18px;
+}
+
+.gm-field {
+    min-width: 0;
+}
+
+.gm-field label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.gm-info {
+    margin-left: 4px;
+    color: var(--gm-muted);
+}
+
+.gm-contact {
+    grid-column: span 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: end;
+    gap: 0 10px;
+}
+
+.gm-or {
+    margin-bottom: 9px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    background: var(--gm-soft);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.gm-icon-input {
+    position: relative;
+}
+
+.gm-icon-input > .fa {
+    position: absolute;
+    top: 50%;
+    left: 13px;
+    transform: translateY(-50%);
+    color: var(--gm-muted);
+    pointer-events: none;
+}
+
+.gm-icon-input > .form-control {
+    padding-left: 38px;
+}
+
+.gm-person-foot {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.gm-person-foot .gm-hint.gm-hint-error {
+    color: var(--gm-err);
+}
+
+.gm-status {
+    grid-column: 1 / -1;
+    margin: -4px 0 0;
+    font-size: 13px;
+    color: var(--gm-ok);
+}
+
+.gm-status:empty {
+    display: none;
+}
+
+@media (max-width: 767px) {
+    .gm-person {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .gm-contact {
+        grid-column: auto;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+    }
+
+    .gm-or {
+        justify-self: center;
+        margin: 0;
+    }
+}
+
+/* Import from CSV */
+.gm-drop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    min-height: 110px;
+    padding: 16px;
+    border: 2px dashed var(--gm-border);
+    border-radius: 8px;
+    color: var(--gm-muted);
+    text-align: center;
+    transition: border-color .15s ease, color .15s ease;
+}
+
+.gm-drop > .fa {
+    font-size: 26px;
+}
+
+.gm-drop.gm-drop-over {
+    border-color: var(--gm-accent);
+    color: var(--gm-accent);
+}
+
+.gm-csv-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    margin-top: 10px;
+}
+
+.gm-template {
+    padding: 0;
+    font-size: 13px;
+}
+
+.gm-summary {
+    margin: 0 18px 16px;
+    padding: 8px 12px;
+    border: 1px solid var(--gm-border);
+    border-left: 3px solid var(--gm-ok);
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.gm-summary.gm-summary-warn {
+    border-left-color: var(--gm-warn);
+}
+
+.gm-summary .fa-check {
+    color: var(--gm-ok);
+}
+
+.gm-summary .fa-exclamation-triangle {
+    color: var(--gm-warn);
+}
+
+/* Members */
+.gm-count-text {
+    font-weight: bold;
+}
+
+.gm-empty {
+    padding: 20px 16px;
+    text-align: center;
+}
+
+.gm-empty > .fa {
+    font-size: 30px;
+    color: var(--gm-muted);
+}
+
+.gm-empty h5 {
+    margin: 8px 0 4px;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.gm-empty p {
+    margin: 0;
+    color: var(--gm-muted);
+}
+
+.gm-table {
+    padding: 14px;
+}
+
+/* Page note under New Group. Bootstrap's .text-muted is too pale on the default theme, so
+   use the theme's muted colour, or a darker grey where the theme has none. */
+.gm-page-note {
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--dark-text-muted, #5f6b6d);
+}

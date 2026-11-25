@@ -1,0 +1,403 @@
+/* Email template modal. Colours come from the active theme, with the default theme as fallback. */
+#emailModal {
+    --et-accent: var(--dark-accent, #1abc9c);
+    --et-border: var(--dark-border, #dce4ec);
+    --et-muted: var(--dark-text-muted, #7b8a8b);
+    --et-soft: var(--dark-bg-tertiary, #f4f6f8);
+    --et-warn: #e67e22;
+    --et-editor-h: max(360px, calc(85vh - 310px));
+}
+
+@media (min-width: 768px) {
+    #emailModal .modal-dialog {
+        width: 1200px;
+        max-width: calc(100% - 40px);
+    }
+}
+
+.et-name {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.et-name .control-label {
+    margin: 0;
+    white-space: nowrap;
+}
+
+.et-name .form-control {
+    flex: 1;
+    height: 42px;
+    font-size: 16px;
+}
+
+.et-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 370px;
+    gap: 16px;
+    align-items: start;
+}
+
+.et-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-height: calc(var(--et-editor-h) + 60px);
+    overflow-y: auto;
+    padding-right: 10px;
+    scrollbar-gutter: stable;
+}
+
+@media (max-width: 991px) {
+    .et-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .et-rail {
+        max-height: none;
+        overflow: visible;
+        padding-right: 0;
+    }
+}
+
+.et-card {
+    border: 1px solid var(--et-border);
+    border-radius: 8px;
+    min-width: 0;
+}
+
+.et-card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--et-border);
+    border-radius: 7px 7px 0 0;
+    background: var(--dark-bg-heading, transparent);
+}
+
+.et-card-head > .fa {
+    color: var(--et-accent);
+}
+
+.et-card-head h5 {
+    flex: 1;
+    margin: 0;
+    font-size: 15px;
+    font-weight: bold;
+}
+
+.et-card-body {
+    padding: 14px 14px 4px;
+}
+
+.et-card-body .form-group:last-child {
+    margin-bottom: 10px;
+}
+
+.et-req {
+    color: #e74c3c;
+}
+
+.et-hint {
+    margin: 4px 0 0;
+    font-size: 12px;
+    font-weight: normal;
+    color: var(--et-muted);
+}
+
+.et-card-body .checkbox {
+    margin: 0 0 12px;
+}
+
+.et-card-body .checkbox .et-hint {
+    padding-left: 5px;
+}
+
+/* Content card: tabs sit in the header, tools on the right */
+.et-content .et-card-head {
+    flex-wrap: wrap;
+    padding: 8px 10px 0;
+}
+
+.et-tabs {
+    flex: 1;
+    border-bottom: 0;
+}
+
+.et-tabs > li > a {
+    padding: 8px 14px;
+}
+
+.et-tools {
+    display: flex;
+    gap: 6px;
+    padding-bottom: 8px;
+}
+
+.et-var-menu {
+    max-height: 320px;
+    overflow-y: auto;
+    min-width: 280px;
+}
+
+.et-var-menu > li > a {
+    white-space: normal;
+}
+
+.et-var-menu code {
+    font-size: 12px;
+}
+
+.et-var-menu small {
+    display: block;
+    color: var(--et-muted);
+}
+
+.et-import {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--et-border);
+    background: var(--et-soft);
+}
+
+.et-import-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.et-import-actions .checkbox {
+    margin: 0;
+}
+
+.et-editor-area {
+    padding: 10px;
+}
+
+.et-editor-area > .tab-pane {
+    height: var(--et-editor-h);
+    overflow: hidden;
+}
+
+#text_editor {
+    height: 100%;
+    resize: none;
+}
+
+#et-tab-preview.active {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.et-preview-subject {
+    padding: 8px 10px;
+    border: 1px solid var(--et-border);
+    border-radius: 4px;
+    background: var(--et-soft);
+    font-weight: 600;
+}
+
+#etPreviewFrame {
+    flex: 1;
+    width: 100%;
+    border: 1px solid var(--et-border);
+    border-radius: 4px;
+    background: #fff;
+}
+
+.et-warn {
+    margin: 0 10px 10px;
+    padding: 6px 10px;
+    border-left: 3px solid var(--et-warn);
+    font-size: 13px;
+}
+
+.et-warn .fa {
+    color: var(--et-warn);
+}
+
+/* Attachments */
+.et-count {
+    display: inline-block;
+    min-width: 20px;
+    margin-left: 4px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: var(--et-soft);
+    font-size: 12px;
+    text-align: center;
+}
+
+.et-drop {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    margin: 0 0 10px;
+    padding: 16px 10px;
+    border: 2px dashed var(--et-border);
+    border-radius: 8px;
+    font-weight: normal;
+    color: var(--et-muted);
+    cursor: pointer;
+    transition: border-color .15s ease, color .15s ease;
+}
+
+.et-drop .fa {
+    font-size: 22px;
+}
+
+.et-drop:hover,
+.et-drop.et-drop-over {
+    border-color: var(--et-accent);
+    color: var(--et-accent);
+}
+
+.et-drop input[type="file"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.et-files {
+    margin: 0 0 10px;
+    padding: 0;
+    list-style: none;
+}
+
+.et-files li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--et-border);
+}
+
+.et-files li:last-child {
+    border-bottom: 0;
+}
+
+.et-file-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.et-file-size {
+    font-size: 12px;
+    color: var(--et-muted);
+}
+
+.et-files .btn-link {
+    padding: 0 4px;
+    color: var(--et-muted);
+}
+
+.et-files .btn-link:hover {
+    color: #e74c3c;
+}
+
+/* SMS template modal. Shares the card styles above, the phone keeps fixed device colours. */
+#smsModal {
+    --et-accent: var(--dark-accent, #1abc9c);
+    --et-border: var(--dark-border, #dce4ec);
+    --et-muted: var(--dark-text-muted, #7b8a8b);
+    --et-soft: var(--dark-bg-tertiary, #f4f6f8);
+    --et-warn: #e67e22;
+}
+
+@media (min-width: 768px) {
+    #smsModal .modal-dialog {
+        width: 940px;
+        max-width: calc(100% - 40px);
+    }
+}
+
+.st-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 20px;
+    align-items: start;
+}
+
+@media (max-width: 767px) {
+    .st-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.st-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.st-form .et-card-head .dropdown {
+    margin-left: auto;
+}
+
+#smsText {
+    resize: none;
+    min-height: 180px;
+    max-height: 340px;
+    overflow-y: auto;
+}
+
+.st-meter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--et-muted);
+}
+
+.st-meter strong {
+    color: inherit;
+    font-weight: 600;
+}
+
+.st-encoding {
+    padding: 0 8px;
+    border: 1px solid var(--et-border);
+    border-radius: 10px;
+    font-size: 12px;
+}
+
+.st-encoding.st-unicode {
+    border-color: var(--et-warn);
+    color: var(--et-warn);
+}
+
+.st-left {
+    margin-left: auto;
+}
+
+.st-warn {
+    margin: 0 0 10px;
+}
+
+.st-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: sticky;
+    top: 0;
+}
+
+.st-preview-hint {
+    margin-top: 8px;
+    text-align: center;
+}

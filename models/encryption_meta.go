@@ -79,6 +79,8 @@ func verifyKey(key string) (bool, error) {
 		{"imap", "password"},
 		{"events", "details"},
 		{"oidc_settings", "client_secret"},
+		{"smtp", "dmi_secret"},
+		{"dmi_settings", "google_key"},
 	}
 	for _, s := range sources {
 		var values []string
@@ -104,7 +106,8 @@ func countEncryptedValues() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return r.SMTPPasswords.Encrypted + r.SMSConfigs.Encrypted + r.IMAPPasswords.Encrypted + r.EventDetails.Encrypted + r.OIDCSecrets.Encrypted, nil
+	return r.SMTPPasswords.Encrypted + r.SMSConfigs.Encrypted + r.IMAPPasswords.Encrypted + r.EventDetails.Encrypted + r.OIDCSecrets.Encrypted +
+		r.DMISecrets.Encrypted + r.DMIGoogleKeys.Encrypted, nil
 }
 
 // countPlaintextValues returns the number of plaintext values across all
@@ -114,5 +117,6 @@ func countPlaintextValues() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return r.SMTPPasswords.Plaintext + r.SMSConfigs.Plaintext + r.IMAPPasswords.Plaintext + r.EventDetails.Plaintext + r.OIDCSecrets.Plaintext, nil
+	return r.SMTPPasswords.Plaintext + r.SMSConfigs.Plaintext + r.IMAPPasswords.Plaintext + r.EventDetails.Plaintext + r.OIDCSecrets.Plaintext +
+		r.DMISecrets.Plaintext + r.DMIGoogleKeys.Plaintext, nil
 }

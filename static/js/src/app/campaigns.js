@@ -933,9 +933,8 @@ function displayURLTemplates() {
                 deleteURLTemplate(template.id);
             });
             item.click(function() {
-                $("#url").val(template.url);
+                applyURLTemplate("#url", template.url);
                 $("#urlTemplateModal").modal('hide');
-                updateURLLengthIndicator();
             });
             templateList.append(item);
         });
@@ -947,7 +946,8 @@ function displayURLTemplates() {
         if (!grouped[t.category]) grouped[t.category] = [];
         grouped[t.category].push(t);
     });
-    Object.keys(grouped).sort().forEach(function(category) {
+    // Categories keep the order the server sends
+    Object.keys(grouped).forEach(function(category) {
         templateList.append(
             '<div class="url-template-divider" style="padding:4px 2px;margin-top:10px;margin-bottom:2px;font-size:11px;font-weight:bold;color:#888;text-transform:uppercase;letter-spacing:1px;">' +
             '<i class="fa fa-folder"></i> ' + escapeHtml(category) + '</div>'
@@ -958,9 +958,8 @@ function displayURLTemplates() {
                 '<small class="text-muted" style="display:block;margin-top:3px;word-break:break-all;">' + escapeHtml(template.url) + '</small>' +
                 '</div>');
             item.click(function() {
-                $("#url").val(template.url);
+                applyURLTemplate("#url", template.url);
                 $("#urlTemplateModal").modal('hide');
-                updateURLLengthIndicator();
             });
             templateList.append(item);
         });
@@ -1129,7 +1128,8 @@ function campaignChecklist() {
         items.push({ label: groupsLabel, ok: selectedGroups().length > 0, field: "#users" });
     }
     items.push({ label: "Landing page", ok: !!selectedItem("#page"), field: "#page" });
-    items.push({ label: "URL", ok: $.trim($("#url").val()) !== "", field: "#url" });
+    var url = $.trim($("#url").val());
+    items.push({ label: hasURLPlaceholder(url) ? "URL (replace [DOMAIN])" : "URL", ok: url !== "" && !hasURLPlaceholder(url), field: "#url" });
     items.push({ label: "Launch date", ok: $("#launch_date").val() !== "", field: "#launch_date" });
     return items;
 }
@@ -1153,22 +1153,23 @@ function updateCampaignPanel() {
     $("#previewSMSTemplateBtn").prop("disabled", !selectedItem("#sms_template"));
     $("#previewPageBtn").prop("disabled", !selectedItem("#page"));
 
-    // Checklist
+    // Readiness
     var items = campaignChecklist();
-    var ready = true;
-    var $list = $("#cmp_checklist").empty();
+    var missing = items.filter(function (item) { return !item.ok; });
+    var ready = missing.length === 0;
     items.forEach(function (item) {
-        ready = ready && item.ok;
-        $("<li>")
-            .addClass(item.ok ? "cmp-done" : "cmp-todo")
-            .attr("data-field", item.field)
-            .append($("<i>").addClass(item.ok ? "fa fa-check text-success" : "fa fa-circle-o text-muted"))
-            .append(document.createTextNode(" " + item.label))
-            .appendTo($list);
         if (item.ok) {
             $(item.field).closest(".form-group").removeClass("has-error");
         }
     });
+    var done = items.length - missing.length;
+    $("#cmp_ready_count").text(done + "/" + items.length);
+    $("#cmp_ready_fill").css("width", (done / items.length * 100) + "%");
+    $("#cmp_ready_next")
+        .text(ready ? "Ready to launch" : missing.length + " required field" + (missing.length === 1 ? "" : "s") + " remaining")
+        .prop("disabled", ready)
+        .attr("data-field", ready ? null : missing[0].field)
+        .attr("title", ready ? "" : "Missing: " + missing.map(function (item) { return item.label; }).join(", "));
     $("#launchButton").toggleClass("cmp-not-ready", !ready)
         .attr("title", ready ? "" : "Fill in the required fields first");
     if (ready) {
@@ -1433,9 +1434,12 @@ $(document).ready(function () {
         }
     });
 
-    // Clicking a checklist item jumps to its field
-    $("#cmp_checklist").on("click", "li", function () {
-        var field = $(this).data("field");
+    // Jumps to the first missing field
+    $("#cmp_ready_next").on("click", function () {
+        var field = $(this).attr("data-field");
+        if (!field) {
+            return;
+        }
         var group = $(field).closest(".form-group")[0];
         if (group) {
             group.scrollIntoView({ behavior: "smooth", block: "center" });

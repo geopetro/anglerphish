@@ -14,7 +14,7 @@
             </div>
             <div class="row">
                 <div class="col-md-12">
-                    <button type="button" class="btn btn-primary" data-toggle="modal" data-backdrop="static" data-target="#modal" id="new-campaign-set-btn">
+                    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modal" id="new-campaign-set-btn">
                         <i class="fa fa-plus"></i> New Campaign Set
                     </button>
                 </div>
@@ -46,7 +46,7 @@
 </div>
 
 <!-- Campaign Set Modal -->
-<div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="modalLabel">
+<div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="modalLabel" data-backdrop="static">
     <div class="modal-dialog modal-xl" role="document" style="width: 90%; max-width: 1200px;">
         <div class="modal-content">
             <div class="modal-header">
@@ -62,8 +62,8 @@
                     </div>
                 </div>
                 
-                <!-- Tabs Navigation -->
-                <ul class="nav nav-tabs" role="tablist">
+                <!-- Tabs Navigation. Shown when viewing a launched set. Creating or editing uses the steps below. -->
+                <ul class="nav nav-tabs" role="tablist" id="csMainTabs">
                     <li role="presentation" id="overviewTabNav" style="display:none;">
                         <a href="#overviewTab" aria-controls="overviewTab" role="tab" data-toggle="tab">Overview</a>
                     </li>
@@ -73,7 +73,17 @@
                     <li role="presentation">
                         <a href="#campaignsTab" aria-controls="campaignsTab" role="tab" data-toggle="tab">Campaigns</a>
                     </li>
+                    <li role="presentation" class="cs-review-nav">
+                        <a href="#reviewTab" aria-controls="reviewTab" role="tab" data-toggle="tab">Review</a>
+                    </li>
                 </ul>
+
+                <!-- Steps for creating or editing a set -->
+                <ol class="cs-steps" id="csSteps" aria-label="Campaign set steps">
+                    <li><button type="button" class="cs-step" data-step="1"><span class="cs-step-num"><i class="fa fa-cog" aria-hidden="true"></i></span><span class="cs-step-label">Setup</span></button></li>
+                    <li><button type="button" class="cs-step" data-step="2"><span class="cs-step-num"><i class="fa fa-th-large" aria-hidden="true"></i></span><span class="cs-step-label">Campaigns</span></button></li>
+                    <li><button type="button" class="cs-step" data-step="3"><span class="cs-step-num"><i class="fa fa-rocket" aria-hidden="true"></i></span><span class="cs-step-label">Review &amp; launch</span></button></li>
+                </ol>
 
                 <!-- Tab Content -->
                 <div class="tab-content" style="margin-top: 20px;">
@@ -91,27 +101,12 @@
                                title="<strong>Totals:</strong> Summed across campaigns. Someone in two campaigns is counted twice.<br><br><strong>Unique contacts:</strong> Deduplicated by contact across the set. An email and a phone number for the same person count separately."></i>
                         </div>
 
-                        <div id="overviewKpis" class="cs-funnel"></div>
-
-                        <div class="table-responsive">
-                            <table class="table table-striped cs-overview-table" id="overviewBreakdown">
-                                <thead>
-                                    <tr>
-                                        <th>Campaign</th>
-                                        <th>Status</th>
-                                        <th class="text-right"><i class="fa fa-users cs-stat-total"></i> Targets</th>
-                                        <th class="text-right"><i class="fa fa-envelope-o cs-stat-sent"></i> Sent</th>
-                                        <th class="text-right"><i class="fa fa-envelope-open-o cs-stat-opened"></i> Opened</th>
-                                        <th class="text-right"><i class="fa fa-mouse-pointer cs-stat-clicked"></i> Clicked</th>
-                                        <th class="text-right"><i class="fa fa-reply cs-stat-replied"></i> Replied</th>
-                                        <th class="text-right"><i class="fa fa-exclamation-circle cs-stat-submitted"></i> Submitted</th>
-                                        <th class="text-right"><i class="fa fa-bullhorn cs-stat-reported"></i> Reported</th>
-                                        <th class="no-sort"></th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
+                        <div id="overviewKpis"></div>
+                        <div id="overviewCampaigns"></div>
+                    </div>
+                    <!-- Review step: a read-only summary with everything launch would reject -->
+                    <div role="tabpanel" class="tab-pane" id="reviewTab">
+                        <div id="csReview"></div>
                     </div>
                     <!-- General Settings Tab -->
                     <div role="tabpanel" class="tab-pane active" id="generalSettings">
@@ -129,10 +124,9 @@
                         </div>
 
                         <div id="granularSettingsSection">
-                            <hr class="shared-settings-divider">
                             <div class="shared-settings-header-row">
-                                <span class="shared-settings-header"><i class="fa fa-sliders"></i> Shared Settings
-                                    <small class="text-muted" style="font-weight:normal; margin-left:6px;">Toggle each setting between shared (applies to all campaigns) and per-campaign (set individually)</small>
+                                <span class="shared-settings-header"><i class="fa fa-sliders" aria-hidden="true"></i> Shared Settings
+                                    <small class="cs-set-desc">Toggle each setting between shared (applies to all campaigns) and per-campaign (set individually)</small>
                                 </span>
                                 <div class="btn-group shared-settings-global-btns" role="group">
                                     <button type="button" class="btn btn-sm btn-primary active" id="setAllShared">All Shared</button>
@@ -140,144 +134,169 @@
                                 </div>
                             </div>
 
-                            <!-- Landing Page row -->
-                            <div class="inline-setting-row" id="sharedPageRow">
-                                <div class="inline-setting-label-col">
-                                    <label class="control-label" for="page">Landing Page:</label>
-                                </div>
-                                <div class="inline-setting-field-col" id="sharedPageSection">
-                                    <select class="form-control" placeholder="Landing Page" id="page"></select>
-                                </div>
-                                <div class="inline-setting-toggle-col">
-                                    <div class="shared-toggle-group" data-target-checkbox="useSharedPage">
-                                        <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
-                                        <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
+                            <!-- Where targets land -->
+                            <div class="cs-set-card">
+                                <div class="inline-setting-row" id="sharedPageRow">
+                                    <div class="inline-setting-label-col">
+                                        <label class="control-label" for="page"><i class="fa fa-window-maximize cs-set-ico" aria-hidden="true"></i> Landing Page</label>
+                                    </div>
+                                    <div class="inline-setting-field-col" id="sharedPageSection">
+                                        <select class="form-control" placeholder="Landing Page" id="page"></select>
+                                    </div>
+                                    <div class="inline-setting-toggle-col">
+                                        <div class="shared-toggle-group" data-target-checkbox="useSharedPage">
+                                            <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
+                                            <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <!-- URL row -->
-                            <div class="inline-setting-row" id="sharedURLRow">
-                                <div class="inline-setting-label-col">
-                                    <label class="control-label" for="url">URL:
-                                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Location of Gophish listener (must be reachable by targets!)"></i>
-                                    </label>
-                                </div>
-                                <div class="inline-setting-field-col" id="sharedURLSection">
-                                    <div class="input-group">
-                                        <input type="text" class="form-control" placeholder="http://192.168.1.1" id="url" />
-                                        <span class="input-group-btn">
-                                            <button type="button" class="btn btn-default" id="urlTemplateBtn" data-toggle="tooltip" title="Use URL Template">
-                                                <i class="fa fa-list"></i>
-                                            </button>
-                                        </span>
-                                    </div>
-                                    <div style="margin-top:4px;">
-                                        <span id="urlLengthIndicator" style="font-size: 12px;"></span>
-                                    </div>
-                                </div>
-                                <div class="inline-setting-toggle-col">
-                                    <div class="shared-toggle-group" data-target-checkbox="useSharedURL">
-                                        <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
-                                        <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- URL Parameter row -->
-                            <div class="inline-setting-row" id="sharedURLParamRow">
-                                <div class="inline-setting-label-col">
-                                    <label class="control-label" for="urlparam">URL Parameter:
-                                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Sets the parameter used in the URL to track the target. Leave blank to use default (rid)."></i>
-                                    </label>
-                                </div>
-                                <div class="inline-setting-field-col" id="sharedURLParamSection">
-                                    <input type="text" class="form-control" placeholder="rid" id="urlparam" />
-                                </div>
-                                <div class="inline-setting-toggle-col">
-                                    <div class="shared-toggle-group" data-target-checkbox="useSharedURLParam">
-                                        <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
-                                        <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- QR Code Size row -->
-                            <div class="inline-setting-row" id="sharedQRSizeRow">
-                                <div class="inline-setting-label-col">
-                                    <label class="control-label" for="qrsize">QR Code Size:
-                                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Size of QR code images (px). Leave blank to use normal links only."></i>
-                                    </label>
-                                </div>
-                                <div class="inline-setting-field-col" id="sharedQRSizeSection">
-                                    <input type="number" class="form-control" placeholder="256" id="qrsize" />
-                                </div>
-                                <div class="inline-setting-toggle-col">
-                                    <div class="shared-toggle-group" data-target-checkbox="useSharedQRSize">
-                                        <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
-                                        <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- HTTP Auth row -->
-                            <div class="inline-setting-row" id="sharedHTTPAuthRow">
-                                <div class="inline-setting-label-col">
-                                    <label class="control-label">HTTP Auth:
-                                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Enables a landing page with HTTP Authentication"></i>
-                                    </label>
-                                </div>
-                                <div class="inline-setting-field-col" id="sharedHTTPAuthSection">
-                                    <div class="checkbox" style="margin-top:6px;">
-                                        <label>
-                                            <input type="checkbox" id="basicauth"> Use HTTP Basic Access Authentication
+                                <div class="inline-setting-row" id="sharedURLRow">
+                                    <div class="inline-setting-label-col">
+                                        <label class="control-label" for="url"><i class="fa fa-link cs-set-ico" aria-hidden="true"></i> URL
+                                            <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Location of Gophish listener (must be reachable by targets!)"></i>
                                         </label>
                                     </div>
-                                </div>
-                                <div class="inline-setting-toggle-col">
-                                    <div class="shared-toggle-group" data-target-checkbox="useSharedHTTPAuth">
-                                        <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
-                                        <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
+                                    <div class="inline-setting-field-col" id="sharedURLSection">
+                                        <div class="input-group cs-set-url">
+                                            <input type="text" class="form-control" placeholder="http://192.168.1.1" id="url" />
+                                            <span class="input-group-btn">
+                                                <button type="button" class="btn btn-primary" id="urlTemplateBtn" data-toggle="tooltip" title="Use URL Template" aria-label="Use URL Template">
+                                                    <i class="fa fa-file-text-o" aria-hidden="true"></i>
+                                                </button>
+                                            </span>
+                                        </div>
+                                        <div class="cs-set-url-length">
+                                            <span id="urlLengthIndicator" style="font-size: 12px;"></span>
+                                        </div>
+                                    </div>
+                                    <div class="inline-setting-toggle-col">
+                                        <div class="shared-toggle-group" data-target-checkbox="useSharedURL">
+                                            <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
+                                            <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Schedule row -->
-                            <div class="inline-setting-row inline-setting-row-schedule" id="sharedScheduleRow">
-                                <div class="inline-setting-label-col">
-                                    <label class="control-label">Schedule:</label>
-                                </div>
-                                <div class="inline-setting-field-col" id="sharedScheduleSection">
-                                    <div class="form-group" style="margin-bottom:8px;">
-                                        <label class="control-label" for="launch_date" style="font-weight:normal;">Launch Date:
-                                            <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="The date and time to launch the campaign."></i>
-                                        </label>
-                                        <input type="text" class="form-control" id="launch_date" />
+                            <!-- Rarely changed, so folded away. Opens by itself when one of them is in use. -->
+                            <div class="cs-set-card cs-set-card-fold">
+                                <button type="button" class="cs-set-card-head cs-advanced-toggle" id="csAdvancedToggle" aria-expanded="false" aria-controls="csAdvanced">
+                                    <i class="fa fa-caret-right" aria-hidden="true"></i> Advanced <span class="cs-advanced-hint">URL parameter, QR code size, HTTP auth</span>
+                                </button>
+                                <div class="cs-set-card-body cs-advanced" id="csAdvanced" style="display:none;">
+                                    <div class="inline-setting-row" id="sharedURLParamRow">
+                                        <div class="inline-setting-label-col">
+                                            <label class="control-label" for="urlparam">URL Parameter
+                                                <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Sets the parameter used in the URL to track the target. Leave blank to use default (rid)."></i>
+                                            </label>
+                                        </div>
+                                        <div class="inline-setting-field-col" id="sharedURLParamSection">
+                                            <input type="text" class="form-control" placeholder="rid" id="urlparam" />
+                                        </div>
+                                        <div class="inline-setting-toggle-col">
+                                            <div class="shared-toggle-group" data-target-checkbox="useSharedURLParam">
+                                                <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
+                                                <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="form-group" style="margin-bottom:8px;">
-                                        <label class="control-label" for="send_by_date" style="font-weight:normal;">Send Emails By <span class="text-muted">(Optional)</span>:
-                                            <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="If specified, Gophish will send messages evenly between the launch date and this date."></i>
-                                        </label>
-                                        <input type="text" class="form-control" id="send_by_date" />
+
+                                    <div class="inline-setting-row" id="sharedQRSizeRow">
+                                        <div class="inline-setting-label-col">
+                                            <label class="control-label" for="qrsize">QR Code Size
+                                                <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Size of QR code images (px). Leave blank to use normal links only."></i>
+                                            </label>
+                                        </div>
+                                        <div class="inline-setting-field-col" id="sharedQRSizeSection">
+                                            <input type="number" class="form-control" placeholder="256" id="qrsize" />
+                                        </div>
+                                        <div class="inline-setting-toggle-col">
+                                            <div class="shared-toggle-group" data-target-checkbox="useSharedQRSize">
+                                                <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
+                                                <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="form-group" style="margin-bottom:0;">
-                                        <label class="control-label" for="send_order" style="font-weight:normal;">Send Order:
-                                            <i class="fa fa-question-circle" data-toggle="tooltip" data-html="true" data-placement="right" title="How the set's campaigns share the send window.<br>Sequential: all of A, then B, then C.<br>Interleaved: A, B, C, A, B, C… (in parallel)."></i>
-                                        </label>
-                                        <select class="form-control" id="send_order">
-                                            <option value="sequential">Sequential (one campaign at a time)</option>
-                                            <option value="interleaved">Interleaved (campaigns in parallel)</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="inline-setting-toggle-col">
-                                    <div class="shared-toggle-group" data-target-checkbox="useSharedSchedule">
-                                        <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
-                                        <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
+
+                                    <div class="inline-setting-row" id="sharedHTTPAuthRow">
+                                        <div class="inline-setting-label-col">
+                                            <label class="control-label">HTTP Auth
+                                                <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Enables a landing page with HTTP Authentication"></i>
+                                            </label>
+                                        </div>
+                                        <div class="inline-setting-field-col" id="sharedHTTPAuthSection">
+                                            <!-- The checkbox styles draw the tick on the label that follows the input -->
+                                            <div class="checkbox checkbox-primary cs-set-check">
+                                                <input type="checkbox" id="basicauth">
+                                                <label for="basicauth">Use HTTP Basic Access Authentication</label>
+                                            </div>
+                                        </div>
+                                        <div class="inline-setting-toggle-col">
+                                            <div class="shared-toggle-group" data-target-checkbox="useSharedHTTPAuth">
+                                                <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
+                                                <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
+                            <!-- Schedule: one toggle for the three fields, so the rows are one setting group -->
+                            <div class="cs-set-card">
+                                <div class="cs-set-card-head"><i class="fa fa-calendar" aria-hidden="true"></i> Schedule</div>
+                                <div class="cs-set-card-body cs-setting-group" id="sharedScheduleRow">
+                                    <div class="inline-setting-row">
+                                        <div class="inline-setting-label-col">
+                                            <label class="control-label" for="launch_date">Launch Date
+                                                <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="The date and time to launch the campaign."></i>
+                                            </label>
+                                        </div>
+                                        <div class="inline-setting-field-col" id="sharedScheduleSection">
+                                            <div class="cs-input-icon">
+                                                <i class="fa fa-calendar-o" aria-hidden="true"></i>
+                                                <input type="text" class="form-control" id="launch_date" />
+                                            </div>
+                                        </div>
+                                        <div class="inline-setting-toggle-col">
+                                            <div class="shared-toggle-group" data-target-checkbox="useSharedSchedule">
+                                                <button type="button" class="shared-toggle-btn shared-toggle-shared active" data-value="shared">Shared</button>
+                                                <button type="button" class="shared-toggle-btn shared-toggle-percampaign" data-value="percampaign">Per-Campaign</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="inline-setting-row">
+                                        <div class="inline-setting-label-col">
+                                            <label class="control-label" for="send_by_date">Send Emails By <span class="cs-set-optional">(Optional)</span>
+                                                <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="If specified, Gophish will send messages evenly between the launch date and this date."></i>
+                                            </label>
+                                        </div>
+                                        <div class="inline-setting-field-col">
+                                            <div class="cs-input-icon">
+                                                <i class="fa fa-calendar-o" aria-hidden="true"></i>
+                                                <input type="text" class="form-control" id="send_by_date" />
+                                            </div>
+                                        </div>
+                                        <div class="inline-setting-toggle-col"></div>
+                                    </div>
+
+                                    <div class="inline-setting-row">
+                                        <div class="inline-setting-label-col">
+                                            <label class="control-label" for="send_order">Send Order
+                                                <i class="fa fa-question-circle" data-toggle="tooltip" data-html="true" data-placement="right" title="How the set's campaigns share the send window.<br>Sequential: all of A, then B, then C.<br>Interleaved: A, B, C, A, B, C… (in parallel)."></i>
+                                            </label>
+                                        </div>
+                                        <div class="inline-setting-field-col">
+                                            <select class="form-control" id="send_order">
+                                                <option value="sequential">Sequential (one campaign at a time)</option>
+                                                <option value="interleaved">Interleaved (campaigns in parallel)</option>
+                                            </select>
+                                        </div>
+                                        <div class="inline-setting-toggle-col"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -405,7 +424,12 @@
     </div>
 </div>
 {{end}}
-{{define "scripts"}}
+{{define "styles"}}
 <link href="/css/campaign-sets.css" rel="stylesheet" type="text/css">
+<link href="/css/phone-preview.css" rel="stylesheet" type="text/css">
+{{end}}
+
+{{define "scripts"}}
+<script src="/js/dist/app/template_preview.min.js"></script>
 <script src="/js/dist/app/campaign_sets.min.js"></script>
 {{end}}

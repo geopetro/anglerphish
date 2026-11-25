@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math/rand"
 	"net/url"
+	"regexp"
 	"sort"
 	"time"
 
@@ -213,6 +214,12 @@ var ErrCampaignNotGeneric = errors.New("Campaign is not a generic campaign")
 // ErrCampaignCompleted indicates that the campaign has already been completed
 var ErrCampaignCompleted = errors.New("Campaign has already been completed")
 
+// ErrURLPlaceholder indicates the URL still has a placeholder from a URL template, such as [DOMAIN]
+var ErrURLPlaceholder = errors.New("Replace the [DOMAIN] placeholder in the URL with your phishing domain")
+
+// urlPlaceholder matches a URL template placeholder. Links cannot be built from such a URL.
+var urlPlaceholder = regexp.MustCompile(`\[[A-Z_]+\]`)
+
 // Validate checks to make sure there are no invalid fields in a submitted campaign
 func (c *Campaign) Validate() error {
 	// Common validation for all campaign types
@@ -221,6 +228,8 @@ func (c *Campaign) Validate() error {
 		return ErrCampaignNameNotSpecified
 	case !c.SendByDate.IsZero() && !c.LaunchDate.IsZero() && c.SendByDate.Before(c.LaunchDate):
 		return ErrInvalidSendByDate
+	case urlPlaceholder.MatchString(c.URL):
+		return ErrURLPlaceholder
 	}
 
 	// Type-specific validation

@@ -13,6 +13,11 @@
         <li role="presentation">
             <a href="#sms-profiles" role="tab" data-toggle="tab">SMS Profiles</a>
         </li>
+        {{- if .ModifySystem}}
+        <li role="presentation">
+            <a href="#service-accounts" role="tab" data-toggle="tab">Service accounts</a>
+        </li>
+        {{- end}}
     </ul>
     
     <div class="tab-content">
@@ -78,6 +83,13 @@
                 </table>
             </div>
         </div>
+        {{- if .ModifySystem}}
+
+        <!-- Service accounts Tab (admin only) -->
+        <div role="tabpanel" class="tab-pane" id="service-accounts">
+            <div id="dmiContent" style="margin-top: 16px;"><p class="text-muted">Loading...</p></div>
+        </div>
+        {{- end}}
     </div>
 </div>
 <!-- Modal -->
@@ -92,54 +104,208 @@
             </div>
             <div class="modal-body">
                 <div class="row" id="modal.flashes"></div>
-                <form>
+                <form class="sp-form" onsubmit="return false">
                     <div class="form-group">
-                        <label class="control-label" for="name">Name:</label>
-                        <input type="text" class="form-control" placeholder="Profile name" id="name" autofocus />
-                        <label class="control-label" for="interface_type">Interface Type:</label>
-                        <input type="text" class="form-control" value="SMTP" id="interface_type" disabled />
-                        <label class="control-label" for="from">SMTP From: <i class="fa fa-question-circle"
-                                data-toggle="tooltip" data-placement="right" title="Set this to an email address from your sending domain to bypass SPF-checks. You can set the Envelope Sender in Email Templates. The Envelope Sender is shown to the user."></i></label>
-                        <input type="text" class="form-control" placeholder="test@example.com" id="from"
-                            required />
-                        <label class="control-label" for="host">Host:</label>
-                        <input type="text" class="form-control" placeholder="smtp.example.com:25" id="host" required />
-                        <label class="control-label" for="username">Username:</label>
-                        <input type="text" class="form-control" placeholder="Username" id="username" />
-                        <label class="control-label" for="password">Password:</label>
-                        <input type="password" class="form-control" placeholder="Password" id="password" />
-                        <div class="checkbox checkbox-primary">
-                            <input id="ignore_cert_errors" type="checkbox" checked>
-                            <label for="ignore_cert_errors">Ignore Certificate Errors <i class="fa fa-question-circle"
-                                    data-toggle="tooltip" data-placement="right" title="Ignore common certificate errors such as self-signed certs (exposes you to MiTM attacks - use carefully!)"></i></label>
-                        </div>
+                        <label class="control-label" for="name">Profile name <span class="sp-req" aria-hidden="true">*</span></label>
+                        <input type="text" class="form-control" placeholder="Enter a profile name" id="name" autofocus />
                     </div>
-                    <fieldset class="form-group">
-                        <label class="control-label input-group">Email Headers:</label>
-                        <div class="col-md-4">
-                            <input type="text" class="form-control" name="headerKey" id="headerKey" placeholder="X-Custom-Header">
-                        </div>
-                        <div class="col-md-4">
-                            <input type="text" class="form-control" name="headerValue" id="headerValue" placeholder='{{"{{"}}.URL{{"}}"}}-gophish'>
-                        </div>
-                        <div class="col-md-2">
-                            <button id="addCustomHeader" class="btn btn-danger btn-headers" type="button"><i class="fa fa-plus"></i> Add
-                                Custom Header</button>
+                    <fieldset class="sp-types">
+                        <legend class="control-label">Interface type <span class="sp-req" aria-hidden="true">*</span></legend>
+                        <input type="hidden" id="interface_type" value="SMTP" />
+                        <div class="sp-type-grid" role="radiogroup" aria-label="Interface type">
+                            <label class="sp-type">
+                                <input type="radio" name="sp_type" value="SMTP" />
+                                <i class="fa fa-envelope-o" aria-hidden="true"></i>
+                                <span><span class="sp-type-name">SMTP</span><span class="sp-type-desc">Your own mail server</span></span>
+                            </label>
+                            <label class="sp-type">
+                                <input type="radio" name="sp_type" value="MS365_DMI" />
+                                <i class="fa fa-windows" aria-hidden="true"></i>
+                                <span><span class="sp-type-name">Microsoft 365</span><span class="sp-type-desc">Direct Injection <span class="sp-beta">Beta</span></span></span>
+                            </label>
+                            <label class="sp-type">
+                                <input type="radio" name="sp_type" value="GWS_DMI" />
+                                <i class="fa fa-google" aria-hidden="true"></i>
+                                <span><span class="sp-type-name">Google Workspace</span><span class="sp-type-desc">Direct Injection <span class="sp-beta">Beta</span></span></span>
+                            </label>
                         </div>
                     </fieldset>
-                    <table id="headersTable" class="table table-hover table-striped table-condensed">
-                        <thead>
-                            <tr>
-                                <th>Header</th>
-                                <th>Value</th>
-                                <th class="no-sort"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        </tbody>
-                    </table>
+                    <div id="spChangeWarning" class="alert alert-warning" style="display:none;" role="status">
+                        <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                        Saving with a different type or auth method removes the stored secret or certificate of this profile.
+                    </div>
+
+                    <section class="sp-section" aria-labelledby="spConfigTitle">
+                        <header class="sp-section-head">
+                            <i id="spConfigIcon" class="fa fa-envelope-o" aria-hidden="true"></i>
+                            <h5 id="spConfigTitle">SMTP settings</h5>
+                            <span id="spConfigStatus" class="sp-status" style="display:none;"><i class="fa fa-check" aria-hidden="true"></i> Connected</span>
+                        </header>
+                        <div class="sp-section-body">
+                            <div id="dmiNotice" class="alert alert-warning sp-dmi-only" style="display:none;">
+                                <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                                Direct Injection skips the recipient's mail gateway. No External banner, link rewriting or spam scanning is applied.
+                            </div>
+                            <div class="row">
+                                <div class="col-sm-6" id="fromCol">
+                                    <div class="form-group">
+                                        <label class="control-label" for="from"><span id="fromLabel">SMTP From</span> <span class="sp-req" aria-hidden="true">*</span>
+                                            <i class="fa fa-question-circle sp-smtp-only" data-toggle="tooltip" data-placement="right"
+                                                title="Set this to an email address from your sending domain to bypass SPF-checks. You can set the Envelope Sender in Email Templates. The Envelope Sender is shown to the user."></i></label>
+                                        <input type="text" class="form-control" placeholder="test@example.com" id="from" required />
+                                        <p class="sp-hint">An email address only. The sender name targets see is set by the Envelope sender in Email Templates.</p>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6 sp-smtp-only">
+                                    <div class="form-group">
+                                        <label class="control-label" for="host">Host <span class="sp-req" aria-hidden="true">*</span></label>
+                                        <input type="text" class="form-control" placeholder="smtp.example.com:25" id="host" required />
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="smtpFields" class="sp-smtp-only">
+                                <div class="row">
+                                    <div class="col-sm-6">
+                                        <div class="form-group">
+                                            <label class="control-label" for="username">Username</label>
+                                            <input type="text" class="form-control" placeholder="Username" id="username" autocomplete="off" />
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <div class="form-group">
+                                            <label class="control-label" for="password">Password</label>
+                                            <div class="input-group">
+                                                <input type="password" class="form-control" placeholder="Password" id="password" autocomplete="new-password" />
+                                                <span class="input-group-btn"><button type="button" class="btn btn-default sp-reveal" data-target="#password" aria-label="Show password"><i class="fa fa-eye" aria-hidden="true"></i></button></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="checkbox checkbox-primary">
+                                    <input id="ignore_cert_errors" type="checkbox" checked>
+                                    <label for="ignore_cert_errors">Ignore certificate errors <i class="fa fa-question-circle"
+                                            data-toggle="tooltip" data-placement="right" title="Ignore common certificate errors such as self-signed certs (exposes you to MiTM attacks - use carefully!)"></i></label>
+                                </div>
+                            </div>
+                            <div id="dmiFields" class="sp-dmi-only" style="display:none;">
+                                <div id="msFields" style="display:none;">
+                                    <div class="form-group">
+                                        <label class="control-label" for="ms_auth_method">Auth method</label>
+                                        <select class="form-control" id="ms_auth_method">
+                                            <option value="client_secret">Client secret</option>
+                                            <option value="certificate">Certificate</option>
+                                        </select>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-sm-6">
+                                            <div class="form-group">
+                                                <label class="control-label" for="dmi_tenant_id">Tenant ID <span class="sp-req" aria-hidden="true">*</span></label>
+                                                <input type="text" class="form-control" id="dmi_tenant_id" placeholder="00000000-0000-0000-0000-000000000000" autocomplete="off" spellcheck="false" />
+                                            </div>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <div class="form-group">
+                                                <label class="control-label" for="dmi_client_id">Client ID <span class="sp-req" aria-hidden="true">*</span></label>
+                                                <input type="text" class="form-control" id="dmi_client_id" placeholder="00000000-0000-0000-0000-000000000000" autocomplete="off" spellcheck="false" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="msSecretGroup" class="form-group">
+                                        <label class="control-label" for="dmi_secret">Client secret</label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="dmi_secret" autocomplete="new-password" />
+                                            <span class="input-group-btn"><button type="button" class="btn btn-default sp-reveal" data-target="#dmi_secret" aria-label="Show client secret"><i class="fa fa-eye" aria-hidden="true"></i></button></span>
+                                        </div>
+                                    </div>
+                                    <div id="msCertGroup" class="form-group" style="display:none;">
+                                        <label class="control-label">Certificate</label>
+                                        <p class="sp-hint" id="msCertUnsaved">The certificate is generated when you save the profile. Download it afterwards and send it to the customer.</p>
+                                        <div id="msCertButtons" style="display:none;">
+                                            <button type="button" class="btn btn-default" id="dmiCertDownload"><i class="fa fa-download" aria-hidden="true"></i> Download certificate</button>
+                                            <button type="button" class="btn btn-default" id="dmiCertRegenerate"><i class="fa fa-refresh" aria-hidden="true"></i> Regenerate certificate</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="gwsFields" style="display:none;">
+                                    <div class="form-group">
+                                        <label class="control-label" for="gws_auth_method">Auth method</label>
+                                        <select class="form-control" id="gws_auth_method">
+                                            <option value="customer_key">Customer service account key</option>
+                                            <option value="operator_key">Operator service account</option>
+                                        </select>
+                                    </div>
+                                    <div id="gwsCustomerGroup" class="form-group">
+                                        <label class="control-label" for="dmi_key_file">Service account key (.json)</label>
+                                        <input type="file" class="form-control" id="dmi_key_file" accept=".json,application/json" />
+                                        <p class="sp-hint" id="dmiKeyStatus"></p>
+                                    </div>
+                                    <div id="gwsOperatorGroup" class="form-group" style="display:none;">
+                                        <div id="gwsOperatorInfo"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="sp-section sp-dmi-only" id="dmiDelivery" style="display:none;" aria-labelledby="dmiDeliveryTitle">
+                        <header class="sp-section-head">
+                            <i class="fa fa-inbox" aria-hidden="true"></i>
+                            <h5 id="dmiDeliveryTitle">Delivery</h5>
+                        </header>
+                        <div class="sp-section-body">
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <div class="form-group">
+                                        <label class="control-label" for="dmi_allowed_domains">Allowed domains <span class="sp-req" aria-hidden="true">*</span></label>
+                                        <input type="text" class="form-control" id="dmi_allowed_domains" placeholder="example.com, example.org" autocomplete="off" />
+                                        <p class="sp-hint">Recipients outside these domains are never written to.</p>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <div class="form-group">
+                                        <label class="control-label" for="dmi_folder">Destination folder</label>
+                                        <select class="form-control" id="dmi_folder">
+                                            <option value="inbox">Inbox</option>
+                                            <option value="junk">Junk / Spam</option>
+                                            <option value="custom">Custom folder</option>
+                                        </select>
+                                        <div id="dmiFolderNameGroup" style="display:none;">
+                                            <input type="text" class="form-control" id="dmi_folder_name" placeholder="Folder name" aria-label="Custom folder name" style="margin-top:6px;" />
+                                            <p class="sp-hint" id="dmiFolderHint"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="dmiTestGroup" class="form-group sp-test">
+                                <label class="control-label" for="dmiTestMailbox">Test connection</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="dmiTestMailbox" placeholder="Mailbox to test, such as user@example.com" disabled />
+                                    <span class="input-group-btn"><button type="button" class="btn btn-default" id="dmiTestBtn" disabled><i class="fa fa-plug" aria-hidden="true"></i> Test connection</button></span>
+                                </div>
+                                <p class="sp-hint" id="dmiTestHint">Save the profile first to test the connection.</p>
+                                <div id="dmiTestResult" role="status"></div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="sp-section" aria-labelledby="spHeadersTitle">
+                        <header class="sp-section-head">
+                            <i class="fa fa-list-ul" aria-hidden="true"></i>
+                            <h5 id="spHeadersTitle">Email headers</h5>
+                        </header>
+                        <div class="sp-section-body">
+                            <div class="sp-header-add">
+                                <input type="text" class="form-control" id="headerKey" placeholder="X-Custom-Header" aria-label="Header name">
+                                <input type="text" class="form-control" id="headerValue" placeholder='{{"{{"}}.URL{{"}}"}}-gophish' aria-label="Header value">
+                                <button id="addCustomHeader" class="btn btn-default" type="button"><i class="fa fa-plus" aria-hidden="true"></i> Add header</button>
+                            </div>
+                            <ul id="headersList" class="sp-header-list"></ul>
+                            <p id="headersEmpty" class="sp-empty">No custom headers yet. Headers you add here go into every email sent with this profile.</p>
+                        </div>
+                    </section>
+
                     <button type="button" data-toggle="modal" data-backdrop="static" data-target="#sendTestEmailModal"
-                        class="btn btn-primary"><i class="fa fa-envelope"></i> Send Test Email</button>
+                        class="btn btn-primary sp-test-email"><i class="fa fa-envelope" aria-hidden="true"></i> Send Test Email</button>
                 </form>
             </div>
             <div class="modal-footer">
@@ -297,6 +463,10 @@
         </div>
     </div>
 </div>
-{{end}} {{define "scripts"}}
+{{end}} {{define "styles"}}
+<link href="/css/sending-profiles.css" rel="stylesheet" type="text/css">
+{{end}}
+
+{{define "scripts"}}
 <script src="/js/dist/app/sending_profiles.min.js"></script>
 {{end}}

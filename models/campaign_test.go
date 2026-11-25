@@ -95,6 +95,20 @@ func (s *ModelsSuite) TestCampaignDateValidation(c *check.C) {
 	c.Assert(err, check.Equals, ErrInvalidSendByDate)
 }
 
+func (s *ModelsSuite) TestCampaignURLPlaceholderValidation(c *check.C) {
+	for _, u := range []string{"https://[DOMAIN]/login", "https://login.example.com/x?src=https://[DOMAIN]/doc"} {
+		campaign := s.createCampaignDependencies(c)
+		campaign.URL = u
+		c.Assert(campaign.Validate(), check.Equals, ErrURLPlaceholder)
+	}
+	// Real domains, IPv6 hosts and template tags are fine
+	for _, u := range []string{"https://login.example.com/common/oauth2?x=1", "http://[::1]:8080/", "https://example.com/{{.RId}}"} {
+		campaign := s.createCampaignDependencies(c)
+		campaign.URL = u
+		c.Assert(campaign.Validate(), check.Equals, nil)
+	}
+}
+
 func (s *ModelsSuite) TestSMSCampaignValidation(c *check.C) {
 	// Test that an SMS campaign with valid phone numbers passes validation
 	campaign := s.createSMSCampaignDependencies(c)

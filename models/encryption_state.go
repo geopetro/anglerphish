@@ -250,7 +250,8 @@ func GetEncryptionStatusInfo() (EncryptionStatus, error) {
 		StartupWarning: warning,
 		Report:         report,
 		PlaintextCount: report.SMTPPasswords.Plaintext + report.SMSConfigs.Plaintext +
-			report.IMAPPasswords.Plaintext + report.EventDetails.Plaintext + report.OIDCSecrets.Plaintext,
+			report.IMAPPasswords.Plaintext + report.EventDetails.Plaintext + report.OIDCSecrets.Plaintext +
+			report.DMISecrets.Plaintext + report.DMIGoogleKeys.Plaintext,
 		MigrationRunning: migrationRunning.Load(),
 	}, nil
 }
@@ -441,6 +442,8 @@ var discardTargets = []struct{ table, column string }{
 	{"imap", "password"},
 	{"events", "details"},
 	{"oidc_settings", "client_secret"},
+	{"smtp", "dmi_secret"},
+	{"dmi_settings", "google_key"},
 }
 
 // DiscardEncryptedData blanks every encrypted value, removes the check value
@@ -492,7 +495,8 @@ func DiscardEncryptedData(confirmation string) (*crypto.EncryptionReport, error)
 	if err := ReloadOIDC(); err != nil {
 		log.Warnf("encryption: sso reload after discard failed: %v", err)
 	}
-	log.Infof("encryption: discarded encrypted data (smtp passwords: %d, sms configs: %d, imap passwords: %d, event details: %d, sso client secret: %d)",
-		report.SMTPPasswords.Encrypted, report.SMSConfigs.Encrypted, report.IMAPPasswords.Encrypted, report.EventDetails.Encrypted, report.OIDCSecrets.Encrypted)
+	log.Infof("encryption: discarded encrypted data (smtp passwords: %d, sms configs: %d, imap passwords: %d, event details: %d, sso client secret: %d, dmi secrets: %d, dmi operator key: %d)",
+		report.SMTPPasswords.Encrypted, report.SMSConfigs.Encrypted, report.IMAPPasswords.Encrypted, report.EventDetails.Encrypted, report.OIDCSecrets.Encrypted,
+		report.DMISecrets.Encrypted, report.DMIGoogleKeys.Encrypted)
 	return report, nil
 }

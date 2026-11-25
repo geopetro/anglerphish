@@ -105,36 +105,34 @@ function deleteSelectedSMSTemplates() {
 }
 window.deleteSelectedSMSTemplates = deleteSelectedSMSTemplates;
 
+function smsModalError(message) {
+    $("#smsModal\\.flashes").empty().append("<div style=\"text-align:center\" class=\"alert alert-danger\">\
+        <i class=\"fa fa-exclamation-circle\"></i> " + escapeHtml(message) + "</div>")
+}
+
 // Save attempts to POST or PUT to /sms_templates/
 function saveSMSTemplate(idx) {
     var sms_template = {
+        name: $("#smsName").val(),
         text: $("#smsText").val(),
         from: $("#smsFrom").val()
     }
-    sms_template.name = $("#smsName").val()
+    var request
     if (idx != -1) {
         sms_template.id = smsTemplates[idx].id
-        api.smsTemplateId.put(sms_template)
-            .success(function (data) {
-                successFlash("SMS template edited successfully!")
-                loadSMSTemplates()
-                dismissSMS()
-            })
-            .error(function (data) {
-                modalError(data.responseJSON.message)
-            })
+        request = api.smsTemplateId.put(sms_template)
     } else {
-        // Submit the template
-        api.smsTemplates.post(sms_template)
-            .success(function (data) {
-                successFlash("SMS template added successfully!")
-                loadSMSTemplates()
-                dismissSMS()
-            })
-            .error(function (data) {
-                modalError(data.responseJSON.message)
-            })
+        request = api.smsTemplates.post(sms_template)
     }
+    request
+        .success(function () {
+            successFlash(idx != -1 ? "SMS template edited successfully!" : "SMS template added successfully!")
+            loadSMSTemplates()
+            dismissSMS()
+        })
+        .error(function (data) {
+            smsModalError(data.responseJSON.message)
+        })
 }
 
 function dismissSMS() {
@@ -142,6 +140,7 @@ function dismissSMS() {
     $("#smsName").val("")
     $("#smsFrom").val("")
     $("#smsText").val("")
+    updateSMSPreview()
     $("#smsModal").modal('hide')
 }
 
@@ -181,50 +180,129 @@ function deleteSMSTemplate(idx) {
     })
 }
 
-function editSMSTemplate(idx) {
+// mode is "new", "edit" or "copy"
+function openSMSForm(template, mode, saveIdx) {
     $("#smsModalSubmit").unbind('click').click(function () {
-        saveSMSTemplate(idx)
+        saveSMSTemplate(saveIdx)
     })
-    var sms_template = {}
-    if (idx != -1) {
-        $("#smsTemplateModalLabel").text("Edit SMS Template")
-        sms_template = smsTemplates[idx]
-        $("#smsName").val(sms_template.name)
-        $("#smsFrom").val(sms_template.from || "")
-        $("#smsText").val(sms_template.text)
-    } else {
-        $("#smsTemplateModalLabel").text("New SMS Template")
-    }
-    
-    // Update character count
-    updateSMSCharCount();
-    
-    // Add event listener for text changes
-    $("#smsText").on('input', function() {
-        updateSMSCharCount();
-    });
+    var titles = { "new": "New SMS Template", "edit": "Edit SMS Template", "copy": "Copy SMS Template" }
+    $("#smsTemplateModalLabel").text(titles[mode])
+    $("#smsName").val(mode == "copy" ? "Copy of " + template.name : (template.name || ""))
+    $("#smsFrom").val(template.from || "")
+    $("#smsText").val(template.text || "")
+    updateSMSPreview()
 }
 
-function updateSMSCharCount() {
-    var text = $("#smsText").val();
-    var charCount = text.length;
-    var smsCount = Math.ceil(charCount / 160);
-    
-    $("#smsCharCount").text(charCount);
-    $("#smsCount").text(smsCount);
+function editSMSTemplate(idx) {
+    if (idx == -1) {
+        openSMSForm({}, "new", -1)
+    } else {
+        openSMSForm(smsTemplates[idx], "edit", idx)
+    }
 }
 
 function copySMSTemplate(idx) {
-    $("#smsModalSubmit").unbind('click').click(function () {
-        saveSMSTemplate(-1)
-    })
-    var sms_template = smsTemplates[idx]
-    $("#smsName").val("Copy of " + sms_template.name)
-    $("#smsFrom").val(sms_template.from || "")
-    $("#smsText").val(sms_template.text)
-    
-    // Update character count
-    updateSMSCharCount();
+    openSMSForm(smsTemplates[idx], "copy", -1)
+}
+
+var GSM7_BASIC = "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞ\u001bÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?" +
+    "¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà"
+var GSM7_EXTENDED = "^{}\\[~]|€"
+
+// Estimates SMS length the way carriers count it: GSM-7 (160, or 153 per part)
+// unless any character needs UCS-2 (70, or 67 per part)
+function smsSegments(text) {
+    var units = 0
+    var gsm = true
+    for (var i = 0; i < text.length; i++) {
+        var c = text.charAt(i)
+        if (GSM7_BASIC.indexOf(c) != -1) {
+            units += 1
+        } else if (GSM7_EXTENDED.indexOf(c) != -1) {
+            units += 2
+        } else {
+            gsm = false
+            break
+        }
+    }
+    if (!gsm) units = text.length
+    var single = gsm ? 160 : 70
+    var multi = gsm ? 153 : 67
+    var segments = units == 0 ? 0 : (units <= single ? 1 : Math.ceil(units / multi))
+    var capacity = segments <= 1 ? single : segments * multi
+    return { units: units, segments: segments, encoding: gsm ? "GSM-7" : "Unicode", left: capacity - units }
+}
+
+function updateSMSCharCount() {
+    var text = $("#smsText").val()
+    var s = smsSegments(text)
+    $("#smsCharCount").text(text.length)
+    $("#smsCount").text(s.segments)
+    $("#smsCountLabel").text(s.segments == 1 ? "message" : "messages")
+    $("#smsEncoding").text(s.encoding)
+        .toggleClass("st-unicode", s.encoding != "GSM-7")
+        .attr("title", s.encoding == "GSM-7" ?
+            "Standard SMS characters. 160 per message, 153 per part when split." :
+            "Contains characters outside the GSM-7 set (for example emoji), so each message holds 70, or 67 per part.")
+    $("#smsLeft").text(s.units ? s.left + " left in this message" : "")
+}
+
+function linkifySMS(escaped) {
+    return escaped.replace(/(https?:\/\/[^\s<]+)/g, '<span class="st-link">$1</span>')
+}
+
+// Grows with the text, the CSS min and max heights bound it
+function autosizeSMSText() {
+    var el = document.getElementById("smsText")
+    if (!el || !el.offsetParent) return
+    el.style.height = "auto"
+    el.style.height = (el.scrollHeight + 2) + "px"
+}
+
+function updateSMSPreview() {
+    updateSMSCharCount()
+    autosizeSMSText()
+    var raw = $("#smsText").val()
+    var text = raw.replace(/{{\s*\.QR\s*}}/g, "[QR code]")
+    text = typeof fillSampleData === "function" ? fillSampleData(text) : text
+    $("#stBubble").html(linkifySMS(escapeHtml(text)))
+    var hasText = $.trim(raw) !== ""
+    $("#stEmpty").toggle(!hasText)
+    $(".st-day, #stRead").toggle(hasText)
+    $("#stUrlWarning").toggle(hasText && raw.indexOf("{{.URL}}") == -1)
+
+    var from = $.trim($("#smsFrom").val())
+    var isNumber = from !== "" && /^\+?\d+$/.test(from.replace(/[\s\-()]/g, ""))
+    $("#stSender").text(from || "Default sender")
+    $("#stSub").text(from ? "SMS/MMS" : "From the SMS Profile")
+    $("#stAvatar").text(from === "" ? "?" : (isNumber ? "#" : from.charAt(0).toUpperCase()))
+
+    var now = new Date()
+    var mins = now.getMinutes() < 10 ? "0" + now.getMinutes() : now.getMinutes()
+    var clock = now.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+    $("#stStatusTime").text(now.getHours() + ":" + mins)
+    $("#stDay").text("Today " + clock)
+    $("#stRead").text("Read " + clock)
+}
+
+function insertSMSVariable(name) {
+    var tag = "{{." + name + "}}"
+    var el = document.getElementById("smsText")
+    var start = el.selectionStart, end = el.selectionEnd
+    el.value = el.value.slice(0, start) + tag + el.value.slice(end)
+    el.selectionStart = el.selectionEnd = start + tag.length
+    el.focus()
+    updateSMSPreview()
+}
+
+function initSMSModal() {
+    if (typeof buildVariableMenu === "function") {
+        // HTML-only variables have no meaning in a text message
+        buildVariableMenu($("#stVarMenu"), ["Tracker", "TrackingURL", "QR"], insertSMSVariable)
+    }
+    $("#smsText, #smsFrom").on("input", updateSMSPreview)
+    $("#smsModal").on("shown.bs.modal", autosizeSMSText)
+    updateSMSPreview()
 }
 
 // Preview an SMS template with sample data
@@ -366,5 +444,6 @@ $(document).ready(function () {
         dismissSMS()
     });
     
+    initSMSModal()
     loadSMSTemplates()
 })

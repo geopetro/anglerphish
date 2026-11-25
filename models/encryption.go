@@ -135,6 +135,12 @@ func GetEncryptionReport() (*crypto.EncryptionReport, error) {
 		}
 	}
 
+	for _, f := range dmiEncryptedColumns {
+		if err := countColumnStatus(f, f.status(report)); err != nil {
+			return nil, err
+		}
+	}
+
 	return report, nil
 }
 
@@ -176,6 +182,14 @@ func MigrateToEncrypted() ([]string, error) {
 		return results, err
 	}
 	results = append(results, result)
+
+	for _, f := range dmiEncryptedColumns {
+		result, err = migrateColumnToEncrypted(f)
+		if err != nil {
+			return results, err
+		}
+		results = append(results, result)
+	}
 
 	return results, nil
 }
@@ -219,6 +233,14 @@ func DryRunMigrateToEncrypted() ([]string, error) {
 	}
 	results = append(results, result)
 
+	for _, f := range dmiEncryptedColumns {
+		result, err = dryRunColumnEncrypt(f)
+		if err != nil {
+			return results, err
+		}
+		results = append(results, result)
+	}
+
 	return results, nil
 }
 
@@ -260,6 +282,14 @@ func MigrateToDecrypted() ([]string, error) {
 		return results, err
 	}
 	results = append(results, result)
+
+	for _, f := range dmiEncryptedColumns {
+		result, err = migrateColumnToDecrypted(f)
+		if err != nil {
+			return results, err
+		}
+		results = append(results, result)
+	}
 
 	return results, nil
 }
@@ -571,6 +601,14 @@ func DryRunMigrateToDecrypted() ([]string, error) {
 	}
 	results = append(results, result)
 
+	for _, f := range dmiEncryptedColumns {
+		result, err = dryRunColumnDecrypt(f)
+		if err != nil {
+			return results, err
+		}
+		results = append(results, result)
+	}
+
 	return results, nil
 }
 
@@ -869,4 +907,134 @@ func dryRunOIDCDecrypt() (string, error) {
 	}
 
 	return fmt.Sprintf("SSO client secret: %d would be decrypted, %d would be skipped", wouldDecrypt, wouldSkip), nil
+}
+
+// encryptedColumn is a column holding one secret per row, keyed by id.
+type encryptedColumn struct {
+	table, column, label string
+	status               func(*crypto.EncryptionReport) *crypto.FieldStatus
+}
+
+var dmiEncryptedColumns = []encryptedColumn{
+	{"smtp", "dmi_secret", "Direct Injection secrets", func(r *crypto.EncryptionReport) *crypto.FieldStatus { return &r.DMISecrets }},
+	{"dmi_settings", "google_key", "Direct Injection operator key", func(r *crypto.EncryptionReport) *crypto.FieldStatus { return &r.DMIGoogleKeys }},
+}
+
+type encryptedColumnRow struct {
+	Id    int64
+	Value string `gorm:"column:value"`
+}
+
+func (f encryptedColumn) rows() ([]encryptedColumnRow, error) {
+	var rows []encryptedColumnRow
+	err := db.Table(f.table).Select("id, " + f.column + " AS value").Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to query %s: %w", f.label, err)
+	}
+	return rows, nil
+}
+
+func countColumnStatus(f encryptedColumn, st *crypto.FieldStatus) error {
+	rows, err := f.rows()
+	if err != nil {
+		return err
+	}
+	for _, r := range rows {
+		st.Total++
+		switch crypto.GetEncryptionStatus(r.Value) {
+		case "encrypted":
+			st.Encrypted++
+		case "plaintext":
+			st.Plaintext++
+		case "empty":
+			st.Empty++
+		}
+	}
+	return nil
+}
+
+func migrateColumnToEncrypted(f encryptedColumn) (string, error) {
+	rows, err := f.rows()
+	if err != nil {
+		return "", err
+	}
+	updated := 0
+	skipped := 0
+	for _, r := range rows {
+		if r.Value == "" || crypto.IsEncrypted(r.Value) {
+			skipped++
+			continue
+		}
+		encrypted, err := crypto.Encrypt(r.Value)
+		if err != nil {
+			return "", fmt.Errorf("failed to encrypt %s (id=%d): %w", f.label, r.Id, err)
+		}
+		err = db.Table(f.table).Where("id = ?", r.Id).Update(f.column, encrypted).Error
+		if err != nil {
+			return "", fmt.Errorf("failed to update %s (id=%d): %w", f.label, r.Id, err)
+		}
+		updated++
+	}
+	return fmt.Sprintf("%s: %d encrypted, %d skipped", f.label, updated, skipped), nil
+}
+
+func migrateColumnToDecrypted(f encryptedColumn) (string, error) {
+	rows, err := f.rows()
+	if err != nil {
+		return "", err
+	}
+	updated := 0
+	skipped := 0
+	failed := 0
+	for _, r := range rows {
+		if r.Value == "" || !crypto.IsEncrypted(r.Value) {
+			skipped++
+			continue
+		}
+		decrypted, err := crypto.Decrypt(r.Value)
+		if err != nil {
+			// The value stays encrypted so disable stays in decrypt-only mode.
+			log.Warnf("encryption: could not decrypt %s (id=%d)", f.label, r.Id)
+			failed++
+			continue
+		}
+		err = db.Table(f.table).Where("id = ?", r.Id).Update(f.column, decrypted).Error
+		if err != nil {
+			return "", fmt.Errorf("failed to update %s (id=%d): %w", f.label, r.Id, err)
+		}
+		updated++
+	}
+	return fmt.Sprintf("%s: %d decrypted, %d skipped, %d could not be decrypted", f.label, updated, skipped, failed), nil
+}
+
+func dryRunColumnEncrypt(f encryptedColumn) (string, error) {
+	rows, err := f.rows()
+	if err != nil {
+		return "", err
+	}
+	would, skip := 0, 0
+	for _, r := range rows {
+		if r.Value == "" || crypto.IsEncrypted(r.Value) {
+			skip++
+		} else {
+			would++
+		}
+	}
+	return fmt.Sprintf("%s: %d would be encrypted, %d would be skipped", f.label, would, skip), nil
+}
+
+func dryRunColumnDecrypt(f encryptedColumn) (string, error) {
+	rows, err := f.rows()
+	if err != nil {
+		return "", err
+	}
+	would, skip := 0, 0
+	for _, r := range rows {
+		if r.Value == "" || !crypto.IsEncrypted(r.Value) {
+			skip++
+		} else {
+			would++
+		}
+	}
+	return fmt.Sprintf("%s: %d would be decrypted, %d would be skipped", f.label, would, skip), nil
 }

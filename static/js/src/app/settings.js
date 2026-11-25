@@ -640,7 +640,9 @@ $(document).ready(function () {
         ["SMSConfigs", "SMS provider configs"],
         ["IMAPPasswords", "IMAP passwords"],
         ["EventDetails", "Event details (captured data)"],
-        ["OIDCSecrets", "SSO client secret"]
+        ["OIDCSecrets", "SSO client secret"],
+        ["DMISecrets", "Direct Injection secrets"],
+        ["DMIGoogleKeys", "Direct Injection operator key"]
     ];
     var ENC_LOCKED_REASONS = {
         missing_key: "No encryption key was provided at startup, but encrypted data exists.",

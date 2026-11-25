@@ -338,53 +338,106 @@ p {
     fill: #c0392b !important;
 }
 
-/* Dashboard KPI summary tiles. Borders/labels are theme-neutral; the values
-   carry the same semantic colours as the charts. */
-.kpi-section {
-    margin-bottom: 20px;
+/* Engagement overview: one row per stage, each bar filled to its rate */
+.eo-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 10px 0 14px;
 }
 
-.kpi-row {
+.eo-head h2 {
+    margin: 0;
+}
+
+.eo-toggle .btn {
+    width: 34px;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.eo-row {
+    display: grid;
+    grid-template-columns: 170px minmax(0, 1fr) 110px;
+    align-items: center;
+    gap: 16px;
+    padding: 9px 0;
+}
+
+.eo-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.eo-label .fa {
+    width: 14px;
+    text-align: center;
+}
+
+.eo-track {
+    display: block;
+    border-radius: 3px;
+    background: rgba(127, 127, 127, .15);
+}
+
+.eo-bar {
+    display: block;
+    height: 16px;
+    border-radius: 3px;
+    transition: width .3s ease, filter .15s ease;
+}
+
+/* Same lift as a hovered donut slice */
+.eo-row:hover .eo-bar {
+    filter: brightness(1.15);
+}
+
+.eo-val {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.eo-pct {
+    opacity: .7;
+}
+
+.eo-legend {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-
-.kpi-tile {
-    flex: 1 1 140px;
-    border: 1px solid rgba(127, 127, 127, 0.25);
-    border-radius: 6px;
-    padding: 12px 14px;
-}
-
-.kpi-label {
+    gap: 6px 20px;
+    margin: 14px 0 20px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(127, 127, 127, .25);
     font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: #95a5a6;
-    margin-bottom: 6px;
 }
 
-.kpi-value {
-    font-size: 24px;
-    font-weight: 600;
-    line-height: 1.1;
+.eo-legend > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
 }
 
-.kpi-frac {
-    font-size: 13px;
-    font-weight: 400;
-    color: #95a5a6;
-    margin-left: 4px;
+.eo-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
 }
 
-.kpi-sent { color: #1abc9c; }
-.kpi-opened { color: #f9bf3b; }
-.kpi-clicked { color: #F39C12; }
-.kpi-submitted { color: #f05b4f; }
-.kpi-replied { color: #E67E22; }
-.kpi-reported { color: #45d6ef; }
+.eo-dot:last-of-type {
+    margin-right: 3px;
+}
+
+@media (max-width: 600px) {
+    .eo-row {
+        grid-template-columns: 130px minmax(0, 1fr) 95px;
+        gap: 10px;
+    }
+}
 
 /* Dashboard donut stat cards: a titled card with an icon, a coloured accent
    bar (left border) and a ring showing count + percent, with "x of N" beneath.
@@ -393,14 +446,12 @@ p {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: 12px;
     position: relative;
     overflow: hidden;
     border: 1px solid rgba(127, 127, 127, 0.25);
     border-radius: 8px;
-    padding: 10px 16px;
-    margin-bottom: 14px;
-    min-height: 96px;
+    padding: 8px 12px 8px 16px;
 }
 
 /* Coloured accent bar at the card's left edge. Drawn as a background on a
@@ -433,24 +484,35 @@ p {
 .stat-title {
     font-weight: 700;
     font-size: 15px;
+    line-height: 1.25;
 }
 
-.stat-chart {
+.stat-text {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    flex: 0 0 auto;
+    min-width: 0;
 }
 
 .stat-donut {
+    flex: 0 0 auto;
     width: 92px;
     height: 92px;
+}
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+    gap: 10px;
+}
+
+/* Themes draw a border round every chart plot, which boxes in the donut */
+.stat-card .stat-donut .highcharts-plot-border {
+    stroke: none !important;
 }
 
 .stat-frac {
     font-size: 12px;
     color: #95a5a6;
-    margin-top: 2px;
 }
 
 /* Vertically centre a Bootstrap 3 modal in the viewport (BS3 pins modals near
@@ -950,6 +1012,22 @@ table.dataTable {
 
 .input-group-btn .btn {
     line-height: 20px !important;
+}
+
+/* Flat UI draws every input-group button white, which hides a primary one */
+.input-group .input-group-btn > .btn-primary,
+.input-group.focus .input-group-btn > .btn-primary {
+    border-color: #1abc9c;
+    background-color: #1abc9c;
+    color: #ffffff;
+}
+
+.input-group .input-group-btn > .btn-primary:hover,
+.input-group .input-group-btn > .btn-primary:focus,
+.input-group.focus .input-group-btn > .btn-primary:hover {
+    border-color: #48c9b0;
+    background-color: #48c9b0;
+    color: #ffffff;
 }
 
 .highcharts-title {

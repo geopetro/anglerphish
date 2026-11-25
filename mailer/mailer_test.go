@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"net/textproto"
 	"reflect"
+	"syscall"
 	"testing"
 )
 
@@ -277,5 +280,104 @@ func TestUnknownError(t *testing.T) {
 	// Check that the email errored out appropriately
 	if !reflect.DeepEqual(message.err, expectedError) {
 		t.Fatalf("Did not received expected error. Got %#v\nExpected %#v", message.err, expectedError)
+	}
+}
+
+type retryableError struct{ retryable bool }
+
+func (e *retryableError) Error() string   { return "api error" }
+func (e *retryableError) Retryable() bool { return e.retryable }
+
+func runRetryableCase(t *testing.T, retryable bool) (*mockMessage, *mockSender, *mockDialer, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	mw := NewMailWorker()
+	go mw.Start(ctx)
+
+	expectedError := fmt.Errorf("wrapped: %w", &retryableError{retryable: retryable})
+
+	sender := newMockErrorSender(expectedError)
+	dialer := newMockDialer()
+	dialer.setDial(func() (Sender, error) { return sender, nil })
+
+	messages := generateMessages(dialer)
+	mw.Queue(messages)
+
+	got := []*mockMessage{}
+	for message := range sender.messageChan {
+		got = append(got, message)
+	}
+	if len(got) != 1 || got[0].from != messages[1].(*mockMessage).from {
+		t.Fatalf("Expected only the second message to be sent, got %d messages", len(got))
+	}
+	return messages[0].(*mockMessage), sender, dialer, expectedError
+}
+
+func TestRetryableErrorBacksOff(t *testing.T) {
+	message, sender, dialer, expectedError := runRetryableCase(t, true)
+
+	if message.backoffCount != 1 {
+		t.Fatalf("Expected backoffCount 1, got %d", message.backoffCount)
+	}
+	if message.finished {
+		t.Fatal("Retryable error should not finish the message")
+	}
+	if message.err != expectedError {
+		t.Fatalf("Unexpected error recorded: %v", message.err)
+	}
+	if sender.resetCount != 0 {
+		t.Fatalf("Sender should not be reset, got resetCount %d", sender.resetCount)
+	}
+	if dialer.dialCount != 1 {
+		t.Fatalf("Sender should not be redialled, got dialCount %d", dialer.dialCount)
+	}
+}
+
+func TestNonRetryableErrorFails(t *testing.T) {
+	message, sender, dialer, expectedError := runRetryableCase(t, false)
+
+	if message.backoffCount != 0 {
+		t.Fatalf("Expected no backoff, got %d", message.backoffCount)
+	}
+	if !message.finished || message.err != expectedError {
+		t.Fatalf("Message should error out with the original error, got %v", message.err)
+	}
+	if sender.resetCount != 0 {
+		t.Fatalf("Sender should not be reset, got resetCount %d", sender.resetCount)
+	}
+	if dialer.dialCount != 1 {
+		t.Fatalf("Sender should not be redialled, got dialCount %d", dialer.dialCount)
+	}
+}
+
+func TestNetOpErrorRedials(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	mw := NewMailWorker()
+	go mw.Start(ctx)
+
+	opErr := &net.OpError{Op: "write", Net: "tcp", Err: syscall.ECONNRESET}
+	sender := newMockErrorSender(opErr)
+	dialer := newMockDialer()
+	dialer.setDial(func() (Sender, error) { return sender, nil })
+
+	messages := generateMessages(dialer)
+	mw.Queue(messages)
+
+	got := []*mockMessage{}
+	for message := range sender.messageChan {
+		got = append(got, message)
+	}
+	if len(got) != 1 || got[0].from != messages[1].(*mockMessage).from {
+		t.Fatalf("Expected only the second message to be sent, got %d messages", len(got))
+	}
+	message := messages[0].(*mockMessage)
+	if message.backoffCount != 1 || message.finished {
+		t.Fatalf("Expected a single backoff, got backoffCount %d finished %v", message.backoffCount, message.finished)
+	}
+	if dialer.dialCount != 2 {
+		t.Fatalf("Expected the sender to be redialled, got dialCount %d", dialer.dialCount)
 	}
 }

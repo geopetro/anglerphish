@@ -1,0 +1,142 @@
+/* Landing page modal. Colours come from the active theme, with the default theme as fallback. */
+@media (min-width: 768px) {
+    #modal .modal-dialog {
+        width: 820px;
+        max-width: calc(100% - 40px);
+    }
+}
+
+.lp-form {
+    --lp-accent: var(--dark-accent, #1abc9c);
+    --lp-border: var(--dark-border, #dce4ec);
+    --lp-muted: var(--dark-text-muted, #7b8a8b);
+    --lp-warn: #e67e22;
+}
+
+.lp-req {
+    color: #e74c3c;
+}
+
+.lp-hint {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--lp-muted);
+}
+
+.lp-section {
+    margin-top: 16px;
+    border: 1px solid var(--lp-border);
+    border-radius: 8px;
+}
+
+.lp-section-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--lp-border);
+    border-radius: 7px 7px 0 0;
+    background: var(--dark-bg-heading, transparent);
+}
+
+.lp-section-head > .fa {
+    color: var(--lp-accent);
+}
+
+.lp-section-head h5 {
+    flex: 1;
+    margin: 0;
+    font-size: 15px;
+    font-weight: bold;
+}
+
+.lp-section-body {
+    padding: 14px 14px 4px;
+}
+
+.lp-section-body .form-group:last-child {
+    margin-bottom: 10px;
+}
+
+.lp-section-body .checkbox {
+    margin: 0 0 12px;
+}
+
+/* Content card: tabs sit in the header, Import Site on the right */
+.lp-content-head {
+    padding: 8px 10px 0;
+}
+
+.lp-content-head > .btn {
+    margin-bottom: 8px;
+}
+
+.lp-tabs {
+    flex: 1;
+    border-bottom: 0;
+}
+
+.lp-tabs > li > a {
+    padding: 8px 14px;
+}
+
+/* Themes colour every tab area and box the MFA settings, the card already frames both */
+.lp-form .lp-section > .tab-content {
+    padding: 10px;
+    background-color: transparent !important;
+}
+
+.lp-form .lp-section #mfa_settings {
+    border: 0 !important;
+    background: transparent !important;
+}
+
+#lpPreviewFrame {
+    display: block;
+    width: 100%;
+    height: 360px;
+    border: 1px solid var(--lp-border);
+    border-radius: 4px;
+    background: #fff;
+}
+
+/* An off switch in the MFA header, settings appear below when on */
+.lp-head-toggle.checkbox {
+    margin: 0;
+}
+
+.lp-section-head:has(+ #mfa_settings[style*="none"]) {
+    border-bottom: 0;
+    border-radius: 7px;
+}
+
+.lp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 14px;
+}
+
+.lp-verify-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.lp-verify-row .checkbox {
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    .lp-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Gophish's warning box, at the size of a hint */
+.lp-form .alert {
+    margin: 8px 0 0;
+    padding: 8px 12px;
+    font-size: 13px;
+}

@@ -98,7 +98,7 @@ function save(id) {
             })
             .error(function (data) {
                 // console.error("Error updating group:", data);
-                modalError(data.responseJSON ? data.responseJSON.message : "An error occurred while updating the group")
+                gmSaveFailed(data.responseJSON ? data.responseJSON.message : "An error occurred while updating the group")
             })
     } else {
         // Else, if this is a new group, POST it
@@ -112,7 +112,7 @@ function save(id) {
             })
             .error(function (data) {
                 // console.error("Error saving group:", data);
-                modalError(data.responseJSON ? data.responseJSON.message : "An error occurred while saving the group")
+                gmSaveFailed(data.responseJSON ? data.responseJSON.message : "An error occurred while saving the group")
             })
     }
 }
@@ -121,6 +121,61 @@ function dismiss() {
     $("#targetsTable").dataTable().DataTable().clear().draw()
     $("#name").val("")
     $("#modal\\.flashes").empty()
+    $("#gmImportSummary").hide().empty()
+    resetGroupForm()
+    updateMemberCount()
+}
+
+function updateMemberCount() {
+    var hasTable = $.fn.DataTable.isDataTable("#targetsTable")
+    var count = hasTable ? $("#targetsTable").DataTable().rows().count() : 0
+    var wrap = $("#gmTableWrap")
+    var wasHidden = !wrap.is(":visible")
+    $("#gmMemberCount").text(count)
+    $("#gmEmpty").toggle(count == 0)
+    wrap.toggle(count > 0)
+    // Column widths are measured wrong while the table is hidden
+    if (count > 0 && wasHidden && hasTable) $("#targetsTable").DataTable().columns.adjust()
+}
+
+// Either field satisfies the requirement, so drop the asterisk from whichever is still empty
+function updateContactMarkers() {
+    var email = $.trim($("#email").val()) !== ""
+    var phone = $.trim($("#phone").val()) !== ""
+    $('label[for="email"] .gm-req').toggle(email || !phone)
+    $('label[for="phone"] .gm-req').toggle(phone || !email)
+}
+
+// Gophish's red banner sits at the top of the modal, so scroll up to where it is
+function gmSaveFailed(message) {
+    modalError(message)
+    $("#modal").animate({ scrollTop: 0 }, 200)
+}
+
+function clearContactError() {
+    $("#gmContactHint").removeClass("gm-hint-error")
+    $("#gmContactText").text("Provide at least an email or phone number.")
+    $("#email, #phone").closest(".gm-field").removeClass("gm-invalid")
+}
+
+function resetGroupForm() {
+    clearContactError()
+    $("#gmAddStatus").text("")
+    $("#targetForm input").val("")
+    updateContactMarkers()
+    $('a[href="#gm-tab-person"]').tab("show")
+}
+
+function showImportSummary(added, updated, skipped) {
+    var parts = []
+    parts.push(added + (added == 1 ? " person added" : " people added"))
+    if (updated) parts.push(updated + " updated (already in the group)")
+    if (skipped) parts.push(skipped + " skipped (no email or phone)")
+    var icon = skipped ? "fa-exclamation-triangle" : "fa-check"
+    $("#gmImportSummary")
+        .toggleClass("gm-summary-warn", skipped > 0)
+        .html('<i class="fa ' + icon + '" aria-hidden="true"></i> ' + escapeHtml(parts.join(", ")))
+        .show()
 }
 
 function edit(id) {
@@ -131,6 +186,8 @@ function edit(id) {
             targets: "no-sort"
         }]
     })
+    targets.DataTable().on("draw", updateMemberCount)
+    $("#gmImportSummary").hide().empty()
     $("#modalSubmit").unbind('click').click(function () {
         save(id)
     })
@@ -175,11 +232,14 @@ function edit(id) {
     $("#csvupload").fileupload({
         url: "/api/import/group",
         dataType: "json",
+        dropZone: $("#gmDropZone"),
+        pasteZone: null,
         beforeSend: function (xhr) {
             xhr.setRequestHeader('Authorization', 'Bearer ' + user.api_key);
         },
         add: function (e, data) {
             $("#modal\\.flashes").empty()
+            $("#gmImportSummary").hide().empty()
             var acceptFileTypes = /(csv|txt)$/i;
             var filename = data.originalFiles[0]['name']
             if (filename && !acceptFileTypes.test(filename.split(".").pop())) {
@@ -189,16 +249,28 @@ function edit(id) {
             data.submit();
         },
         done: function (e, data) {
-            $.each(data.result, function (i, record) {
-                addTarget(
+            var added = 0, updated = 0, skipped = 0
+            $.each(data.result || [], function (i, record) {
+                // save() drops rows like this anyway, so leave them out of the table
+                if (!$.trim(record.email || "") && !$.trim(record.phone || "")) {
+                    skipped++
+                    return
+                }
+                var result = addTarget(
                     record.first_name,
                     record.last_name,
                     record.email,
                     record.phone,
                     record.position,
                     record.custom);
+                if (result == "updated") updated++; else added++
             });
             targets.DataTable().draw();
+            showImportSummary(added, updated, skipped)
+        },
+        fail: function (e, data) {
+            var message = data.jqXHR && data.jqXHR.responseJSON && data.jqXHR.responseJSON.message
+            modalError(message || "Could not import the file")
         }
     })
 }
@@ -447,9 +519,10 @@ function addTarget(firstNameInput, lastNameInput, emailInput, phoneInput, positi
                 order: "index"
             })
             .data(newRow);
-    } else {
-        targetsTable.row.add(newRow);
+        return "updated";
     }
+    targetsTable.row.add(newRow);
+    return "added";
 }
 
 function load() {
@@ -514,23 +587,27 @@ $(document).ready(function () {
     load()
     // Setup the event listeners
     // Handle manual additions
-    $("#targetForm").submit(function () {
-        // Validate the form data
+    $("#targetForm").submit(function (e) {
+        e.preventDefault()
+        clearContactError()
         var targetForm = document.getElementById("targetForm")
         if (!targetForm.checkValidity()) {
             targetForm.reportValidity()
-            return
+            return false
         }
-        
-        // Check if either email or phone is provided
-        var email = $("#email").val();
-        var phone = $("#phone").val();
+
+        var email = $.trim($("#email").val());
+        var phone = $.trim($("#phone").val());
         if (!email && !phone) {
-            modalError("Either Email or Phone must be provided");
+            $("#gmContactHint").addClass("gm-hint-error")
+            $("#gmContactText").text("Enter an email or a phone number to add this person.")
+            $("#email, #phone").closest(".gm-field").addClass("gm-invalid")
+            $("#email").focus()
             return false;
         }
-        
-        addTarget(
+
+        var name = $.trim($("#firstName").val() + " " + $("#lastName").val()) || email || phone
+        var result = addTarget(
             $("#firstName").val(),
             $("#lastName").val(),
             email,
@@ -538,12 +615,26 @@ $(document).ready(function () {
             $("#position").val(),
             $("#custom").val());
         targets.DataTable().draw();
+        $("#gmAddStatus").text(result == "updated" ?
+            "Updated " + name + ", who was already in the group." :
+            "Added " + name + ".")
 
-        // Reset user input.
-        $("#targetForm>div>input").val('');
+        $("#targetForm input").val('');
+        updateContactMarkers()
         $("#firstName").focus();
         return false;
     });
+    $("#email, #phone").on("input", function () {
+        clearContactError()
+        updateContactMarkers()
+    })
+    $("#targetForm input").on("input", function () {
+        $("#gmAddStatus").text("")
+    })
+    $("#modal .gm-info").tooltip()
+    $("#modal").on("shown.bs.modal", function () {
+        if ($.fn.DataTable.isDataTable("#targetsTable")) $("#targetsTable").DataTable().columns.adjust()
+    })
     // Handle Deletion
     $("#targetsTable").on("click", "span>i.fa-trash-o", function () {
         targets.DataTable()
@@ -555,4 +646,11 @@ $(document).ready(function () {
         dismiss();
     });
     $("#csv-template").click(downloadCSVTemplate)
+    $("#gmDropZone")
+        .on("dragover dragenter", function () {
+            $(this).addClass("gm-drop-over")
+        })
+        .on("dragleave dragend drop", function () {
+            $(this).removeClass("gm-drop-over")
+        })
 });

@@ -185,6 +185,7 @@ function dismiss() {
     $("#mfa_code_type").val("numeric");
     $("#mfa_inject_page_checkbox").prop("checked", true);
     window.currentMFAPageHTML = "";
+    $('.lp-tabs a[href="#html"]').tab("show");
     $("#modal").modal("hide");
 }
 
@@ -569,6 +570,15 @@ $(document).ready(function() {
         $("#redirect_url").toggle();
     });
     
+    // Scripts and handlers are stripped and links disabled, the sandbox blocks forms
+    $('.lp-tabs a[href="#lpPreviewTab"]').on("shown.bs.tab", function() {
+        var editor = CKEDITOR.instances.html_editor;
+        var doc = document.getElementById("lpPreviewFrame").contentDocument;
+        doc.open();
+        doc.write(disableLinksOnly(sanitizeHTML(editor ? editor.getData() : "")));
+        doc.close();
+    });
+
     // MFA checkbox toggle
     $("#enable_mfa_checkbox").change(function() {
         if ($(this).prop("checked")) {

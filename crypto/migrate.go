@@ -20,6 +20,8 @@ type EncryptionReport struct {
 	IMAPPasswords     FieldStatus
 	EventDetails      FieldStatus
 	OIDCSecrets       FieldStatus
+	DMISecrets        FieldStatus
+	DMIGoogleKeys     FieldStatus
 }
 
 // String returns a formatted string representation of the encryption report
@@ -33,13 +35,17 @@ SMTP Passwords: %d encrypted, %d plaintext, %d empty (total: %d)
 SMS Provider Configs: %d encrypted, %d plaintext, %d empty (total: %d)
 IMAP Passwords: %d encrypted, %d plaintext, %d empty (total: %d)
 Event Details (captured data): %d encrypted, %d plaintext, %d empty (total: %d)
-SSO Client Secret: %d encrypted, %d plaintext, %d empty (total: %d)`,
+SSO Client Secret: %d encrypted, %d plaintext, %d empty (total: %d)
+Direct Injection Secrets: %d encrypted, %d plaintext, %d empty (total: %d)
+Direct Injection Operator Key: %d encrypted, %d plaintext, %d empty (total: %d)`,
 		status,
 		r.SMTPPasswords.Encrypted, r.SMTPPasswords.Plaintext, r.SMTPPasswords.Empty, r.SMTPPasswords.Total,
 		r.SMSConfigs.Encrypted, r.SMSConfigs.Plaintext, r.SMSConfigs.Empty, r.SMSConfigs.Total,
 		r.IMAPPasswords.Encrypted, r.IMAPPasswords.Plaintext, r.IMAPPasswords.Empty, r.IMAPPasswords.Total,
 		r.EventDetails.Encrypted, r.EventDetails.Plaintext, r.EventDetails.Empty, r.EventDetails.Total,
 		r.OIDCSecrets.Encrypted, r.OIDCSecrets.Plaintext, r.OIDCSecrets.Empty, r.OIDCSecrets.Total,
+		r.DMISecrets.Encrypted, r.DMISecrets.Plaintext, r.DMISecrets.Empty, r.DMISecrets.Total,
+		r.DMIGoogleKeys.Encrypted, r.DMIGoogleKeys.Plaintext, r.DMIGoogleKeys.Empty, r.DMIGoogleKeys.Total,
 	)
 }
 

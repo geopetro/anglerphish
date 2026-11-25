@@ -192,11 +192,10 @@ function renderPieChart(chartopts) {
     })
 }
 
-// The order stages are presented in (funnel and donut cards).
+// Stages in legend order (Delivery, Engagement, Interaction, High risk, Reporting)
 const dashboardStatOrder = [
-    "sent", "sms_sent", "opened", "clicked", "submitted_data",
-    "opened_attachment", "macro_executed",
-    "replied", "email_reported"
+    "sent", "sms_sent", "opened", "opened_attachment", "clicked",
+    "replied", "submitted_data", "macro_executed", "email_reported"
 ];
 
 // computeDashboardStats aggregates the per-campaign stats into the dashboard's
@@ -334,127 +333,33 @@ function generateStatsPieCharts(campaigns) {
     });
 }
 
-// generateFunnelChart renders the same stage data as a single horizontal bar
-// chart, ordered as a funnel. Each bar is coloured by its stage and labelled
-// with the count and percentage.
+// generateFunnelChart lists each stage as a row: its icon and name, a bar
+// filled to its rate, and the count out of everyone who could reach that stage.
+var dashboardStatIcons = {
+    sent: "fa-envelope-o", sms_sent: "fa-comment-o", opened: "fa-envelope-open-o",
+    opened_attachment: "fa-paperclip", macro_executed: "fa-file-code-o",
+    clicked: "fa-mouse-pointer", submitted_data: "fa-exclamation-circle",
+    replied: "fa-reply", email_reported: "fa-bullhorn"
+};
+
 function generateFunnelChart(campaigns) {
     const result = computeDashboardStats(campaigns);
+    var $rows = $("#funnel_chart").empty();
     if (result.totals.all <= 0) {
         return;
     }
-    const categories = result.items.map(function (i) { return i.label; });
-    const data = result.items.map(function (i) {
-        return {
-            y: i.count,
-            percent: i.percent,
-            color: i.color
-        };
-    });
-    // Read the active theme's colours off the page so all chart text (labels,
-    // title, and especially the data-label numbers) stays legible on both light
-    // and dark themes instead of Highcharts' fixed dark defaults.
-    var textColor = "#333";
-    var faintColor = "rgba(127,127,127,0.25)";
-    try {
-        var probed = window.getComputedStyle(document.body).color;
-        if (probed) { textColor = probed; }
-    } catch (e) { /* ignore, keep fallback */ }
-
-    // Background tint behind each bar, by severity: green (neutral) for sent/
-    // opened/attachment/reported, orange for clicked/replied, red for the
-    // compromises (submitted/macro). Coloured per stage (not merged), so the
-    // scheme holds regardless of order; adjacent same-colour bars read as one band.
-    var BAND_GREEN = "rgba(26,188,156,0.07)";
-    var BAND_ORANGE = "rgba(243,156,18,0.09)";
-    var BAND_RED = "rgba(192,57,43,0.08)";
-    var BAND_BLUE = "rgba(69,214,239,0.10)";
-    var bandColorOf = {
-        sent: BAND_GREEN, sms_sent: BAND_GREEN, opened: BAND_GREEN,
-        opened_attachment: BAND_GREEN,
-        clicked: BAND_ORANGE, replied: BAND_ORANGE,
-        submitted_data: BAND_RED, macro_executed: BAND_RED,
-        email_reported: BAND_BLUE
-    };
-    var plotBands = [];
-    for (var bi = 0; bi < result.items.length; bi++) {
-        var bc = bandColorOf[result.items[bi].key];
-        if (bc) {
-            plotBands.push({ from: bi - 0.5, to: bi + 0.5, color: bc });
-        }
-    }
-
-    // Icons next to each funnel stage, matching the campaign-set / donut-card
-    // glyphs. Keyed by stage so the axis label (the stage name) can look them up.
-    var statIcons = {
-        sent: "fa-envelope-o", sms_sent: "fa-comment", opened: "fa-envelope-open-o",
-        opened_attachment: "fa-paperclip", macro_executed: "fa-file-code-o",
-        clicked: "fa-mouse-pointer", submitted_data: "fa-exclamation-circle",
-        replied: "fa-reply", email_reported: "fa-bullhorn"
-    };
-    var labelMeta = {};
     result.items.forEach(function (i) {
-        labelMeta[i.label] = { icon: statIcons[i.key], color: i.color };
+        $("<div class='eo-row'>")
+            .append($("<span class='eo-label'>")
+                .append($("<i class='fa' aria-hidden='true'>").addClass(dashboardStatIcons[i.key]).css("color", i.color))
+                .append($("<span>").text(i.label)))
+            .append($("<span class='eo-track'>")
+                .append($("<span class='eo-bar'>").css({ width: Math.min(i.percent, 100) + "%", background: i.color })))
+            .append($("<span class='eo-val'>")
+                .append($("<strong>").text(i.count))
+                .append($("<span class='eo-pct'>").text("/" + i.den + " (" + Math.round(i.percent) + "%)")))
+            .appendTo($rows);
     });
-
-    try {
-        destroyStatsChart('funnel_chart');
-        dashboardStatsCharts['funnel_chart'] = Highcharts.chart('funnel_chart', {
-            chart: { type: 'bar', backgroundColor: 'transparent' },
-            title: { text: 'Engagement Funnel', style: { color: textColor } },
-            xAxis: {
-                categories: categories,
-                title: { text: null },
-                lineColor: faintColor,
-                tickColor: faintColor,
-                labels: {
-                    useHTML: true,
-                    style: { color: textColor },
-                    formatter: function () {
-                        var m = labelMeta[this.value] || {};
-                        var ic = m.icon
-                            ? '<i class="fa ' + m.icon + '" style="margin-right:6px;color:' + (m.color || textColor) + '"></i>'
-                            : '';
-                        return '<span style="color:' + textColor + '">' + ic + this.value + '</span>';
-                    }
-                },
-                plotBands: plotBands
-            },
-            yAxis: {
-                min: 0,
-                title: { text: 'Recipients', align: 'high', style: { color: textColor } },
-                allowDecimals: false,
-                gridLineColor: faintColor,
-                labels: { style: { color: textColor } }
-            },
-            legend: { enabled: false },
-            credits: { enabled: false },
-            tooltip: {
-                formatter: function () {
-                    return '<b>' + this.key + '</b><br/>' +
-                        this.y + ' (' + Math.round(this.point.percent) + '%)';
-                }
-            },
-            plotOptions: {
-                bar: {
-                    dataLabels: {
-                        enabled: true,
-                        inside: false,
-                        style: { color: textColor, textOutline: 'none', fontWeight: 'normal' },
-                        formatter: function () {
-                            return this.y + ' (' + Math.round(this.point.percent) + '%)';
-                        }
-                    }
-                }
-            },
-            series: [{
-                name: 'Recipients',
-                data: data,
-                colorByPoint: true
-            }]
-        });
-    } catch (e) {
-        console.error("Error rendering funnel chart", e);
-    }
 }
 
 // Dashboard stats view toggle (funnel vs donuts), remembered per browser.
@@ -495,40 +400,6 @@ function setDashboardView(view, campaigns) {
             if (c) { c.reflow(); }
         });
     }, 0);
-}
-
-// generateKPIs fills the dashboard summary tiles. Rates use the total number of
-// recipients across all campaigns as the denominator (the standard phishing
-// metric), so each rate reads as "did X / everyone targeted".
-function generateKPIs(campaigns) {
-    var t = { total: 0, sent: 0, opened: 0, clicked: 0, submitted: 0, reported: 0, replied: 0, macro: 0 };
-    campaigns.forEach(function (c) {
-        var s = c.stats || {};
-        t.total += s.total || 0;
-        t.sent += s.sent || 0;
-        t.opened += s.opened || 0;
-        t.clicked += s.clicked || 0;
-        t.submitted += s.submitted_data || 0;
-        t.reported += s.email_reported || 0;
-        t.replied += s.replied || 0;
-        t.macro += s.macro_executed || 0;
-    });
-    var N = t.total || 0;
-    function pct(x) { return N > 0 ? Math.round((x / N) * 100) : 0; }
-    function frac(x) { return x + "/" + N; }
-
-    $("#kpi_delivered").text(t.sent);
-
-    $("#kpi_open_pct").text(pct(t.opened) + "%");
-    $("#kpi_open_frac").text(frac(t.opened));
-    $("#kpi_click_pct").text(pct(t.clicked) + "%");
-    $("#kpi_click_frac").text(frac(t.clicked));
-    $("#kpi_submit_pct").text(pct(t.submitted) + "%");
-    $("#kpi_submit_frac").text(frac(t.submitted));
-    $("#kpi_reply_pct").text(pct(t.replied) + "%");
-    $("#kpi_reply_frac").text(frac(t.replied));
-    $("#kpi_report_pct").text(pct(t.reported) + "%");
-    $("#kpi_report_frac").text(frac(t.reported));
 }
 
 function generateTimelineChart(campaigns) {
@@ -801,9 +672,7 @@ $(document).ready(function () {
                     campaignTable.draw();
                 });
                 
-                // Build the summary KPIs and charts. The stats charts are drawn
-                // by the view toggle below (it renders only the active view).
-                generateKPIs(campaigns)
+                // The stats charts are drawn by the view toggle below (it renders only the active view).
                 generateTimelineChart(campaigns)
 
                 $("#view-funnel").on("click", function () {

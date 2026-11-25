@@ -13,7 +13,8 @@ html.crimson-theme {
     --dark-bg-secondary: #1a1a1a;
     --dark-bg-tertiary: #2a0a0a;
     --dark-bg-card: #141414;
-    --dark-bg-input: #1f1f1f;
+    --dark-bg-input: #222222;
+    --dark-bg-heading: #1f0d0f;
     --dark-border: #3a1a1a;
     --dark-text-primary: #e8e8e8;
     --dark-text-secondary: #b0b0b0;
@@ -454,7 +455,7 @@ body.crimson-theme .panel {
 }
 
 body.crimson-theme .panel-default > .panel-heading {
-    background-color: var(--dark-bg-secondary) !important;
+    background-color: var(--dark-bg-heading) !important;
     border-color: var(--dark-border) !important;
     color: var(--dark-text-primary) !important;
 }
@@ -549,38 +550,6 @@ body.crimson-theme .shared-settings-header {
 
 body.crimson-theme .campaign-list-item:hover {
     background-color: #2a1818;
-}
-
-/* Campaign Set Overview tab */
-body.crimson-theme .cs-overview-header .cs-overview-meta,
-body.crimson-theme .cs-fn-scale,
-body.crimson-theme .cs-fn-pct,
-body.crimson-theme .cs-fn-sig-hd {
-    color: var(--dark-text-muted);
-}
-
-body.crimson-theme .cs-fn-label {
-    color: var(--dark-text-secondary);
-}
-
-body.crimson-theme .cs-fn-n {
-    color: var(--dark-text-primary);
-}
-
-body.crimson-theme .cs-fn-track {
-    background: var(--dark-bg-input);
-}
-
-body.crimson-theme .cs-fn-zero {
-    background: var(--dark-border);
-}
-
-body.crimson-theme .cs-fn-rule {
-    background: var(--dark-border);
-}
-
-body.crimson-theme .cs-overview-table {
-    color: var(--dark-text-primary);
 }
 
 body.crimson-theme .panel-danger > .panel-heading {

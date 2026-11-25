@@ -1231,39 +1231,32 @@ function load() {
                     $("#resultsTable th:contains('Email')").text("Contact");
                 }
 
-                // Handle SMS-only campaign chart layout
-                if (isSMSOnlyCampaign) {
-                    // Hide the charts that don't apply to SMS campaigns
-                    $("#opened_chart").parent().hide();
-                    $("#reported_chart").parent().hide();
-                    $("#replied_chart").parent().hide();
-                    
-                    // Move the submitted_data_chart to the first row
-                    $("#submitted_data_chart").parent().detach().insertAfter($("#clicked_chart").parent());
-                    
-                    // Hide the entire second row
-                    $("#submitted_data_chart").parent().parent().next().hide();
-                    
-                    // Adjust width of visible charts for balanced layout
-                    $("#sent_chart").parent().removeClass("col-md-4").addClass("col-md-4");
-                    $("#clicked_chart").parent().removeClass("col-md-4").addClass("col-md-4");
-                    $("#submitted_data_chart").parent().removeClass("col-md-4").addClass("col-md-4");
+                // Shows only the given charts, all on the first chart row at an even width,
+                // and hides the second row. Found by chart id, so it holds if the rows change.
+                function showOnlyCharts(ids, colClass) {
+                    var $firstRow = $("#sent_chart").parent().parent();
+                    var $secondRow = $("#clicked_chart").parent().parent();
+                    $firstRow.add($secondRow).children().hide();
+                    ids.forEach(function (id) {
+                        $("#" + id).parent()
+                            .removeClass("col-md-3 col-md-4 col-md-6")
+                            .addClass(colClass)
+                            .appendTo($firstRow)
+                            .show();
+                    });
+                    $secondRow.hide();
                 }
-                
+
+                // SMS has no opens, attachments, macros, replies or reports
+                if (isSMSOnlyCampaign) {
+                    showOnlyCharts(["sent_chart", "clicked_chart", "submitted_data_chart"], "col-md-4");
+                }
+
                 // Handle Generic campaign layout
                 const isGenericCampaign = campaign.type === "generic";
                 if (isGenericCampaign) {
-                    // Hide all charts except clicked and submitted_data
-                    $("#sent_chart").parent().hide();
-                    $("#opened_chart").parent().hide();
-                    $("#reported_chart").parent().hide();
-                    $("#replied_chart").parent().hide();
-                    
-                    // Move clicked and submitted to the first row and center them
-                    $("#clicked_chart").parent().removeClass("col-md-4").addClass("col-md-6");
-                    $("#submitted_data_chart").parent().removeClass("col-md-4").addClass("col-md-6");
-                    $("#submitted_data_chart").parent().detach().insertAfter($("#clicked_chart").parent());
-                    
+                    showOnlyCharts(["clicked_chart", "submitted_data_chart"], "col-md-6");
+
                     // Show the generate link button
                     $("#generate_link_btn").show();
                     

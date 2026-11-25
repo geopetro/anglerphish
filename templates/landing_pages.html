@@ -45,85 +45,98 @@
                         aria-hidden="true">&times;</span></button>
                 <h4 class="modal-title" id="modalLabel">New Landing Page</h4>
             </div>
-            <div class="modal-body">
+            <div class="modal-body lp-form">
                 <div class="row" id="modal.flashes"></div>
-                <label class="control-label" for="name">Name:</label>
                 <div class="form-group">
+                    <label class="control-label" for="name">Name <span class="lp-req">*</span></label>
                     <input type="text" class="form-control" placeholder="Page name" id="name" autofocus />
                 </div>
-                <div class="form-group">
-                    <button class="btn btn-danger" data-toggle="modal" data-backdrop="static" data-target="#importSiteModal"><i
-                            class="fa fa-globe"></i>
-                        Import Site</button>
-                </div>
-                <!-- Nav tabs -->
-                <ul class="nav nav-tabs" role="tablist">
-                    <li class="active" role="html"><a href="#html" aria-controls="html" role="tab" data-toggle="tab">HTML</a></li>
-                </ul>
-                <!-- Tab panes -->
-                <div class="tab-content">
-                    <div role="tabpanel" class="tab-pane active" id="html">
-                        <textarea id="html_editor"></textarea>
+
+                <section class="lp-section">
+                    <div class="lp-section-head lp-content-head">
+                        <ul class="nav nav-tabs lp-tabs" role="tablist">
+                            <li class="active" role="presentation"><a href="#html" aria-controls="html" role="tab" data-toggle="tab"><i class="fa fa-code" aria-hidden="true"></i> HTML</a></li>
+                            <li role="presentation"><a href="#lpPreviewTab" aria-controls="lpPreviewTab" role="tab" data-toggle="tab"><i class="fa fa-eye" aria-hidden="true"></i> Preview</a></li>
+                        </ul>
+                        <button type="button" class="btn btn-default btn-sm" data-toggle="modal" data-backdrop="static" data-target="#importSiteModal"><i class="fa fa-globe" aria-hidden="true"></i> Import Site</button>
                     </div>
-                </div>
-                <div class="checkbox checkbox-primary">
-                    <input id="capture_credentials_checkbox" type="checkbox">
-                    <label for="capture_credentials_checkbox">Capture Submitted Data <i class="fa fa-question-circle"
-                            data-toggle="tooltip" data-placement="right" title="If the landing page contains a form, submitted input (except passwords!) will be captured."></i></label>
-                </div>
-                <div class="checkbox checkbox-primary" id="capture_passwords">
-                    <input id="capture_passwords_checkbox" type="checkbox">
-                    <label for="capture_passwords_checkbox">Capture Passwords</label>
-                    <div class="alert alert-warning">
-                        <i class="fa fa-exclamation-circle"></i> <b>Warning:</b> Credentials are currently <b>not
-                            encrypted</b>. This means that captured passwords are stored in the database as cleartext.
-                        Be careful with this!
+                    <div class="tab-content">
+                        <div role="tabpanel" class="tab-pane active" id="html">
+                            <textarea id="html_editor"></textarea>
+                        </div>
+                        <div role="tabpanel" class="tab-pane" id="lpPreviewTab">
+                            <iframe id="lpPreviewFrame" sandbox="allow-same-origin" title="Page preview"></iframe>
+                        </div>
                     </div>
-                </div>
-                <div id="redirect_url">
-                    <label class="control-label" for="redirect_url_input">Redirect to: <i class="fa fa-question-circle"
-                            data-toggle="tooltip" data-placement="right" title="This option lets you redirect the user to a page after credentials are submitted."></i></label>
-                    <div class="form-group">
-                        <input id="redirect_url_input" class="form-control" placeholder="http://example.com" />
+                </section>
+
+                <section class="lp-section">
+                    <div class="lp-section-head">
+                        <i class="fa fa-key" aria-hidden="true"></i>
+                        <h5>Submitted data</h5>
                     </div>
-                </div>
-                <hr>
-                <div class="checkbox checkbox-primary">
-                    <input id="enable_mfa_checkbox" type="checkbox">
-                    <label for="enable_mfa_checkbox"><i class="fa fa-mobile"></i> Enable MFA Simulation <i class="fa fa-question-circle"
-                            data-toggle="tooltip" data-placement="right" title="Send a verification code via SMS after data submission. Requires SMS profile and target phone number."></i></label>
-                </div>
-                <div id="mfa_settings" style="display:none; margin-left: 20px; padding: 15px; border-radius: 4px;">
-                    <div class="form-group">
-                        <label class="control-label" for="mfa_sms_profile">SMS Profile:</label>
-                        <select id="mfa_sms_profile" class="form-control">
-                            <option value="">-- Select SMS Profile --</option>
-                        </select>
+                    <div class="lp-section-body">
+                        <div class="checkbox checkbox-primary">
+                            <input id="capture_credentials_checkbox" type="checkbox">
+                            <label for="capture_credentials_checkbox">Capture Submitted Data <i class="fa fa-question-circle"
+                                    data-toggle="tooltip" data-placement="right" title="If the landing page contains a form, submitted input (except passwords!) will be captured."></i></label>
+                        </div>
+                        <div class="checkbox checkbox-primary" id="capture_passwords">
+                            <input id="capture_passwords_checkbox" type="checkbox">
+                            <label for="capture_passwords_checkbox">Capture Passwords</label>
+                            <div class="alert alert-warning">
+                                <i class="fa fa-exclamation-circle"></i> <b>Warning:</b> Credentials are currently <b>not
+                                    encrypted</b>. This means that captured passwords are stored in the database as cleartext.
+                            </div>
+                        </div>
+                        <div id="redirect_url" class="form-group">
+                            <label class="control-label" for="redirect_url_input">Redirect to <i class="fa fa-question-circle"
+                                    data-toggle="tooltip" data-placement="right" title="This option lets you redirect the user to a page after credentials are submitted."></i></label>
+                            <input id="redirect_url_input" class="form-control" placeholder="http://example.com" />
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label class="control-label" for="mfa_from">From (Sender ID): <i class="fa fa-question-circle"
-                                data-toggle="tooltip" data-placement="right" title="Override the sender ID for MFA SMS. Leave empty to use the SMS profile's default sender."></i></label>
-                        <input id="mfa_from" class="form-control" placeholder="Leave empty to use profile default" />
+                </section>
+
+                <section class="lp-section">
+                    <div class="lp-section-head">
+                        <i class="fa fa-mobile" aria-hidden="true"></i>
+                        <h5>MFA simulation <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right"
+                                title="Send a verification code via SMS after data submission. Requires SMS profile and target phone number."></i></h5>
+                        <div class="checkbox checkbox-primary lp-head-toggle">
+                            <input id="enable_mfa_checkbox" type="checkbox">
+                            <label for="enable_mfa_checkbox">Enable</label>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label class="control-label" for="mfa_message">SMS Message:</label>
-                        <input id="mfa_message" class="form-control" placeholder="Your verification code is: {{"{{"}}.Code{{"}}"}}" />
-                        <small class="text-muted">Use {{"{{"}}.Code{{"}}"}} for the verification code</small>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
+                    <div id="mfa_settings" class="lp-section-body" style="display:none;">
+                        <div class="lp-grid">
                             <div class="form-group">
-                                <label class="control-label" for="mfa_code_length">Code Length:</label>
+                                <label class="control-label" for="mfa_sms_profile">SMS Profile</label>
+                                <select id="mfa_sms_profile" class="form-control">
+                                    <option value="">-- Select SMS Profile --</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="control-label" for="mfa_from">From (Sender ID) <i class="fa fa-question-circle"
+                                        data-toggle="tooltip" data-placement="right" title="Override the sender ID for MFA SMS. Leave empty to use the SMS profile's default sender."></i></label>
+                                <input id="mfa_from" class="form-control" placeholder="Leave empty to use profile default" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="mfa_message">SMS Message</label>
+                            <input id="mfa_message" class="form-control" placeholder="Your verification code is: {{"{{"}}.Code{{"}}"}}" />
+                            <p class="lp-hint">Use {{"{{"}}.Code{{"}}"}} for the verification code</p>
+                        </div>
+                        <div class="lp-grid">
+                            <div class="form-group">
+                                <label class="control-label" for="mfa_code_length">Code Length</label>
                                 <select id="mfa_code_length" class="form-control">
                                     <option value="4">4 characters</option>
                                     <option value="6" selected>6 characters</option>
                                     <option value="8">8 characters</option>
                                 </select>
                             </div>
-                        </div>
-                        <div class="col-md-6">
                             <div class="form-group">
-                                <label class="control-label" for="mfa_code_type">Code Type:</label>
+                                <label class="control-label" for="mfa_code_type">Code Type</label>
                                 <select id="mfa_code_type" class="form-control">
                                     <option value="numeric" selected>Numeric (0-9)</option>
                                     <option value="alpha">Alpha (A-Z)</option>
@@ -131,16 +144,18 @@
                                 </select>
                             </div>
                         </div>
+                        <div class="lp-verify-row">
+                            <div class="checkbox checkbox-primary">
+                                <input id="mfa_inject_page_checkbox" type="checkbox" checked>
+                                <label for="mfa_inject_page_checkbox">Show built-in verification page <i class="fa fa-question-circle"
+                                        data-toggle="tooltip" data-placement="right" title="If enabled, shows a built-in MFA code entry page. If disabled, you must handle the MFA code form in your landing page HTML."></i></label>
+                            </div>
+                            <button type="button" id="mfa_customize_btn" class="btn btn-default btn-sm" onclick="openMFAPageEditor()">
+                                <i class="fa fa-paint-brush" aria-hidden="true"></i> Customize
+                            </button>
+                        </div>
                     </div>
-                    <div class="checkbox checkbox-primary">
-                        <input id="mfa_inject_page_checkbox" type="checkbox" checked>
-                        <label for="mfa_inject_page_checkbox">Show built-in verification page <i class="fa fa-question-circle"
-                                data-toggle="tooltip" data-placement="right" title="If enabled, shows a built-in MFA code entry page. If disabled, you must handle the MFA code form in your landing page HTML."></i></label>
-                        <button type="button" id="mfa_customize_btn" class="btn btn-default btn-xs" style="margin-left: 10px;" onclick="openMFAPageEditor()">
-                            <i class="fa fa-paint-brush"></i> Customize
-                        </button>
-                    </div>
-                </div>
+                </section>
             </div>
             <div class="modal-footer">
                 <button type="button" data-dismiss="modal" class="btn btn-default" onclick="dismiss()">Cancel</button>
@@ -211,6 +226,10 @@
 </div>
 
 {{template "page_preview"}}
+{{end}}
+
+{{define "styles"}}
+<link href="/css/landing-pages.css" rel="stylesheet" type="text/css">
 {{end}}
 
 {{define "scripts"}}

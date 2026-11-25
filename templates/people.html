@@ -379,9 +379,22 @@
         overflow-x: auto;
     }
 
+    /* Fixed layout so columns don't resize from page to page. */
     #peopleTable {
         margin-bottom: 0;
+        table-layout: fixed;
+        min-width: 1180px;
     }
+
+    #peopleTable th:nth-child(2) { width: 180px; }
+    #peopleTable th:nth-child(3) { width: 120px; }
+    #peopleTable th:nth-child(4) { width: 95px; }
+    #peopleTable th:nth-child(5) { width: 115px; }
+    #peopleTable th:nth-child(6) { width: 110px; }
+    #peopleTable th:nth-child(7) { width: 150px; }
+    #peopleTable th:nth-child(8) { width: 120px; }
+    #peopleTable th:nth-child(9) { width: 130px; }
+    #peopleTable th:nth-child(10) { width: 40px; }
 
     #peopleTable thead th {
         white-space: nowrap;
@@ -410,7 +423,18 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        min-width: 220px;
+        min-width: 0;
+    }
+
+    .people-person > div:last-child {
+        min-width: 0;
+    }
+
+    .people-person-name,
+    .people-person-sub {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .people-avatar {
@@ -441,6 +465,10 @@
         border-radius: 4px;
         font-size: 13px;
         white-space: nowrap;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        vertical-align: middle;
         background-color: rgba(127, 127, 127, 0.18);
     }
 
@@ -475,19 +503,21 @@
         white-space: nowrap;
     }
 
+    /* Dark text by default, which reads on the light themes. The dark themes switch to the
+       pale colours further down. */
     .people-risk-high {
-        color: #ff8a80;
-        background-color: rgba(231, 76, 60, 0.22);
+        color: #b03a2e;
+        background-color: rgba(231, 76, 60, 0.16);
     }
 
     .people-risk-medium {
-        color: #f5b041;
-        background-color: rgba(243, 156, 18, 0.2);
+        color: #8a5509;
+        background-color: rgba(243, 156, 18, 0.18);
     }
 
     .people-risk-low {
-        color: #58d68d;
-        background-color: rgba(46, 204, 113, 0.18);
+        color: #196f3d;
+        background-color: rgba(46, 204, 113, 0.16);
     }
 
     /* Reporting is the good outcome; it is shown in blue everywhere on the
@@ -500,17 +530,32 @@
         background-color: #3498db;
     }
 
-    /* The pale risk text above is for dark themes; darken it on the light one. */
-    body.light-sand-theme .people-risk-high {
-        color: #b03a2e;
+    /* Pale risk text on the dark themes, where the dark text above would not read */
+    body.dark-theme .people-risk-high,
+    body.crimson-theme .people-risk-high,
+    body.goldphish-theme .people-risk-high,
+    body.lagocephalus-theme .people-risk-high,
+    body.matrix-theme .people-risk-high {
+        color: #ff8a80;
+        background-color: rgba(231, 76, 60, 0.22);
     }
 
-    body.light-sand-theme .people-risk-medium {
-        color: #9c640c;
+    body.dark-theme .people-risk-medium,
+    body.crimson-theme .people-risk-medium,
+    body.goldphish-theme .people-risk-medium,
+    body.lagocephalus-theme .people-risk-medium,
+    body.matrix-theme .people-risk-medium {
+        color: #f5b041;
+        background-color: rgba(243, 156, 18, 0.2);
     }
 
-    body.light-sand-theme .people-risk-low {
-        color: #1e8449;
+    body.dark-theme .people-risk-low,
+    body.crimson-theme .people-risk-low,
+    body.goldphish-theme .people-risk-low,
+    body.lagocephalus-theme .people-risk-low,
+    body.matrix-theme .people-risk-low {
+        color: #58d68d;
+        background-color: rgba(46, 204, 113, 0.18);
     }
 
     .people-bar-high {

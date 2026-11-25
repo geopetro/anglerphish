@@ -12,6 +12,7 @@
 | **QR Code Generator** | Built-in tool to **generate QR codes**. | Useful for Generic Campaigns and other phishing scenarios requiring QR code delivery. |
 | **Resend Failed Messages** | Re-queue **all failed/errored emails or SMS messages** in a campaign with one click, or resend to a **single recipient** directly from the results page. | Recovers from SMTP/SMS errors or transient delivery failures without restarting the campaign. |
 | **Randomize Send Order** | Optionally **shuffles the order recipients are scheduled in**, instead of following the order targets appear in their groups. Disabled by default, and available for both standalone campaigns and campaign sets. | Avoids a predictable send pattern, and stops the same people being hit first in every recurring assessment. |
+| **Direct Mail Injection (DMI) (beta)** | Delivers campaign emails **straight into Microsoft 365 and Google Workspace mailboxes** through their APIs, as an alternative to SMTP. Limited to the domains you allow, with delivery to the Inbox, Junk or a chosen folder. | No whitelisting needed, since emails never pass through the mail gateway and are not filtered or quarantined. |
 
 ---
 
@@ -104,7 +105,7 @@
 | **MS Teams Campaign Integration** | Send phishing simulations directly via Microsoft Teams messages. |
 | **Evilginx Integration** | Integrate with Evilginx for advanced red-team simulations. |
 | **Randomized Email Template Sending to Targets** | Automatically rotate between multiple templates so each target receives a different phishing message. |
-| **Other Integrations** | Integrations such as Direct Email Injection (DMI), internal support for Turnstile. |
+| **Other Integrations** | Integrations such as internal support for Turnstile. |
 
 ---
 

@@ -988,7 +988,9 @@ Response: 200 OK
     "SMSConfigs":    {"Total": 1, "Encrypted": 1, "Plaintext": 0, "Empty": 0},
     "IMAPPasswords": {"Total": 1, "Encrypted": 1, "Plaintext": 0, "Empty": 0},
     "EventDetails":  {"Total": 40, "Encrypted": 12, "Plaintext": 0, "Empty": 28},
-    "OIDCSecrets":   {"Total": 1, "Encrypted": 1, "Plaintext": 0, "Empty": 0}
+    "OIDCSecrets":   {"Total": 1, "Encrypted": 1, "Plaintext": 0, "Empty": 0},
+    "DMISecrets":    {"Total": 2, "Encrypted": 2, "Plaintext": 0, "Empty": 0},
+    "DMIGoogleKeys": {"Total": 1, "Encrypted": 1, "Plaintext": 0, "Empty": 0}
   },
   "plaintext_count": 0,
   "migration_running": false
@@ -1167,6 +1169,88 @@ Response: 400 Bad Request
   "message": "Could not reach the issuer"
 }</code></pre>
                 </div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Direct Injection API -->
+    <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="dmiApiHeading">
+            <h4 class="panel-title">
+                <a role="button" data-toggle="collapse" href="#dmiApiCollapse" aria-expanded="false" aria-controls="dmiApiCollapse">
+                    <i class="fa fa-paper-plane"></i> Direct Injection API
+                    <i class="fa fa-chevron-down pull-right"></i>
+                </a>
+            </h4>
+        </div>
+        <div id="dmiApiCollapse" class="panel-collapse collapse" role="tabpanel" aria-labelledby="dmiApiHeading">
+            <div class="panel-body">
+            <p>Direct Injection delivers mail through the Microsoft 365 or Google Workspace API instead of SMTP. A sending profile selects it with <code>interface_type</code> set to <code>MS365_DMI</code> or <code>GWS_DMI</code>. Profiles are created and updated with the usual <code>/api/smtp/</code> endpoints.</p>
+            <ul>
+                <li>Profile fields: <code>dmi_auth_method</code> (<code>client_secret</code> or <code>certificate</code> for Microsoft, <code>customer_key</code> or <code>operator_key</code> for Google), <code>dmi_tenant_id</code>, <code>dmi_client_id</code>, <code>dmi_secret</code> (write only), <code>dmi_secret_set</code>, <code>dmi_certificate</code> (public certificate, read only), <code>dmi_allowed_domains</code>, <code>dmi_folder</code> and <code>dmi_folder_name</code>.</li>
+                <li>Secrets and private keys are never returned. An empty <code>dmi_secret</code> on update keeps the stored one.</li>
+                <li>The certificate and test endpoints act on the caller's own profiles. Any other profile returns <code>404</code>.</li>
+                <li><code>/api/dmi_settings</code> requires the <em>Modify System</em> permission. Other users get <code>403</code>.</li>
+                <li>Errors return <code>{"success": false, "message": "..."}</code>.</li>
+            </ul>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/smtp/:id/dmi/certificate</strong>
+                <p>Downloads the public certificate (PEM) of a Microsoft profile that uses <code>certificate</code> authentication, as <code>application/x-x509-ca-cert</code> with a <code>Content-Disposition</code> attachment named after the profile. Upload it to the Entra app registration. <code>404</code> if the profile has no certificate.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/smtp/:id/dmi/certificate</strong>
+                <p>Generates a new key pair for a <code>certificate</code> profile and returns the profile JSON. The old certificate stops working, so upload the new one to Entra. <code>400</code> if the profile does not use certificate authentication.</p>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-primary">POST</span> /api/smtp/:id/dmi/test</strong>
+                <p>Checks that a profile can reach a mailbox, without sending a message. <code>mailbox</code> is required and must be in an allowed domain. Returns <code>200</code> whether or not the check passes, so read <code>success</code> and show <code>message</code>. <code>400</code> if <code>mailbox</code> is empty. <a class="example-toggle" data-toggle="collapse" data-target="#dmiTestExample"><small>[Show Example]</small></a></p>
+                <div id="dmiTestExample" class="collapse">
+                <pre><code>Request:
+{
+  "mailbox": "user@example.com"
+}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Connection successful"
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-success">GET</span> /api/dmi_settings</strong>
+                <p>Returns the operator Google service account status. The key itself is never returned. Sent with <code>Cache-Control: no-store</code>. <a class="example-toggle" data-toggle="collapse" data-target="#dmiSettingsExample"><small>[Show Example]</small></a></p>
+                <div id="dmiSettingsExample" class="collapse">
+                <pre><code>Response: 200 OK
+{
+  "google_key_set": true,
+  "google_client_id": "1234567890",
+  "google_client_email": "operator@project.iam.gserviceaccount.com",
+  "scope": "https://www.googleapis.com/auth/gmail.insert",
+  "labels_scope": "https://www.googleapis.com/auth/gmail.labels",
+  "error": ""
+}</code></pre>
+                <p><code>scope</code> is what the customer authorizes in domain-wide delegation. Add <code>labels_scope</code> too if you use a custom folder. <code>error</code> is set when the saved key cannot be read, for example while encryption is locked.</p>
+                </div>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-warning">PUT</span> /api/dmi_settings</strong>
+                <p>Saves the operator service account key (the JSON file downloaded from Google Cloud) and returns the same body as <code>GET</code>. <code>400</code> if <code>google_key</code> is empty or is not a valid service account key. The key is encrypted when database encryption is on.</p>
+                <pre><code>Request:
+{
+  "google_key": "{ \"type\": \"service_account\", ... }"
+}</code></pre>
+            </div>
+
+            <div class="endpoint-doc">
+                <strong><span class="label label-danger">DELETE</span> /api/dmi_settings</strong>
+                <p>Removes the saved operator key and returns the same body as <code>GET</code>. Profiles that use <code>operator_key</code> stop working until a new key is saved.</p>
             </div>
             </div>
         </div>

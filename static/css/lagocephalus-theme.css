@@ -14,7 +14,8 @@ html.lagocephalus-theme {
     --dark-bg-secondary: #1f3237;
     --dark-bg-tertiary: #294046;
     --dark-bg-card: #1b2b2f;
-    --dark-bg-input: #223539;
+    --dark-bg-input: #273e43;
+    --dark-bg-heading: #12201f;
     --dark-border: #3a545a;
     --dark-text-primary: #e9eee6;
     --dark-text-secondary: #cfd6cf;
@@ -474,7 +475,7 @@ body.lagocephalus-theme .panel {
 }
 
 body.lagocephalus-theme .panel-default > .panel-heading {
-    background-color: var(--dark-bg-secondary) !important;
+    background-color: var(--dark-bg-heading) !important;
     border-color: var(--dark-border) !important;
     color: var(--dark-text-primary) !important;
 }
@@ -569,38 +570,6 @@ body.lagocephalus-theme .shared-settings-header {
 
 body.lagocephalus-theme .campaign-list-item:hover {
     background-color: #1f3237;
-}
-
-/* Campaign Set Overview tab */
-body.lagocephalus-theme .cs-overview-header .cs-overview-meta,
-body.lagocephalus-theme .cs-fn-scale,
-body.lagocephalus-theme .cs-fn-pct,
-body.lagocephalus-theme .cs-fn-sig-hd {
-    color: var(--dark-text-muted);
-}
-
-body.lagocephalus-theme .cs-fn-label {
-    color: var(--dark-text-secondary);
-}
-
-body.lagocephalus-theme .cs-fn-n {
-    color: var(--dark-text-primary);
-}
-
-body.lagocephalus-theme .cs-fn-track {
-    background: var(--dark-bg-input);
-}
-
-body.lagocephalus-theme .cs-fn-zero {
-    background: var(--dark-border);
-}
-
-body.lagocephalus-theme .cs-fn-rule {
-    background: var(--dark-border);
-}
-
-body.lagocephalus-theme .cs-overview-table {
-    color: var(--dark-text-primary);
 }
 
 body.lagocephalus-theme .panel-danger > .panel-heading {

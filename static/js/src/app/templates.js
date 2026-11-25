@@ -119,6 +119,8 @@ var icons = {
 }
 
 
+var templateAttachments = []
+
 // Save attempts to POST to /templates/
 function saveEmailTemplate(idx) {
     var template = {
@@ -130,63 +132,58 @@ function saveEmailTemplate(idx) {
     template.html = CKEDITOR.instances["html_editor"].getData();
     // Fix the URL Scheme added by CKEditor (until we can remove it from the plugin)
     template.html = template.html.replace(/https?:\/\/{{\.URL}}/gi, "{{.URL}}")
-    // If the "Add Tracker Image" checkbox is checked, add the tracker
     if ($("#use_tracker_checkbox").prop("checked")) {
         if (template.html.indexOf("{{.Tracker}}") == -1 &&
             template.html.indexOf("{{.TrackingUrl}}") == -1) {
             template.html = template.html.replace("</body>", "{{.Tracker}}</body>")
         }
     } else {
-        // Otherwise, remove the tracker completely from the HTML
         template.html = template.html.replace(/{{\.Tracker}}/, "")
     }
     template.text = $("#text_editor").val()
-    // Whether to inline remote images as CID attachments at send time
     template.embed_remote_images = $("#embed_remote_images_checkbox").prop("checked")
     template.track_attachments = $("#track_attachments_checkbox").prop("checked")
-    // Add the attachments
-    $.each($("#attachmentsTable").DataTable().rows().data(), function (i, target) {
+    $.each(templateAttachments, function (i, a) {
         template.attachments.push({
-            name: unescapeHtml(target[1]),
-            content: target[3],
-            type: target[4],
+            name: a.name,
+            content: a.content,
+            type: a.type,
         })
     })
 
+    var request
     if (idx != -1) {
         template.id = emailTemplates[idx].id
-        api.templateId.put(template)
-            .success(function (data) {
-                successFlash("Email Template edited successfully!")
-                loadEmailTemplates()
-                dismiss()
-                $("#emailModal").modal('hide')
-            })
-            .error(function (data) {
-                modalError(data.responseJSON.message)
-            })
+        request = api.templateId.put(template)
     } else {
-        // Submit the template
-        api.templates.post(template)
-            .success(function (data) {
-                successFlash("Email Template added successfully!")
-                loadEmailTemplates()
-                dismiss()
-                $("#emailModal").modal('hide')
-            })
-            .error(function (data) {
-                modalError(data.responseJSON.message)
-            })
+        request = api.templates.post(template)
     }
+    request
+        .success(function () {
+            successFlash(idx != -1 ? "Email Template edited successfully!" : "Email Template added successfully!")
+            loadEmailTemplates()
+            dismiss()
+        })
+        .error(function (data) {
+            modalError(data.responseJSON.message)
+        })
 }
 
 function dismiss() {
     $("#modal\\.flashes").empty()
-    $("#attachmentsTable").dataTable().DataTable().clear().draw()
+    templateAttachments = []
+    renderAttachments()
     $("#name").val("")
     $("#subject").val("")
+    $("#envelope-sender").val("")
     $("#text_editor").val("")
     $("#html_editor").val("")
+    $("#use_tracker_checkbox").prop("checked", true)
+    $("#embed_remote_images_checkbox").prop("checked", false)
+    $("#track_attachments_checkbox").prop("checked", false)
+    toggleImportPanel(false)
+    $("#etUrlWarning").hide()
+    $('a[href="#et-tab-html"]').tab('show')
     $("#emailModal").modal('hide')
 }
 
@@ -236,33 +233,37 @@ function deleteTemplate(idx) {
     }
 }
 
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + " B"
+    if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + " KB"
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB"
+}
+
+function renderAttachments() {
+    var list = $("#etFileList").empty()
+    $.each(templateAttachments, function (i, a) {
+        var icon = icons[a.type] || "fa-file-o"
+        var bytes = Math.floor((a.content || "").length * 3 / 4)
+        list.append(
+            '<li><i class="fa ' + icon + '" aria-hidden="true"></i>' +
+            '<span class="et-file-name" title="' + escapeHtml(a.name) + '">' + escapeHtml(a.name) + '</span>' +
+            '<span class="et-file-size">' + formatFileSize(bytes) + '</span>' +
+            '<button type="button" class="btn btn-link et-file-remove" data-idx="' + i + '" aria-label="Remove ' + escapeHtml(a.name) + '">' +
+            '<i class="fa fa-trash-o" aria-hidden="true"></i></button></li>')
+    })
+    $("#etAttachCount").text(templateAttachments.length)
+}
+
 function attach(files) {
-    attachmentsTable = $("#attachmentsTable").DataTable({
-        destroy: true,
-        "order": [
-            [1, "asc"]
-        ],
-        columnDefs: [{
-            orderable: false,
-            targets: "no-sort"
-        }, {
-            sClass: "datatable_hidden",
-            targets: [3, 4]
-        }]
-    });
     $.each(files, function (i, file) {
         var reader = new FileReader();
-        /* Make this a datatable */
-        reader.onload = function (e) {
-            var icon = icons[file.type] || "fa-file-o"
-            // Add the record to the modal
-            attachmentsTable.row.add([
-                '<i class="fa ' + icon + '"></i>',
-                escapeHtml(file.name),
-                '<span class="remove-row"><i class="fa fa-trash-o"></i></span>',
-                reader.result.split(",")[1],
-                file.type || "application/octet-stream"
-            ]).draw()
+        reader.onload = function () {
+            templateAttachments.push({
+                name: file.name,
+                content: reader.result.split(",")[1],
+                type: file.type || "application/octet-stream"
+            })
+            renderAttachments()
         }
         reader.onerror = function (e) {
             console.log(e)
@@ -271,156 +272,237 @@ function attach(files) {
     })
 }
 
-function editEmailTemplate(idx) {
-    $("#modalSubmit").unbind('click').click(function () {
-        saveEmailTemplate(idx)
-    })
-    $("#attachmentUpload").unbind('click').click(function () {
-        this.value = null
-    })
-    $("#html_editor").ckeditor()
-    setupAutocomplete(CKEDITOR.instances["html_editor"])
-    $("#attachmentsTable").show()
-    attachmentsTable = $('#attachmentsTable').DataTable({
-        destroy: true,
-        "order": [
-            [1, "asc"]
-        ],
-        columnDefs: [{
-            orderable: false,
-            targets: "no-sort"
-        }, {
-            sClass: "datatable_hidden",
-            targets: [3, 4]
-        }]
-    });
-    var template = {
-        attachments: []
-    }
-    if (idx != -1) {
-        $("#templateModalLabel").text("Edit Email Template")
-        template = emailTemplates[idx]
-        $("#name").val(template.name)
-        $("#subject").val(template.subject)
-        $("#envelope-sender").val(template.envelope_sender)
-        $("#html_editor").val(template.html)
-        $("#text_editor").val(template.text)
-        attachmentRows = []
-        $.each(template.attachments, function (i, file) {
-            var icon = icons[file.type] || "fa-file-o"
-            // Add the record to the modal
-            attachmentRows.push([
-                '<i class="fa ' + icon + '"></i>',
-                escapeHtml(file.name),
-                '<span class="remove-row"><i class="fa fa-trash-o"></i></span>',
-                file.content,
-                file.type || "application/octet-stream"
-            ])
-        })
-        attachmentsTable.rows.add(attachmentRows).draw()
-        if (template.html.indexOf("{{.Tracker}}") != -1) {
-            $("#use_tracker_checkbox").prop("checked", true)
-        } else {
-            $("#use_tracker_checkbox").prop("checked", false)
-        }
-        $("#embed_remote_images_checkbox").prop("checked", template.embed_remote_images === true)
-        $("#track_attachments_checkbox").prop("checked", template.track_attachments === true)
+function initHtmlEditor() {
+    if (CKEDITOR.instances["html_editor"]) return
+    // Sized to fill its pane, so the drag handle would only push it out of the modal
+    $("#html_editor").ckeditor({ resize_enabled: false })
+    var editor = CKEDITOR.instances["html_editor"]
+    setupAutocomplete(editor)
+    editor.on("instanceReady", resizeHtmlEditor)
+    editor.on("change", updateContentWarnings)
+    editor.on("dataReady", updateContentWarnings)
+}
 
-    } else {
-        $("#templateModalLabel").text("New Email Template")
-        $("#embed_remote_images_checkbox").prop("checked", false)
-        $("#track_attachments_checkbox").prop("checked", false)
-    }
-    // Handle Deletion
-    $("#attachmentsTable").unbind('click').on("click", "span>i.fa-trash-o", function () {
-        attachmentsTable.row($(this).parents('tr'))
-            .remove()
-            .draw();
+function resizeHtmlEditor() {
+    var editor = CKEDITOR.instances["html_editor"]
+    var pane = $("#et-tab-html")
+    if (!editor || !editor.container || !pane.is(":visible")) return
+    editor.resize("100%", pane.height())
+}
+
+function updateContentWarnings() {
+    var editor = CKEDITOR.instances["html_editor"]
+    var html = editor ? editor.getData() : ""
+    var text = $("#text_editor").val()
+    var hasContent = $.trim(html) !== "" || $.trim(text) !== ""
+    var hasUrl = html.indexOf("{{.URL}}") != -1 || text.indexOf("{{.URL}}") != -1
+    $("#etUrlWarning").toggle(hasContent && !hasUrl)
+}
+
+// Fills the modal from a template. mode is "new", "edit" or "copy".
+function openTemplateForm(template, mode, saveIdx) {
+    $("#modalSubmit").unbind('click').click(function () {
+        saveEmailTemplate(saveIdx)
     })
+    initHtmlEditor()
+    var titles = { "new": "New Email Template", "edit": "Edit Email Template", "copy": "Copy Email Template" }
+    $("#templateModalLabel").text(titles[mode])
+    $("#name").val(mode == "copy" ? "Copy of " + template.name : (template.name || ""))
+    $("#subject").val(template.subject || "")
+    $("#envelope-sender").val(template.envelope_sender || "")
+    $("#html_editor").val(template.html || "")
+    $("#text_editor").val(template.text || "")
+    templateAttachments = $.map(template.attachments || [], function (file) {
+        return {
+            name: file.name,
+            content: file.content,
+            type: file.type || "application/octet-stream"
+        }
+    })
+    renderAttachments()
+    $("#use_tracker_checkbox").prop("checked", mode == "new" || (template.html || "").indexOf("{{.Tracker}}") != -1)
+    $("#embed_remote_images_checkbox").prop("checked", template.embed_remote_images === true)
+    $("#track_attachments_checkbox").prop("checked", template.track_attachments === true)
+    updateContentWarnings()
+}
+
+function editEmailTemplate(idx) {
+    if (idx == -1) {
+        openTemplateForm({ attachments: [] }, "new", -1)
+    } else {
+        openTemplateForm(emailTemplates[idx], "edit", idx)
+    }
 }
 
 function copy(idx) {
-    $("#modalSubmit").unbind('click').click(function () {
-        saveEmailTemplate(-1)
-    })
-    $("#attachmentUpload").unbind('click').click(function () {
-        this.value = null
-    })
-    $("#html_editor").ckeditor()
-    $("#attachmentsTable").show()
-    attachmentsTable = $('#attachmentsTable').DataTable({
-        destroy: true,
-        "order": [
-            [1, "asc"]
-        ],
-        columnDefs: [{
-            orderable: false,
-            targets: "no-sort"
-        }, {
-            sClass: "datatable_hidden",
-            targets: [3, 4]
-        }]
-    });
-    var template = {
-        attachments: []
-    }
-    template = emailTemplates[idx]
-    $("#name").val("Copy of " + template.name)
-    $("#subject").val(template.subject)
-    $("#envelope-sender").val(template.envelope_sender)
-    $("#html_editor").val(template.html)
-    $("#text_editor").val(template.text)
-    $.each(template.attachments, function (i, file) {
-        var icon = icons[file.type] || "fa-file-o"
-        // Add the record to the modal
-        attachmentsTable.row.add([
-            '<i class="fa ' + icon + '"></i>',
-            escapeHtml(file.name),
-            '<span class="remove-row"><i class="fa fa-trash-o"></i></span>',
-            file.content,
-            file.type || "application/octet-stream"
-        ]).draw()
-    })
-    // Handle Deletion
-    $("#attachmentsTable").unbind('click').on("click", "span>i.fa-trash-o", function () {
-        attachmentsTable.row($(this).parents('tr'))
-            .remove()
-            .draw();
-    })
-    if (template.html.indexOf("{{.Tracker}}") != -1) {
-        $("#use_tracker_checkbox").prop("checked", true)
+    openTemplateForm(emailTemplates[idx], "copy", -1)
+}
+
+function toggleImportPanel(show) {
+    $("#etImportPanel").toggle(show)
+    $("#etImportToggle").attr("aria-expanded", show ? "true" : "false").toggleClass("active", show)
+    if (show) {
+        $("#email_content").focus()
     } else {
-        $("#use_tracker_checkbox").prop("checked", false)
+        $("#email_content").val("")
     }
-    $("#embed_remote_images_checkbox").prop("checked", template.embed_remote_images === true)
-    $("#track_attachments_checkbox").prop("checked", template.track_attachments === true)
 }
 
 function importEmail() {
-    raw = $("#email_content").val()
-    convert_links = $("#convert_links_checkbox").prop("checked")
+    var raw = $("#email_content").val()
+    var convert_links = $("#convert_links_checkbox").prop("checked")
     if (!raw) {
         modalError("No Content Specified!")
-    } else {
-        api.import_email({
-                content: raw,
-                convert_links: convert_links
-            })
-            .success(function (data) {
-                $("#text_editor").val(data.text)
-                $("#html_editor").val(data.html)
-                $("#subject").val(data.subject)
-                // If the HTML is provided, let's open that view in the editor
-                if (data.html) {
-                    CKEDITOR.instances["html_editor"].setMode('wysiwyg')
-                    $('.nav-tabs a[href="#html"]').click()
-                }
-                $("#importEmailModal").modal("hide")
-            })
-            .error(function (data) {
-                modalError(data.responseJSON.message)
-            })
+        return
     }
+    api.import_email({
+            content: raw,
+            convert_links: convert_links
+        })
+        .success(function (data) {
+            $("#modal\\.flashes").empty()
+            $("#text_editor").val(data.text)
+            $("#html_editor").val(data.html)
+            $("#subject").val(data.subject)
+            if (data.html) {
+                CKEDITOR.instances["html_editor"].setMode('wysiwyg')
+                $('a[href="#et-tab-html"]').tab('show')
+            } else {
+                $('a[href="#et-tab-text"]').tab('show')
+            }
+            toggleImportPanel(false)
+            updateContentWarnings()
+        })
+        .error(function (data) {
+            modalError(data.responseJSON.message)
+        })
+}
+
+var previewQrImage = '<span style="display:inline-block;width:120px;height:120px;line-height:120px;border:1px dashed #999;' +
+    'text-align:center;font:12px sans-serif;color:#666">QR code</span>'
+
+function previewSampleData() {
+    var now = new Date()
+    return {
+        FirstName: "John",
+        LastName: "Doe",
+        Email: "john.doe@example.com",
+        Phone: "+15551234567",
+        Position: "IT Manager",
+        Custom: "Custom value",
+        From: "Phishing Team",
+        URL: "https://example.com?rid=abc12345",
+        TrackingURL: "https://example.com/track?rid=abc12345",
+        Tracker: "",
+        QR: previewQrImage,
+        RId: "abc12345",
+        BaseURL: "https://example.com",
+        CurrentDateTime: now.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }),
+        CurrentDate: now.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+        CurrentTime: now.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+        CurrentTime24: now.toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
+    }
+}
+
+function fillSampleData(s) {
+    $.each(previewSampleData(), function (key, value) {
+        s = s.replace(new RegExp("{{\\s*\\." + key + "\\s*}}", "g"), value)
+    })
+    return s
+}
+
+function renderPreviewSubject() {
+    var subject = fillSampleData($("#subject").val()).replace(/{{\s*\.QR\s*}}/g, "[QR code]")
+    $("#etPreviewSubject").text($.trim(subject) || "(No subject)")
+}
+
+function renderInlinePreview() {
+    var editor = CKEDITOR.instances["html_editor"]
+    var html = editor ? editor.getData() : ""
+    if ($.trim(html) === "") {
+        html = "<pre style='white-space:pre-wrap;font-family:inherit'>" + escapeHtml($("#text_editor").val()) + "</pre>"
+    }
+    html = disableLinksOnly(sanitizeHTML(fillSampleData(html)))
+    renderPreviewSubject()
+    var doc = document.getElementById("etPreviewFrame").contentDocument
+    doc.open()
+    doc.write(html)
+    doc.close()
+}
+
+function insertTemplateVariable(name) {
+    var tag = "{{." + name + "}}"
+    var active = $(".et-tabs li.active a").attr("href")
+    if (active == "#et-tab-text") {
+        var el = document.getElementById("text_editor")
+        var start = el.selectionStart, end = el.selectionEnd
+        el.value = el.value.slice(0, start) + tag + el.value.slice(end)
+        el.selectionStart = el.selectionEnd = start + tag.length
+        el.focus()
+    } else {
+        CKEDITOR.instances["html_editor"].insertText(tag)
+    }
+    updateContentWarnings()
+}
+
+// Fills a dropdown with the template variables, grouped, skipping names in exclude
+function buildVariableMenu(menu, exclude, onPick) {
+    if (typeof TEMPLATE_TAGS === "undefined") return
+    var lastGroup = null
+    $.each(TEMPLATE_TAGS, function (i, t) {
+        if (exclude.indexOf(t.name) != -1) return
+        if (t.group && t.group != lastGroup) {
+            if (lastGroup !== null) menu.append('<li role="separator" class="divider"></li>')
+            menu.append('<li class="dropdown-header">' + escapeHtml(t.group) + '</li>')
+            lastGroup = t.group
+        }
+        menu.append('<li><a href="#" data-var="' + t.name + '"><code>{{.' + t.name + '}}</code><small>' +
+            escapeHtml(t.description) + '</small></a></li>')
+    })
+    menu.on("click", "a[data-var]", function (e) {
+        e.preventDefault()
+        onPick($(this).data("var"))
+    })
+}
+
+function initEmailModal() {
+    buildVariableMenu($("#etVarMenu"), [], insertTemplateVariable)
+    $('.et-tabs a[data-toggle="tab"]').on("shown.bs.tab", function (e) {
+        var target = $(e.target).attr("href")
+        $("#etInsertVar button").prop("disabled", target == "#et-tab-preview")
+        if (target == "#et-tab-html") resizeHtmlEditor()
+        if (target == "#et-tab-preview") renderInlinePreview()
+    })
+    $("#etImportToggle").on("click", function () {
+        toggleImportPanel(!$("#etImportPanel").is(":visible"))
+    })
+    $("#etImportCancel").on("click", function () {
+        toggleImportPanel(false)
+    })
+    $("#text_editor").on("input", updateContentWarnings)
+    $("#subject").on("input", renderPreviewSubject)
+    $("#attachmentUpload").on("change", function () {
+        attach(this.files)
+        this.value = null
+    })
+    $("#etDropZone")
+        .on("dragover dragenter", function (e) {
+            e.preventDefault()
+            $(this).addClass("et-drop-over")
+        })
+        .on("dragleave dragend drop", function () {
+            $(this).removeClass("et-drop-over")
+        })
+        .on("drop", function (e) {
+            e.preventDefault()
+            attach(e.originalEvent.dataTransfer.files)
+        })
+    $("#etFileList").on("click", ".et-file-remove", function () {
+        templateAttachments.splice($(this).data("idx"), 1)
+        renderAttachments()
+    })
+    $("#emailModal").on("shown.bs.modal", resizeHtmlEditor)
+    $(window).on("resize", resizeHtmlEditor)
 }
 
 // Preview an email template with sample data
@@ -562,9 +644,7 @@ $(document).ready(function () {
     $('#emailModal').on('hidden.bs.modal', function (event) {
         dismiss()
     });
-    $("#importEmailModal").on('hidden.bs.modal', function (event) {
-        $("#email_content").val("")
-    })
+    initEmailModal()
     CKEDITOR.on('dialogDefinition', function (ev) {
         // Take the dialog name and its definition from the event data.
         var dialogName = ev.data.name;

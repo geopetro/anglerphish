@@ -1,0 +1,216 @@
+/* Phone mockup for SMS previews, shared by the Templates and Campaign Sets pages. Device colours are fixed. */
+.st-phone {
+    position: relative;
+    width: 290px;
+    height: 600px;
+    padding: 12px;
+    border-radius: 42px;
+    background: #1a1a1a;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, .4), inset 0 0 0 2px #333;
+}
+
+.st-notch {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    width: 90px;
+    height: 25px;
+    transform: translateX(-50%);
+    border-radius: 15px;
+    background: #000;
+    z-index: 2;
+}
+
+.st-screen {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 30px;
+    background: linear-gradient(180deg, #f0f0f0 0%, #e8e8e8 100%);
+    color: #000;
+}
+
+.st-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex: 0 0 48px;
+    padding: 0 20px 8px;
+    background: #f8f8f8;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.st-status-icons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+}
+
+.st-status-icons .fa-battery-full {
+    font-size: 14px;
+}
+
+.st-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 60px;
+    padding: 0 15px;
+    border-bottom: 1px solid #ddd;
+    background: #f8f8f8;
+}
+
+.st-blue {
+    color: #007aff;
+    font-size: 18px;
+}
+
+.st-header .fa-video-camera {
+    margin-right: 6px;
+}
+
+.st-avatar {
+    display: flex;
+    flex: 0 0 35px;
+    align-items: center;
+    justify-content: center;
+    height: 35px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.st-contact {
+    flex: 1;
+    min-width: 0;
+}
+
+.st-sender {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.st-sub {
+    font-size: 11px;
+    color: #888;
+}
+
+.st-thread {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 15px;
+    overflow-y: auto;
+}
+
+.st-day {
+    margin-bottom: 4px;
+    text-align: center;
+}
+
+.st-day span {
+    padding: 4px 12px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, .05);
+    font-size: 11px;
+    color: #666;
+}
+
+.st-bubble {
+    align-self: flex-start;
+    max-width: 220px;
+    padding: 10px 14px;
+    border-radius: 18px;
+    background: #d3d2d2;
+    font-size: 14px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.st-bubble:empty {
+    display: none;
+}
+
+.st-read {
+    margin-top: -4px;
+    padding-left: 5px;
+    font-size: 10px;
+    color: #888;
+}
+
+.st-link {
+    color: #007aff;
+    text-decoration: underline;
+}
+
+.st-empty {
+    margin: auto 0;
+    text-align: center;
+    font-size: 12px;
+    color: #888;
+}
+
+.st-compose {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 55px;
+    padding: 8px 10px;
+    border-top: 1px solid #ddd;
+    background: #f8f8f8;
+}
+
+.st-round {
+    display: flex;
+    flex: 0 0 30px;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 14px;
+}
+
+.st-plus {
+    background: #007aff;
+    color: #fff;
+}
+
+.st-mic {
+    background: #e0e0e0;
+    color: #666;
+}
+
+.st-compose-field {
+    flex: 1;
+    padding: 8px 15px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    background: #fff;
+    font-size: 13px;
+    color: #888;
+}
+
+.st-home {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex: 0 0 25px;
+    background: #f8f8f8;
+}
+
+.st-home span {
+    width: 120px;
+    height: 5px;
+    border-radius: 3px;
+    background: #333;
+}

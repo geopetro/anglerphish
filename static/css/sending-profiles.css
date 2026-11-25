@@ -1,0 +1,262 @@
+/* Sending profile modal. Colours come from the active theme, with the default theme as fallback. */
+@media (min-width: 768px) {
+    #modal .modal-dialog {
+        width: 780px;
+        max-width: calc(100% - 40px);
+    }
+}
+
+.sp-form {
+    --sp-accent: var(--dark-accent, #1abc9c);
+    --sp-border: var(--dark-border, #dce4ec);
+    --sp-muted: var(--dark-text-muted, #7b8a8b);
+    --sp-ok: #27ae60;
+}
+
+.sp-req {
+    color: #e74c3c;
+}
+
+.sp-hint {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--sp-muted);
+}
+
+/* Interface type cards */
+.sp-types {
+    margin: 0 0 14px;
+    padding: 0;
+    border: 0;
+}
+
+.sp-types legend {
+    margin-bottom: 6px;
+    padding: 0;
+    border: 0;
+    font-size: inherit;
+    font-weight: bold;
+    color: inherit;
+}
+
+.sp-type-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.sp-type {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    padding: 14px 34px 14px 14px;
+    border: 1px solid var(--sp-border);
+    border-radius: 8px;
+    font-weight: normal;
+    cursor: pointer;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.sp-type input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.sp-type > .fa {
+    width: 28px;
+    font-size: 24px;
+    text-align: center;
+    color: var(--sp-muted);
+}
+
+.sp-type-name {
+    display: block;
+    font-weight: bold;
+    line-height: 1.3;
+}
+
+.sp-beta {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 0 6px;
+    border: 1px solid var(--sp-accent);
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: bold;
+    line-height: 15px;
+    vertical-align: 1px;
+    color: var(--sp-accent);
+}
+
+.sp-type-desc {
+    display: block;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--sp-muted);
+}
+
+.sp-type::after {
+    content: "";
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--sp-border);
+    border-radius: 50%;
+}
+
+.sp-type:hover {
+    border-color: var(--sp-accent);
+}
+
+.sp-type.is-selected {
+    border-color: var(--sp-accent);
+    box-shadow: inset 0 0 0 1px var(--sp-accent);
+}
+
+.sp-type.is-selected > .fa {
+    color: var(--sp-accent);
+}
+
+.sp-type.is-selected::after {
+    border-color: var(--sp-accent);
+    background: radial-gradient(circle, var(--sp-accent) 0 3px, transparent 4px);
+}
+
+.sp-type:focus-within {
+    outline: 2px solid var(--sp-accent);
+    outline-offset: 2px;
+}
+
+/* Sections */
+.sp-section {
+    margin-top: 16px;
+    border: 1px solid var(--sp-border);
+    border-radius: 8px;
+}
+
+.sp-section-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--sp-border);
+    border-radius: 7px 7px 0 0;
+    background: var(--dark-bg-heading, transparent);
+}
+
+.sp-section-head > .fa {
+    color: var(--sp-accent);
+}
+
+.sp-section-head h5 {
+    flex: 1;
+    margin: 0;
+    font-size: 15px;
+    font-weight: bold;
+}
+
+.sp-section-body {
+    padding: 14px 14px 4px;
+}
+
+.sp-status {
+    padding: 1px 8px;
+    border: 1px solid var(--sp-ok);
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--sp-ok);
+}
+
+#spChangeWarning {
+    margin-top: -4px;
+}
+
+.sp-test #dmiTestResult {
+    margin-top: 6px;
+}
+
+/* Email headers */
+.sp-header-add {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 8px;
+}
+
+.sp-header-list {
+    margin: 10px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sp-header-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 4px 6px 8px;
+    border-bottom: 1px solid var(--sp-border);
+}
+
+.sp-header-list li:last-child {
+    border-bottom: 0;
+}
+
+.sp-header-key {
+    flex: 0 0 auto;
+    max-width: 45%;
+    font-weight: bold;
+    word-break: break-all;
+}
+
+.sp-header-val {
+    flex: 1;
+    min-width: 0;
+    word-break: break-all;
+    color: var(--sp-muted);
+}
+
+.sp-header-list .btn-link {
+    padding: 2px 6px;
+    color: var(--sp-muted);
+}
+
+.sp-header-list .btn-link:hover,
+.sp-header-list .btn-link:focus {
+    color: #e74c3c;
+}
+
+.sp-empty {
+    margin: 10px 0;
+    font-size: 13px;
+    color: var(--sp-muted);
+}
+
+.sp-test-email {
+    margin-top: 16px;
+}
+
+@media (max-width: 640px) {
+    .sp-type-grid,
+    .sp-header-add {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sp-type {
+        transition: none;
+    }
+}
+
+/* Gophish's warning box, at the size of a hint */
+.sp-form .alert {
+    margin-bottom: 14px;
+    padding: 8px 12px;
+    font-size: 13px;
+}

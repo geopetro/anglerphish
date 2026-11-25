@@ -579,38 +579,6 @@ body.light-sand-theme .campaign-list-item:hover {
     background-color: #ded4b9;
 }
 
-/* Campaign Set Overview tab */
-body.light-sand-theme .cs-overview-header .cs-overview-meta,
-body.light-sand-theme .cs-fn-scale,
-body.light-sand-theme .cs-fn-pct,
-body.light-sand-theme .cs-fn-sig-hd {
-    color: var(--dark-text-muted);
-}
-
-body.light-sand-theme .cs-fn-label {
-    color: var(--dark-text-secondary);
-}
-
-body.light-sand-theme .cs-fn-n {
-    color: var(--dark-text-primary);
-}
-
-body.light-sand-theme .cs-fn-track {
-    background: var(--dark-bg-input);
-}
-
-body.light-sand-theme .cs-fn-zero {
-    background: var(--dark-border);
-}
-
-body.light-sand-theme .cs-fn-rule {
-    background: var(--dark-border);
-}
-
-body.light-sand-theme .cs-overview-table {
-    color: var(--dark-text-primary);
-}
-
 body.light-sand-theme .panel-danger > .panel-heading {
     background-color: #7a3232 !important;
     border-color: #a94442 !important;

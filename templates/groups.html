@@ -11,7 +11,7 @@
             data-target="#modal">
             <i class="fa fa-plus"></i> New Group</button>
     </div>
-    <p class="text-muted" style="margin-top:8px;font-size:13px;">
+    <p class="gm-page-note">
         <i class="fa fa-info-circle"></i> Locked groups are hidden from campaign group pickers to prevent accidental sends to sensitive targets.
     </p>
     <div id="loading">
@@ -39,7 +39,7 @@
 </div>
 <!-- Modal -->
 <div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="modalLabel">
-    <div class="modal-dialog" role="document" style="width: 80% !important;">
+    <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -49,69 +49,127 @@
             </div>
             <div class="modal-body">
                 <div class="row" id="modal.flashes"></div>
-                <label class="control-label" for="name">Name:</label>
-                <div class="form-group">
-                    <input type="text" class="form-control" ng-model="group.name" placeholder="Group name" id="name"
-                        autofocus />
+                <div class="form-group gm-name">
+                    <label class="control-label" for="name">Group name <span class="gm-req" aria-hidden="true">*</span></label>
+                    <input type="text" class="form-control" placeholder="Enter a group name" id="name" autofocus />
                     <input type="hidden" id="original_targets" value="" />
                 </div>
-                <div class="form-group">
-                    <span class="btn btn-danger btn-file" data-toggle="tooltip" data-placement="right"
-                        title="Supports CSV files" id="fileUpload">
-                        <i class="fa fa-plus"></i> Bulk Import Users
-                        <input type="file" id="csvupload" multiple>
-                    </span>
-                    <span id="csv-template" class="text-muted small">
-                        <i class="fa fa-file-excel-o"></i> Download CSV Template</span>
+
+                <div class="gm-section-head">
+                    <i class="fa fa-users" aria-hidden="true"></i>
+                    <h5>Add members</h5>
                 </div>
-                <div class="row">
-                    <form id="targetForm">
-                        <div class="col-sm-2">
-                            <input type="text" class="form-control" placeholder="First Name" id="firstName">
+                <section class="gm-card gm-add">
+                    <ul class="nav nav-tabs gm-tabs" role="tablist">
+                        <li class="active" role="presentation"><a href="#gm-tab-person" aria-controls="gm-tab-person" role="tab" data-toggle="tab"><i class="fa fa-user-plus" aria-hidden="true"></i> Add a person</a></li>
+                        <li role="presentation"><a href="#gm-tab-csv" aria-controls="gm-tab-csv" role="tab" data-toggle="tab"><i class="fa fa-upload" aria-hidden="true"></i> Import from CSV</a></li>
+                    </ul>
+                    <div class="tab-content">
+                        <div role="tabpanel" class="tab-pane active" id="gm-tab-person">
+                            <form id="targetForm" class="gm-person" novalidate>
+                                <div class="gm-field">
+                                    <label for="firstName">First name</label>
+                                    <input type="text" class="form-control" placeholder="Enter first name" id="firstName">
+                                </div>
+                                <div class="gm-field">
+                                    <label for="lastName">Last name</label>
+                                    <input type="text" class="form-control" placeholder="Enter last name" id="lastName">
+                                </div>
+                                <div class="gm-field">
+                                    <label for="position">Position</label>
+                                    <input type="text" class="form-control" placeholder="Enter position" id="position">
+                                </div>
+                                <div class="gm-contact">
+                                    <div class="gm-field">
+                                        <label for="email">Email <span class="gm-req" aria-hidden="true">*</span></label>
+                                        <div class="gm-icon-input">
+                                            <i class="fa fa-envelope-o" aria-hidden="true"></i>
+                                            <input type="email" class="form-control" placeholder="Enter email address" id="email" aria-describedby="gmContactHint">
+                                        </div>
+                                    </div>
+                                    <span class="gm-or" aria-hidden="true">or</span>
+                                    <div class="gm-field">
+                                        <label for="phone">Phone <span class="gm-req" aria-hidden="true">*</span></label>
+                                        <div class="gm-icon-input">
+                                            <i class="fa fa-phone" aria-hidden="true"></i>
+                                            <input type="tel" class="form-control" placeholder="Enter phone number" id="phone" aria-describedby="gmContactHint">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="gm-field">
+                                    <label for="custom">Custom
+                                        <i class="fa fa-info-circle gm-info" tabindex="0" data-toggle="tooltip" data-placement="top"
+                                            title="Any extra value you want to use in templates as {{"{{"}}.Custom{{"}}"}}, such as a department or employee ID."></i>
+                                    </label>
+                                    <input type="text" class="form-control" placeholder="e.g. Department, Location, Employee ID" id="custom">
+                                </div>
+                                <div class="gm-person-foot">
+                                    <p class="gm-hint" id="gmContactHint"><i class="fa fa-info-circle" aria-hidden="true"></i> <span id="gmContactText">Provide at least an email or phone number.</span></p>
+                                    <button type="submit" class="btn btn-primary gm-btn"><i class="fa fa-plus" aria-hidden="true"></i> Add person</button>
+                                </div>
+                                <p class="gm-status" id="gmAddStatus" role="status"></p>
+                            </form>
                         </div>
-                        <div class="col-sm-2">
-                            <input type="text" class="form-control" placeholder="Last Name" id="lastName">
+                        <div role="tabpanel" class="tab-pane" id="gm-tab-csv">
+                            <div class="gm-drop" id="gmDropZone">
+                                <i class="fa fa-cloud-upload" aria-hidden="true"></i>
+                                <span>Drop a CSV file here, or</span>
+                                <span class="btn btn-default btn-file gm-btn" id="fileUpload">
+                                    <i class="fa fa-folder-open-o" aria-hidden="true"></i> Browse files
+                                    <input type="file" id="csvupload" accept=".csv,.txt" multiple>
+                                </span>
+                            </div>
+                            <div class="gm-csv-foot">
+                                <span class="gm-hint">Columns: First Name, Last Name, Email, Phone, Position, Custom. Each row needs an email or phone.</span>
+                                <button type="button" class="btn btn-link gm-template" id="csv-template">
+                                    <i class="fa fa-file-excel-o" aria-hidden="true"></i> Download CSV template
+                                </button>
+                            </div>
                         </div>
-                        <div class="col-sm-2">
-                            <input type="email" class="form-control" placeholder="Email" id="email">
-                        </div>
-                        <div class="col-sm-2">
-                            <input type="tel" class="form-control" placeholder="Phone" id="phone">
-                        </div>
-                        <div class="col-sm-2">
-                            <input type="text" class="form-control" placeholder="Position" id="position">
-                        </div>
-                        <div class="col-sm-1">
-                            <input type="text" class="form-control" placeholder="Custom" id="custom">
-                        </div>
-                        <div class="col-sm-1">
-                            <button type="submit" class="btn btn-danger btn-lg">
-                                <i class="fa fa-plus"></i> Add</button>
-                        </div>
-                    </form>
+                    </div>
+                    <div class="gm-summary" id="gmImportSummary" role="status" style="display:none;"></div>
+                </section>
+
+                <div class="gm-section-head">
+                    <i class="fa fa-users" aria-hidden="true"></i>
+                    <h5>Members <span class="gm-count-text">(<span id="gmMemberCount">0</span>)</span></h5>
                 </div>
-                <br />
-                <table id="targetsTable" class="table table-hover table-striped table-condensed">
-                    <thead>
-                        <tr>
-                            <th>First Name</th>
-                            <th>Last Name</th>
-                            <th>Email</th>
-                            <th>Phone</th>
-                            <th>Position</th>
-                            <th>Custom</th>
-                            <th class="no-sort"></th>
-                    <tbody>
-                    </tbody>
-                </table>
+                <section class="gm-card">
+                    <div class="gm-empty" id="gmEmpty">
+                        <i class="fa fa-users" aria-hidden="true"></i>
+                        <h5>No members added yet</h5>
+                        <p>Add people with the form above or import a CSV file.</p>
+                    </div>
+                    <div class="gm-table" id="gmTableWrap" style="display:none;">
+                        <table id="targetsTable" class="table table-hover table-striped table-condensed">
+                            <thead>
+                                <tr>
+                                    <th>First Name</th>
+                                    <th>Last Name</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Position</th>
+                                    <th>Custom</th>
+                                    <th class="no-sort"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" id="modalSubmit">Save changes</button>
+                <button type="button" class="btn btn-default gm-btn" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary gm-btn" id="modalSubmit">Save group</button>
             </div>
         </div>
     </div>
 </div>
-{{end}} {{define "scripts"}}
+{{end}} {{define "styles"}}
+<link href="/css/groups.css" rel="stylesheet" type="text/css">
+{{end}}
+
+{{define "scripts"}}
 <script src="/js/dist/app/groups.min.js"></script>
 {{end}}

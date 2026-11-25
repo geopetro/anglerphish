@@ -12,66 +12,67 @@ var campaignSetSummaryById = {};
 // re-render without refetching.
 var currentSetSummary = null;
 
-// Renders the Overview funnel for one of the two stat modes.
-//
-// Sent → Opened → Clicked → Submitted is a funnel: each stage is a subset of
-// the one before, so a shared track whose full width is the contact count shows
-// drop-off directly. Replied and Reported are not funnel stages — Reported is
-// the metric where a target caught the phish — so they sit below a rule as
-// separate signals.
+function csPct(n, of) {
+    if (!of) return "";
+    var p = n / of * 100;
+    return (p > 0 && p < 1 ? p.toFixed(1) : Math.round(p)) + "%";
+}
+
+function csPlural(n, one, many) {
+    return n + " " + (n === 1 ? one : many);
+}
+
+// One result card, shared by the set Overview and each campaign's Overview. Sent is a share
+// of the targets, everything else a share of sent. A null stats object renders a placeholder.
+// opts.ofTotal adds "/ total" after the number, opts.extra is appended inside the card.
+function csKpiCard(stats, word, key, icon, cls, label, value, opts) {
+    opts = opts || {};
+    var total = stats ? stats.total || 0 : 0, sent = stats ? stats.sent || 0 : 0;
+    var v = stats ? (value || 0) : null;
+    var state = (key === "submitted" && v) ? " cs-kpi-alert" : (key === "reported" && v) ? " cs-kpi-good" : "";
+    var pct = v === null ? "" : key === "sent" ? csPct(v, total) : csPct(v, sent);
+    // The number and its share share the top line, so the label below gets the full width
+    return '<div class="cs-kpi cs-kpi-' + key + state + '">' +
+        '<span class="cs-kpi-ico ' + cls + '"><i class="fa ' + icon + '" aria-hidden="true"></i></span>' +
+        '<div class="cs-kpi-main"><div class="cs-kpi-top">' +
+        '<span class="cs-kpi-n">' + (v === null ? "–" : v) +
+        (opts.ofTotal && v !== null ? '<small> / ' + total + '</small>' : '') + '</span>' +
+        (pct ? '<span class="cs-kpi-pct">' + pct + '<small> of ' + (key === "sent" ? word + "s" : "sent") + '</small></span>' : '') +
+        '</div><div class="cs-kpi-l">' + label + '</div></div>' +
+        (opts.extra || '') +
+        '</div>';
+}
+
+// The result cards for the whole set, in one of the two stat modes. Same cards and order as
+// each campaign's Overview.
 //
 // "totals" sums across campaigns (someone in two campaigns counts twice);
-// "unique" dedups by contact. The base (100% of the track) is that mode's total.
+// "unique" dedups by contact.
 function renderOverviewKpis(summary, mode) {
-    var stats = mode === "unique" ? summary.unique_stats : summary.stats;
-    var base = stats.total || 0;
-    var contactWord = mode === "unique" ? "unique contacts" : "targets";
+    var s = mode === "unique" ? summary.unique_stats : summary.stats;
+    var word = mode === "unique" ? "contact" : "target";
+    var total = s.total || 0, sent = s.sent || 0;
+    // Opens, attachments, macros, replies and reports only exist for email
+    var hasEmail = !summary.campaigns || summary.campaigns.some(function (c) { return c.type !== "sms"; });
 
-    // Progression follows the engagement -> compromise chain. Attachment Opened
-    // and Macro Executed are part of it (Macro is a compromise outcome), not side
-    // signals.
-    var stages = [
-        { value: stats.sent, label: "Sent", icon: "fa-envelope-o", color: "cs-stat-sent", hex: "#1abc9c" },
-        { value: stats.opened, label: "Opened", icon: "fa-envelope-open-o", color: "cs-stat-opened", hex: "#f9bf3b" },
-        { value: stats.clicked, label: "Clicked", icon: "fa-mouse-pointer", color: "cs-stat-clicked", hex: "#F39C12" },
-        { value: stats.submitted_data, label: "Submitted", icon: "fa-exclamation-circle", color: "cs-stat-submitted", hex: "#f05b4f", outcome: true },
-        { value: stats.opened_attachment, label: "Attachment Opened", icon: "fa-paperclip", color: "cs-stat-attachment-opened", hex: "#f0ad4e" },
-        { value: stats.macro_executed, label: "Macro Executed", icon: "fa-file-code-o", color: "cs-stat-macro-executed", hex: "#c0392b", outcome: true }
-    ];
-    // Side signals of target behaviour, outside the attack funnel: a reply
-    // (failure) and a report (defensive).
-    var signals = [
-        { value: stats.replied, label: "Replied", icon: "fa-reply", color: "cs-stat-replied", hex: "#E67E22" },
-        { value: stats.email_reported, label: "Reported", icon: "fa-bullhorn", color: "cs-stat-reported", hex: "#45d6ef", good: true }
-    ];
-
-    function row(item) {
-        var v = item.value || 0;
-        var pct = base > 0 ? (v / base) * 100 : 0;
-        var width = Math.max(0, Math.min(100, pct));
-        // Zero rows show a hairline tick and an em dash, so an empty set reads as
-        // "nothing yet" rather than a broken wall of zeros.
-        var fill = v > 0
-            ? '<span class="cs-fn-fill" style="width:' + width.toFixed(1) + '%;background:' + item.hex + '"></span>'
-            : '<span class="cs-fn-zero"></span>';
-        var pctLabel = (base > 0 && v > 0) ? (pct < 1 ? pct.toFixed(1) : Math.round(pct)) + "%" : "—";
-        var nCls = "cs-fn-n" + (item.outcome ? " cs-fn-n-outcome" : "") + (item.good ? " cs-fn-n-good" : "");
-        return '<div class="cs-fn-row">' +
-            '<div class="cs-fn-label"><i class="fa ' + item.icon + ' ' + item.color + '"></i>' + item.label + '</div>' +
-            '<div class="cs-fn-track">' + fill + '</div>' +
-            '<div class="' + nCls + '">' + v + '</div>' +
-            '<div class="cs-fn-pct">' + pctLabel + '</div>' +
-            '</div>';
+    function card(key, icon, cls, label, value, opts) {
+        return csKpiCard(s, word, key, icon, cls, label, value, opts);
     }
 
-    var html = '<div class="cs-fn-scale"><span>Progression of ' + contactWord + '</span>' +
-        '<span>' + base + ' ' + contactWord + '</span></div>';
-    html += stages.map(row).join("");
-    html += '<hr class="cs-fn-rule">';
-    html += '<div class="cs-fn-sig-hd">Signals</div>';
-    html += signals.map(row).join("");
+    var cards = card("sent", "fa-paper-plane", "cs-stat-sent", "Sent", sent, {
+            ofTotal: true,
+            extra: '<div class="cs-kpi-bar"><span style="width:' + (total ? Math.min(100, sent / total * 100) : 0).toFixed(1) + '%"></span></div>'
+        }) +
+        (hasEmail ? card("opened", "fa-envelope-open-o", "cs-stat-opened", "Opened", s.opened) : "") +
+        card("clicked", "fa-mouse-pointer", "cs-stat-clicked", "Clicked", s.clicked) +
+        card("submitted", "fa-exclamation-circle", "cs-stat-submitted", "Submitted", s.submitted_data) +
+        (hasEmail ?
+            card("attachment", "fa-paperclip", "cs-stat-attachment-opened", "Attachment opened", s.opened_attachment) +
+            card("macro", "fa-file-code-o", "cs-stat-macro-executed", "Macro executed", s.macro_executed) +
+            card("replied", "fa-reply", "cs-stat-replied", "Replied", s.replied) +
+            card("reported", "fa-bullhorn", "cs-stat-reported", "Reported", s.email_reported) : "");
 
-    $("#overviewKpis").html(html);
+    $("#overviewKpis").html('<div class="cs-kpis cs-kpis-campaign cs-kpis-set' + (hasEmail ? "" : " cs-kpis-3") + '">' + cards + '</div>');
 }
 
 // Renders the whole Overview tab from a campaign set summary response.
@@ -82,15 +83,21 @@ function renderCampaignSetOverview(summary) {
         ? moment(summary.launch_date).format("MMM Do YYYY, h:mm a")
         : "Not scheduled";
     var sendBy = summary.send_by_date && summary.send_by_date !== "0001-01-01T00:00:00Z"
-        ? " · Send by " + moment(summary.send_by_date).format("MMM Do YYYY, h:mm a")
+        ? moment(summary.send_by_date).format("MMM Do YYYY, h:mm a")
         : "";
 
+    var status = summary.status || "Unknown";
+    function chip(icon, text) {
+        return '<span class="cs-ov-chip"><i class="fa ' + icon + '" aria-hidden="true"></i> ' + text + '</span>';
+    }
+
+    // The set name is already in the modal title, so the header starts at the status
     $("#overviewHeader").html(
-        '<span class="cs-overview-title">' + escapeHtml(summary.name) + '</span>' +
-        '<span class="label label-default">' + escapeHtml(summary.status || "Unknown") + '</span>' +
-        '<div class="cs-overview-meta">' +
-        summary.campaign_count + ' campaign' + (summary.campaign_count === 1 ? '' : 's') +
-        ' · Launched ' + launched + sendBy +
+        '<div class="cs-ov-summary">' +
+        '<span class="label cs-ov-status ' + (CS_STATUS_LABELS[status] || "label-default") + '">' + escapeHtml(status) + '</span>' +
+        chip("fa-th-large", summary.campaign_count + ' campaign' + (summary.campaign_count === 1 ? '' : 's')) +
+        chip("fa-calendar", 'Launched <strong>' + launched + '</strong>') +
+        (sendBy ? chip("fa-clock-o", 'Send by <strong>' + sendBy + '</strong>') : '') +
         '</div>'
     );
 
@@ -103,28 +110,77 @@ function renderCampaignSetOverview(summary) {
     // is no page-load init for it; init here (idempotent) when the tab is populated.
     $("#overviewStatsInfo").tooltip();
 
-    var rows = "";
-    (summary.campaigns || []).forEach(function (campaign) {
-        var stats = campaign.stats || {};
-        var isEmail = campaign.type === "email";
-        rows += '<tr>' +
-            '<td><div class="cs-overview-campaign-name" title="' + escapeHtml(campaign.name) + '">' +
-            '<i class="fa ' + (isEmail ? "fa-envelope" : "fa-mobile") + '"></i> ' +
-            escapeHtml(campaign.name) + '</div></td>' +
-            '<td>' + escapeHtml(campaign.status || "") + '</td>' +
-            '<td class="text-right">' + (stats.total || 0) + '</td>' +
-            '<td class="text-right">' + (stats.sent || 0) + '</td>' +
-            '<td class="text-right">' + (isEmail ? (stats.opened || 0) : "—") + '</td>' +
-            '<td class="text-right">' + (stats.clicked || 0) + '</td>' +
-            '<td class="text-right">' + (isEmail ? (stats.replied || 0) : "—") + '</td>' +
-            '<td class="text-right">' + (stats.submitted_data || 0) + '</td>' +
-            '<td class="text-right">' + (isEmail ? (stats.email_reported || 0) : "—") + '</td>' +
-            '<td class="text-right"><a class="btn btn-xs btn-primary" href="/campaigns/' + campaign.id + '">' +
-            '<i class="fa fa-bar-chart"></i></a></td>' +
-            '</tr>';
-    });
-    $("#overviewBreakdown tbody").html(rows);
+    renderOverviewCampaigns(summary);
 }
+
+// The dashboard's stage dots (styles in main.css): filled and coloured when the stage
+// happened, hollow when not, dotted when the campaign type cannot track it
+var CS_STAGES = [
+    { key: "sent", hex: "#1abc9c", label: "Sent", icon: "fa-envelope-o" },
+    { key: "opened", hex: "#f9bf3b", label: "Opened", icon: "fa-envelope-open-o", emailOnly: true },
+    { key: "clicked", hex: "#F39C12", label: "Clicked", icon: "fa-mouse-pointer" },
+    { key: "submitted_data", hex: "#f05b4f", label: "Submitted", icon: "fa-exclamation-circle" },
+    { key: "opened_attachment", hex: "#f0ad4e", label: "Attachment Opened", icon: "fa-paperclip", emailOnly: true },
+    { key: "macro_executed", hex: "#c0392b", label: "Macro Executed", icon: "fa-file-code-o", emailOnly: true },
+    { key: "replied", hex: "#E67E22", label: "Replied", icon: "fa-reply", emailOnly: true },
+    { key: "email_reported", hex: "#45d6ef", label: "Reported", icon: "fa-bullhorn", emailOnly: true }
+];
+
+function csStageDots(campaign) {
+    var stats = campaign.stats || {};
+    var dots = "", tip = [];
+    CS_STAGES.forEach(function (s) {
+        if (s.emailOnly && campaign.type === "sms") {
+            dots += '<span class="stage-cell"><span class="stage-dot stage-dot-na"></span></span>';
+            tip.push(s.label + ": n/a");
+            return;
+        }
+        var n = stats[s.key] || 0;
+        dots += '<span class="stage-cell">' + (n > 0
+            ? '<span class="stage-dot" style="background:' + s.hex + ';border-color:' + s.hex + '"></span>'
+            : '<span class="stage-dot stage-dot-empty"></span>') + '</span>';
+        tip.push(s.label + ": " + n);
+    });
+    return '<span class="stage-dots" data-toggle="tooltip" data-html="true" data-placement="top" title="' + tip.join("<br>") + '">' + dots + '</span>';
+}
+
+// Every campaign in the set on one row each, so they can be compared at a glance
+function renderOverviewCampaigns(summary) {
+    var campaigns = summary.campaigns || [];
+    if (!campaigns.length) {
+        $("#overviewCampaigns").empty();
+        return;
+    }
+    var legend = '<span class="stage-legend">' + CS_STAGES.map(function (s) {
+        return '<span class="stage-cell"><i class="fa ' + s.icon + '" title="' + s.label + '"></i></span>';
+    }).join("") + '</span>';
+    var rows = campaigns.map(function (c) {
+        var stats = c.stats || {};
+        var isSms = c.type === "sms";
+        return '<tr>' +
+            '<td><button type="button" class="btn btn-link cs-ov-open" data-campaign-id="' + c.id + '" title="Open on the Campaigns tab">' +
+            '<i class="fa ' + (isSms ? "fa-mobile" : "fa-envelope") + '" aria-hidden="true"></i> ' + escapeHtml(c.name) + '</button></td>' +
+            '<td><span class="label ' + (CS_STATUS_LABELS[c.status] || "label-default") + '">' + escapeHtml(c.status || "Unknown") + '</span></td>' +
+            '<td class="cs-ov-num">' + (stats.sent || 0) + ' / ' + (stats.total || 0) + '</td>' +
+            '<td>' + csStageDots(c) + '</td>' +
+            '<td class="text-right"><a class="btn btn-primary btn-sm" href="/campaigns/' + c.id + '" title="View results" aria-label="View results for ' +
+            escapeHtml(c.name) + '"><i class="fa fa-bar-chart" aria-hidden="true"></i></a></td>' +
+            '</tr>';
+    }).join("");
+    $("#overviewCampaigns").html(
+        '<h5 class="cs-ds-h">Campaigns</h5>' +
+        '<table class="table cs-ov-table"><thead><tr>' +
+        '<th>Campaign</th><th>Status</th><th class="cs-ov-num">Sent</th><th>' + legend + '</th><th></th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table>');
+    $('#overviewCampaigns [data-toggle="tooltip"]').tooltip({ container: "body" });
+}
+
+// A campaign name in the Overview list opens that campaign on the Campaigns tab
+$(document).on("click", ".cs-ov-open", function () {
+    var id = $(this).data("campaign-id");
+    $('a[href="#campaignsTab"]').tab("show");
+    $('.campaign-list-item[data-campaign-id="' + id + '"]').trigger("click");
+});
 
 // Toggle handler — bound once at load, not per modal open, to avoid stacking
 // duplicate handlers each time a set is viewed.
@@ -214,6 +270,8 @@ function syncPillsFromCheckboxes() {
             $group.find(".shared-toggle-percampaign").addClass("active");
             $fieldCol.addClass("field-disabled");
         }
+        // Locked, not only dimmed: the controls cannot be clicked, typed in or tabbed to
+        $fieldCol.find("input, select, textarea, button").prop("disabled", !isChecked);
     });
 }
 
@@ -241,16 +299,7 @@ function displayURLTemplates() {
     function makeClickHandler(template) {
         return function () {
             if (currentUrlFieldTarget) {
-                $(currentUrlFieldTarget).val(template.url);
-                if (currentUrlFieldTarget === '#url') {
-                    updateURLLengthIndicator('#url', '#urlparam', '#urlLengthIndicator');
-                } else {
-                    var idx = $(currentUrlFieldTarget).attr('id').match(/\d+/);
-                    if (idx) {
-                        var urlParamField = $('#useSharedURLParam').is(':checked') ? '#urlparam' : '#campaign_urlparam_' + idx[0];
-                        updateURLLengthIndicator(currentUrlFieldTarget, urlParamField, currentUrlFieldTarget + '_length');
-                    }
-                }
+                applyURLTemplate(currentUrlFieldTarget, template.url);
             }
             $("#urlTemplateModal").modal('hide');
         };
@@ -286,7 +335,8 @@ function displayURLTemplates() {
         if (!grouped[t.category]) grouped[t.category] = [];
         grouped[t.category].push(t);
     });
-    Object.keys(grouped).sort().forEach(function(category) {
+    // Categories keep the order the server sends
+    Object.keys(grouped).forEach(function(category) {
         templateList.append(
             '<div class="url-template-divider" style="padding:4px 2px;margin-top:10px;margin-bottom:2px;font-size:11px;font-weight:bold;color:#888;text-transform:uppercase;letter-spacing:1px;">' +
             '<i class="fa fa-folder"></i> ' + escapeHtml(category) + '</div>'
@@ -606,10 +656,19 @@ $(document).ready(function () {
     // Setup the "Add Campaign" button
     $("#addCampaignButton").on("click", function () {
         const campaignCount = $(".campaign-list-item").length;
-        addCampaignEntry(campaignCount);
+        // Taken before the new campaign becomes the selected one. With none selected yet,
+        // the last campaign is the natural one to start from.
+        const activeIndex = $(".campaign-list-item.active").data("index");
+        // .data() gives null, not undefined, when nothing is selected
+        const $source = activeIndex != null ? $(`#campaign_form_${activeIndex}`) : $(".campaign-detail-form").last();
+        const optionsLoaded = addCampaignEntry(campaignCount);
 
         // Select the newly added campaign
         $(`.campaign-list-item[data-index="${campaignCount}"]`).trigger("click");
+
+        if ($source.length && optionsLoaded && optionsLoaded.then) {
+            optionsLoaded.then(() => csCopyCampaignSetup($source, campaignCount));
+        }
     });
 
     // Handle campaign list item click
@@ -729,7 +788,9 @@ $(document).ready(function () {
     $(document).on("click", ".shared-toggle-btn", function () {
         var $btn   = $(this);
         var $group = $btn.closest(".shared-toggle-group");
-        var $row   = $btn.closest(".inline-setting-row");
+        // Schedule is three rows under one toggle, so its whole group dims together
+        var $row   = $btn.closest(".cs-setting-group");
+        if (!$row.length) $row = $btn.closest(".inline-setting-row");
 
         // Update visual active state
         $group.find(".shared-toggle-btn").removeClass("active");
@@ -772,13 +833,8 @@ $(document).ready(function () {
         const settingType = $(this).attr('id').replace('useShared', '');
         const isChecked = $(this).is(":checked");
         
-        // Show/hide the corresponding section based on checkbox state
-        if (isChecked) {
-            $(`#shared${settingType}Section`).show();
-        } else {
-            $(`#shared${settingType}Section`).hide();
-        }
-        
+        // The shared field stays in place and is locked by syncPillsFromCheckboxes, so the
+        // toggle beside it never moves
         // Sync the pill toggle visuals to match the new checkbox state
         syncPillsFromCheckboxes();
         
@@ -802,17 +858,8 @@ $(document).ready(function () {
         // Show the granular settings section
         $("#granularSettingsSection").show();
         
-        // Initialize each granular setting section based on its checkbox
-        $("#useSharedPage, #useSharedURL, #useSharedURLParam, #useSharedQRSize, #useSharedHTTPAuth, #useSharedSchedule").each(function() {
-            const settingType = $(this).attr('id').replace('useShared', '');
-            const isChecked = $(this).is(":checked");
-            
-            if (isChecked) {
-                $(`#shared${settingType}Section`).show();
-            } else {
-                $(`#shared${settingType}Section`).hide();
-            }
-        });
+        // Per-campaign settings stay in place, locked, so the toggles never move
+        syncPillsFromCheckboxes();
         
         // Update campaign settings visibility
         updateCampaignSettingsVisibility();
@@ -931,6 +978,9 @@ $(document).ready(function () {
                 $form.find(".campaign-send-by-date").closest(".form-group").show();
             }
         });
+
+        // The sections above were shown as a whole, so hide the ones left with no fields
+        csUpdateOverrideHeads();
     }
 
     // Handle remove campaign button
@@ -1040,7 +1090,7 @@ function loadCampaignSets() {
                                 campaignSet.send_by_date ? moment(campaignSet.send_by_date).format('MMMM Do YYYY, h:mm:ss a') : "Not set",
                                 campaignSet.status,
                                 campaignSet.campaigns ? campaignSet.campaigns.length : 0,
-                                "<div class='pull-right'><button class='btn btn-info' onclick='viewCampaignSet(" + campaignSet.id + ")'><i class='fa fa-eye'></i></button>&nbsp;<button class='btn btn-warning' onclick='copyCampaignSet(" + campaignSet.id + ")'><i class='fa fa-copy'></i></button>&nbsp;<button class='btn btn-success' onclick='completeCampaignSet(" + campaignSet.id + ")' " + completeButtonDisabled + "><i class='fa fa-check'></i></button>&nbsp;<button class='btn btn-danger' onclick='deleteCampaignSet(" + campaignSet.id + ")'><i class='fa fa-trash-o'></i></button></div>"
+                                "<div class='pull-right cs-row-actions'><button class='btn btn-info' onclick='viewCampaignSet(" + campaignSet.id + ")'><i class='fa fa-eye'></i></button><button class='btn btn-warning' onclick='copyCampaignSet(" + campaignSet.id + ")'><i class='fa fa-copy'></i></button><button class='btn btn-success' onclick='completeCampaignSet(" + campaignSet.id + ")' " + completeButtonDisabled + "><i class='fa fa-check'></i></button><button class='btn btn-danger' onclick='deleteCampaignSet(" + campaignSet.id + ")'><i class='fa fa-trash-o'></i></button></div>"
                             ]).draw().node();
 
                             // Store the row index for later reference
@@ -1086,7 +1136,7 @@ function loadCampaignSets() {
                                 draftSet.send_by_date ? moment(draftSet.send_by_date).format('MMMM Do YYYY, h:mm:ss a') : "Not set",
                                 "Draft",
                                 draftSet.campaigns ? draftSet.campaigns.length : 0,
-                                "<div class='pull-right'><button class='btn btn-success' data-toggle='modal' data-target='#launchDraftModal' onclick='prepareLaunchDraft(" + draftSet.id + ")'><i class='fa fa-rocket'></i></button>&nbsp;<button class='btn btn-warning' onclick='copyDraftCampaignSet(" + draftSet.id + ")'><i class='fa fa-copy'></i></button>&nbsp;<button class='btn btn-primary' onclick='editDraftCampaignSet(" + draftSet.id + ")'><i class='fa fa-pencil'></i></button>&nbsp;<button class='btn btn-danger' onclick='deleteDraftCampaignSet(" + draftSet.id + ")'><i class='fa fa-trash-o'></i></button></div>"
+                                "<div class='pull-right cs-row-actions'><button class='btn btn-success' data-toggle='modal' data-target='#launchDraftModal' onclick='prepareLaunchDraft(" + draftSet.id + ")'><i class='fa fa-rocket'></i></button><button class='btn btn-warning' onclick='copyDraftCampaignSet(" + draftSet.id + ")'><i class='fa fa-copy'></i></button><button class='btn btn-primary' onclick='editDraftCampaignSet(" + draftSet.id + ")'><i class='fa fa-pencil'></i></button><button class='btn btn-danger' onclick='deleteDraftCampaignSet(" + draftSet.id + ")'><i class='fa fa-trash-o'></i></button></div>"
                             ]).draw();
                         });
                     } else {
@@ -1138,7 +1188,7 @@ function loadCampaignSets() {
                                 campaignSet.send_by_date ? moment(campaignSet.send_by_date).format('MMMM Do YYYY, h:mm:ss a') : "Not set",
                                 campaignSet.status,
                                 campaignSet.campaigns ? campaignSet.campaigns.length : 0,
-                                "<div class='pull-right'><button class='btn btn-info' onclick='viewCampaignSet(" + campaignSet.id + ")'><i class='fa fa-eye'></i></button>&nbsp;<button class='btn btn-success' onclick='completeCampaignSet(" + campaignSet.id + ")' " + completeButtonDisabled + "><i class='fa fa-check'></i></button>&nbsp;<button class='btn btn-danger' onclick='deleteCampaignSet(" + campaignSet.id + ")'><i class='fa fa-trash-o'></i></button></div>"
+                                "<div class='pull-right cs-row-actions'><button class='btn btn-info' onclick='viewCampaignSet(" + campaignSet.id + ")'><i class='fa fa-eye'></i></button><button class='btn btn-success' onclick='completeCampaignSet(" + campaignSet.id + ")' " + completeButtonDisabled + "><i class='fa fa-check'></i></button><button class='btn btn-danger' onclick='deleteCampaignSet(" + campaignSet.id + ")'><i class='fa fa-trash-o'></i></button></div>"
                             ]).draw().node();
 
                             // Store the row index for later reference
@@ -1209,7 +1259,7 @@ function loadCampaignSets() {
                                 draftSet.send_by_date ? moment(draftSet.send_by_date).format('MMMM Do YYYY, h:mm:ss a') : "Not set",
                                 "Draft",
                                 draftSet.campaigns ? draftSet.campaigns.length : 0,
-                                "<div class='pull-right'><button class='btn btn-success' data-toggle='modal' data-target='#launchDraftModal' onclick='prepareLaunchDraft(" + draftSet.id + ")'><i class='fa fa-rocket'></i></button>&nbsp;<button class='btn btn-primary' onclick='editDraftCampaignSet(" + draftSet.id + ")'><i class='fa fa-pencil'></i></button>&nbsp;<button class='btn btn-danger' onclick='deleteDraftCampaignSet(" + draftSet.id + ")'><i class='fa fa-trash-o'></i></button></div>"
+                                "<div class='pull-right cs-row-actions'><button class='btn btn-success' data-toggle='modal' data-target='#launchDraftModal' onclick='prepareLaunchDraft(" + draftSet.id + ")'><i class='fa fa-rocket'></i></button><button class='btn btn-primary' onclick='editDraftCampaignSet(" + draftSet.id + ")'><i class='fa fa-pencil'></i></button><button class='btn btn-danger' onclick='deleteDraftCampaignSet(" + draftSet.id + ")'><i class='fa fa-trash-o'></i></button></div>"
                             ]).draw();
                         });
                     } else {
@@ -1268,116 +1318,159 @@ function addCampaignEntry(index) {
     // Create the campaign detail form (it will be shown when the campaign is selected)
     const campaignDetailForm = `
         <div class="campaign-detail-form" id="campaign_form_${index}" style="display: none;">
-            <div class="form-group">
-                <label class="control-label" for="campaign_name_${index}">Name:</label>
-                <input type="text" class="form-control campaign-name" placeholder="Campaign name" id="campaign_name_${index}" />
-            </div>
-            
-            <!-- Type: hidden select (drives all logic) + btn-group identical to campaigns.html -->
-            <select class="campaign-type" id="campaign_type_${index}" style="display:none;">
-                <option value="email">Email</option>
-                <option value="sms">SMS</option>
-            </select>
-            <div class="form-group">
-                <label class="control-label">Type:</label>
-                <div>
-                    <div class="btn-group" role="group">
-                        <button type="button" class="btn btn-sm btn-primary cs-type-btn active" data-type="email">
-                            <i class="fa fa-envelope"></i> Email
-                        </button>
-                        <button type="button" class="btn btn-sm btn-default cs-type-btn" data-type="sms">
-                            <i class="fa fa-mobile"></i> SMS
-                        </button>
+            <section class="cs-cf-section">
+                <button type="button" class="cs-cf-head" aria-expanded="true">
+                    <i class="fa fa-cog cs-cf-ico" aria-hidden="true"></i><span class="cs-cf-title">General</span>
+                    <span class="cs-cf-hint">Name, Type</span><i class="fa fa-chevron-up cs-cf-chev" aria-hidden="true"></i>
+                </button>
+                <div class="cs-cf-body cs-cf-row">
+                    <div class="form-group cs-cf-grow">
+                        <label class="control-label" for="campaign_name_${index}">Name <span class="cs-cf-req" aria-hidden="true">*</span></label>
+                        <input type="text" class="form-control campaign-name" placeholder="Campaign name" id="campaign_name_${index}" />
                     </div>
-                </div>
-            </div>
-            
-            <div class="form-group email-template-group">
-                <label class="control-label" for="template_${index}">Email Template:</label>
-                <select class="form-control email-template" placeholder="Template" id="template_${index}">
-                </select>
-            </div>
-            
-            <div class="form-group sms-template-group" style="display:none;">
-                <label class="control-label" for="sms_template_${index}">SMS Template:</label>
-                <select class="form-control sms-template" placeholder="SMS Template" id="sms_template_${index}">
-                </select>
-            </div>
-            
-            <div class="form-group email-profile-group">
-                <label class="control-label" for="profile_${index}">Sending Profile:</label>
-                <select class="form-control email-profile" placeholder="Sending Profile" id="profile_${index}">
-                </select>
-            </div>
-            
-            <div class="form-group sms-profile-group" style="display:none;">
-                <label class="control-label" for="sms_profile_${index}">SMS Sending Profile:</label>
-                <select class="form-control sms-profile" placeholder="SMS Sending Profile" id="sms_profile_${index}">
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label class="control-label" for="users_${index}">Groups:</label>
-                <select class="form-control groups" id="users_${index}" multiple="multiple">
-                </select>
-            </div>
 
-            <div class="form-group">
-                <input class="form-check-input campaign-randomize-send-order" type="checkbox" id="campaign_randomize_send_order_${index}">
-                <label class="form-check-label" for="campaign_randomize_send_order_${index}"> Randomize send order
-                    <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Sends messages to recipients in a random order instead of the order they appear in the target groups"></i>
-                </label>
-            </div>
-
-            <div class="campaign-settings-override" style="display:none;">
-                <div class="form-group">
-                    <label class="control-label" for="campaign_page_${index}">Landing Page:</label>
-                    <select class="form-control campaign-page" placeholder="Landing Page" id="campaign_page_${index}">
+                    <!-- Type: hidden select (drives all logic) + btn-group identical to campaigns.html -->
+                    <select class="campaign-type" id="campaign_type_${index}" style="display:none;">
+                        <option value="email">Email</option>
+                        <option value="sms">SMS</option>
                     </select>
-                </div>
-                <div class="form-group">
-                    <label class="control-label" for="campaign_url_${index}">URL:
-                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Location of Gophish listener (must be reachable by targets!)"></i>
-                        <span id="campaign_url_${index}_length" style="margin-left: 10px; font-size: 12px;"></span>
-                    </label>
-                    <div class="input-group">
-                        <input type="text" class="form-control campaign-url" placeholder="http://192.168.1.1" id="campaign_url_${index}" />
-                        <span class="input-group-btn">
-                            <button type="button" class="btn btn-default campaign-url-template-btn" data-campaign-index="${index}" data-toggle="tooltip" title="Use URL Template">
-                                <i class="fa fa-list"></i>
-                            </button>
-                        </span>
+                    <div class="form-group">
+                        <label class="control-label">Type <span class="cs-cf-req" aria-hidden="true">*</span></label>
+                        <div>
+                            <div class="btn-group cs-cf-type" role="group">
+                                <button type="button" class="btn btn-primary cs-type-btn active" data-type="email">
+                                    <i class="fa fa-envelope"></i> Email
+                                </button>
+                                <button type="button" class="btn btn-default cs-type-btn" data-type="sms">
+                                    <i class="fa fa-mobile"></i> SMS
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label class="control-label" for="campaign_urlparam_${index}">URL Parameter:
-                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Sets the parameter used in the URL to track the target. It is recommended to change this parameter, to make Gophish stealthier. Leave blank to use default (rid)."></i>
-                    </label>
-                    <input type="text" class="form-control campaign-urlparam" placeholder="rid" id="campaign_urlparam_${index}" />
+            </section>
+
+            <section class="cs-cf-section">
+                <button type="button" class="cs-cf-head" aria-expanded="true">
+                    <i class="fa fa-envelope-o cs-cf-ico" aria-hidden="true"></i><span class="cs-cf-title">Content</span>
+                    <span class="cs-cf-hint">Template, Sending Profile</span><i class="fa fa-chevron-up cs-cf-chev" aria-hidden="true"></i>
+                </button>
+                <div class="cs-cf-body cs-cf-cols">
+                    <div class="form-group email-template-group">
+                        <label class="control-label" for="template_${index}">Email Template <span class="cs-cf-req" aria-hidden="true">*</span></label>
+                        <select class="form-control email-template" placeholder="Template" id="template_${index}">
+                        </select>
+                    </div>
+
+                    <div class="form-group sms-template-group" style="display:none;">
+                        <label class="control-label" for="sms_template_${index}">SMS Template <span class="cs-cf-req" aria-hidden="true">*</span></label>
+                        <select class="form-control sms-template" placeholder="SMS Template" id="sms_template_${index}">
+                        </select>
+                    </div>
+
+                    <div class="form-group email-profile-group">
+                        <label class="control-label" for="profile_${index}">Sending Profile <span class="cs-cf-req" aria-hidden="true">*</span></label>
+                        <select class="form-control email-profile" placeholder="Sending Profile" id="profile_${index}">
+                        </select>
+                    </div>
+
+                    <div class="form-group sms-profile-group" style="display:none;">
+                        <label class="control-label" for="sms_profile_${index}">SMS Sending Profile <span class="cs-cf-req" aria-hidden="true">*</span></label>
+                        <select class="form-control sms-profile" placeholder="SMS Sending Profile" id="sms_profile_${index}">
+                        </select>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="control-label" for="campaign_qrsize_${index}">QR Code Size:
-                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Size of QR code images (integer is height & width). Leave blank to not include QR code images and use normal links."></i>
-                    </label>
-                    <input type="number" class="form-control campaign-qrsize" placeholder="256" id="campaign_qrsize_${index}" />
+            </section>
+
+            <section class="cs-cf-section">
+                <button type="button" class="cs-cf-head" aria-expanded="true">
+                    <i class="fa fa-users cs-cf-ico" aria-hidden="true"></i><span class="cs-cf-title">Targeting</span>
+                    <span class="cs-cf-hint">Groups, Send order</span><i class="fa fa-chevron-up cs-cf-chev" aria-hidden="true"></i>
+                </button>
+                <div class="cs-cf-body">
+                    <div class="form-group">
+                        <label class="control-label" for="users_${index}">Groups <span class="cs-cf-req" aria-hidden="true">*</span></label>
+                        <select class="form-control groups" id="users_${index}" multiple="multiple">
+                        </select>
+                        <p class="cs-groups-count" id="groups_count_${index}"></p>
+                    </div>
+
+                    <div class="form-group cs-cf-check">
+                        <input class="form-check-input campaign-randomize-send-order" type="checkbox" id="campaign_randomize_send_order_${index}">
+                        <label class="form-check-label" for="campaign_randomize_send_order_${index}"> Randomize send order
+                            <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Sends messages to recipients in a random order instead of the order they appear in the target groups"></i>
+                        </label>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <input class="form-check-input campaign-basicauth" type="checkbox" id="campaign_basicauth_${index}">
-                    <label class="form-check-label" for="campaign_basicauth_${index}"> Use HTTP Basic Access Authentication
-                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Enables a landing page with HTTP Authentication"></i>
-                    </label>
+            </section>
+
+            <!-- Only shown when something in it is set per campaign in Setup -->
+            <section class="cs-cf-section campaign-settings-override" style="display:none;">
+                <button type="button" class="cs-cf-head" aria-expanded="true">
+                    <i class="fa fa-link cs-cf-ico" aria-hidden="true"></i><span class="cs-cf-title">URL &amp; Tracking</span>
+                    <span class="cs-cf-hint">Set for this campaign</span><i class="fa fa-chevron-up cs-cf-chev" aria-hidden="true"></i>
+                </button>
+                <div class="cs-cf-body">
+                    <div class="form-group">
+                        <label class="control-label" for="campaign_page_${index}">Landing Page</label>
+                        <select class="form-control campaign-page" placeholder="Landing Page" id="campaign_page_${index}">
+                        </select>
+                    </div>
+                    <div class="cs-cf-cols cs-cf-cols-3">
+                        <div class="form-group">
+                            <label class="control-label" for="campaign_url_${index}">URL
+                                <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Location of Gophish listener (must be reachable by targets!)"></i>
+                                <span id="campaign_url_${index}_length" style="margin-left: 10px; font-size: 12px;"></span>
+                            </label>
+                            <div class="input-group">
+                                <input type="text" class="form-control campaign-url" placeholder="http://192.168.1.1" id="campaign_url_${index}" />
+                                <span class="input-group-btn">
+                                    <button type="button" class="btn btn-primary campaign-url-template-btn" data-campaign-index="${index}" data-toggle="tooltip" title="Use URL Template">
+                                        <i class="fa fa-list"></i>
+                                    </button>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="campaign_urlparam_${index}">URL Parameter
+                                <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Sets the parameter used in the URL to track the target. It is recommended to change this parameter, to make Gophish stealthier. Leave blank to use default (rid)."></i>
+                            </label>
+                            <input type="text" class="form-control campaign-urlparam" placeholder="rid" id="campaign_urlparam_${index}" />
+                        </div>
+                        <div class="form-group">
+                            <label class="control-label" for="campaign_qrsize_${index}">QR Code Size
+                                <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Size of QR code images (integer is height & width). Leave blank to not include QR code images and use normal links."></i>
+                            </label>
+                            <input type="number" class="form-control campaign-qrsize" placeholder="256" id="campaign_qrsize_${index}" />
+                        </div>
+                    </div>
+                    <div class="form-group cs-cf-check">
+                        <input class="form-check-input campaign-basicauth" type="checkbox" id="campaign_basicauth_${index}">
+                        <label class="form-check-label" for="campaign_basicauth_${index}"> Use HTTP Basic Access Authentication
+                            <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Enables a landing page with HTTP Authentication"></i>
+                        </label>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="control-label" for="campaign_launch_date_${index}">Launch Date:</label>
-                    <input type="text" class="form-control campaign-launch-date" id="campaign_launch_date_${index}" />
+            </section>
+
+            <section class="cs-cf-section campaign-settings-override" style="display:none;">
+                <button type="button" class="cs-cf-head" aria-expanded="true">
+                    <i class="fa fa-calendar cs-cf-ico" aria-hidden="true"></i><span class="cs-cf-title">Schedule</span>
+                    <span class="cs-cf-hint">Set for this campaign</span><i class="fa fa-chevron-up cs-cf-chev" aria-hidden="true"></i>
+                </button>
+                <div class="cs-cf-body cs-cf-cols">
+                    <div class="form-group">
+                        <label class="control-label" for="campaign_launch_date_${index}">Launch Date</label>
+                        <input type="text" class="form-control campaign-launch-date" id="campaign_launch_date_${index}" />
+                    </div>
+                    <div class="form-group">
+                        <label class="control-label" for="campaign_send_by_date_${index}">Send Emails By <span class="cs-set-optional">(Optional)</span>
+                            <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="If specified, Gophish will send messages evenly between the campaign launch and this date."></i>
+                        </label>
+                        <input type="text" class="form-control campaign-send-by-date" id="campaign_send_by_date_${index}" />
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="control-label" for="campaign_send_by_date_${index}">Send Emails By (Optional):
-                        <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="If specified, Gophish will send messages evenly between the campaign launch and this date."></i>
-                    </label>
-                    <input type="text" class="form-control campaign-send-by-date" id="campaign_send_by_date_${index}" />
-                </div>
-            </div>
+            </section>
         </div>
     `;
 
@@ -1427,14 +1520,10 @@ function addCampaignEntry(index) {
         format: "MMMM Do YYYY, h:mm a"
     });
 
+    $(`#campaign_form_${index} [data-toggle="tooltip"]`).tooltip({ container: "body" });
+
     // Load options for just this campaign entry
     return loadOptionsForCampaign(index);
-
-    // Initialize tooltips for the new campaign entry
-    $(`#campaign_form_${index} [data-toggle="tooltip"]`).tooltip();
-
-    // Update campaign settings visibility based on current shared settings
-    updateCampaignSettingsVisibility();
 }
 
 // Shared data-fetch Promise — all campaigns reuse the same 6 API calls
@@ -1481,7 +1570,7 @@ function loadOptionsForCampaign(index) {
 
         const $group = $(`#users_${index}`);
         $group.empty();
-        data.groups.forEach(g => $group.append(`<option value="${g.id}">${g.name}</option>`));
+        data.groups.forEach(g => $group.append(`<option value="${g.id}" data-targets="${(g.targets || []).length}">${g.name}</option>`));
     });
 }
 
@@ -2337,17 +2426,8 @@ function editDraftCampaignSet(id) {
                 $(".campaign-settings-override").show();
             }
             
-            // Show/hide individual shared settings sections
-            $("#useSharedPage, #useSharedURL, #useSharedURLParam, #useSharedQRSize, #useSharedHTTPAuth, #useSharedSchedule").each(function() {
-                const settingType = $(this).attr('id').replace('useShared', '');
-                const isChecked = $(this).is(":checked");
-                
-                if (isChecked) {
-                    $(`#shared${settingType}Section`).show();
-                } else {
-                    $(`#shared${settingType}Section`).hide();
-                }
-            });
+            // Per-campaign settings stay in place, locked, so the toggles never move
+            syncPillsFromCheckboxes();
 
             // Clear the campaigns list and detail panel
             $("#campaignList").empty();
@@ -3004,6 +3084,14 @@ function viewCampaignSet(id) {
         $("#overviewTab").removeClass("active");
         currentSetSummary = null;
         campaignSetSummaryById = {};
+        // Left set, the edit and copy flows would otherwise treat Delete as a launched-set delete
+        $("#modal").data("viewMode", false).removeClass("cs-viewing");
+        $("#campaignDetail").removeData("csCampaign");
+        $(".cs-li-search, #csListEmpty").remove();
+        csFullOpen = false;
+        $("#csPvFull").hide();
+        $("#csPreviewFullMeta, #csPreviewFullBody").empty();
+        csPreviewSeq++;
     });
 
     // Get the campaign set
@@ -3051,7 +3139,7 @@ function viewCampaignSet(id) {
                 $("#modalLabel").text(`View Campaign Set - ${cs.name}`);
                 
                 // Set data attributes for the modal
-                $("#modal").data("viewMode", true);
+                $("#modal").data("viewMode", true).addClass("cs-viewing");
                 $("#modal").data("campaignSetId", cs.id);
 
                 // Clear and reset the modal content
@@ -3079,48 +3167,30 @@ function viewCampaignSet(id) {
                         const sentIcon = campaign.type === "email" ? "fa-envelope-o" : "fa-mobile";
                         
                         // Create different stats based on campaign type
-                        let statsHtml = '';
-                        if (campaign.type === "email") {
-                            statsHtml = `
-                                <span class="campaign-stat campaign-stat-sent" title="Sent"><i class="fa fa-envelope-o"></i> <span class="stat-sent">0</span></span>
-                                <span class="campaign-stat campaign-stat-opened" title="Opened"><i class="fa fa-envelope-open-o"></i> <span class="stat-opened">0</span></span>
-                                <span class="campaign-stat campaign-stat-clicked" title="Clicked"><i class="fa fa-mouse-pointer"></i> <span class="stat-clicked">0</span></span>
-                                <span class="campaign-stat campaign-stat-replied" title="Replied"><i class="fa fa-reply"></i> <span class="stat-replied">0</span></span>
-                                <span class="campaign-stat campaign-stat-submitted" title="Submitted Data"><i class="fa fa-exclamation-circle"></i> <span class="stat-submitted">0</span></span>
-                                <span class="campaign-stat campaign-stat-reported" title="Reported"><i class="fa fa-bullhorn"></i> <span class="stat-reported">0</span></span>
-                            `;
-                        } else {
-                            statsHtml = `
-                                <span class="campaign-stat campaign-stat-sent" title="Sent"><i class="fa fa-mobile"></i> <span class="stat-sent">0</span></span>
-                                <span class="campaign-stat campaign-stat-clicked" title="Clicked"><i class="fa fa-mouse-pointer"></i> <span class="stat-clicked">0</span></span>
-                                <span class="campaign-stat campaign-stat-submitted" title="Submitted Data"><i class="fa fa-exclamation-circle"></i> <span class="stat-submitted">0</span></span>
-                            `;
-                        }
-                        
+                        // Status and type identify a campaign, the numbers live in the detail panel
+                        const typeLabel = campaign.type === "sms" ? "SMS" : "Email";
+                        const status = campaign.status || "";
+
                         const campaignListItem = `
-                            <a href="#" class="list-group-item campaign-list-item" data-index="${i}" data-type="${campaign.type}" data-campaign-id="${campaign.id}">
-                                <span class="campaign-list-item-icon"><i class="fa ${icon}"></i></span>
+                            <a href="#" class="list-group-item campaign-list-item" data-index="${i}" data-type="${campaign.type}" data-campaign-id="${campaign.id}" title="${escapeHtml(campaign.name)}">
+                                <span class="campaign-list-item-icon"><i class="fa ${icon}" aria-hidden="true"></i></span>
                                 <span class="campaign-list-item-text">${escapeHtml(campaign.name)}</span>
-                                <div class="campaign-stats-container">
-                                    ${statsHtml}
+                                <div class="cs-li-meta">
+                                    ${status ? `<span class="label cs-li-status ${CS_STATUS_LABELS[status] || "label-default"}">${escapeHtml(status)}</span>` : ""}
+                                    <span class="cs-li-type">${typeLabel}</span>
                                 </div>
                             </a>
                         `;
                         $("#campaignList").append(campaignListItem);
-                        
-                            // Add results button if the campaign has an ID
-                            if (campaign.id) {
-                                const $listItem = $(`.campaign-list-item[data-index="${i}"]`);
-                                $listItem.append(`
-                                    <div style="position:absolute; right:10px; top:10px;">
-                                        <button class="btn btn-sm btn-primary campaign-results-btn" 
-                                                onclick="window.location='/campaigns/${campaign.id}'">
-                                            <i class="fa fa-bar-chart"></i>
-                                        </button>
-                                    </div>
-                                `);
-                        }
                     });
+
+                    $(".cs-li-search, #csListEmpty").remove();
+                    if (cs.campaigns.length >= CS_SEARCH_THRESHOLD) {
+                        $("#campaignList").before(
+                            '<div class="cs-li-search"><i class="fa fa-search" aria-hidden="true"></i>' +
+                            '<input type="search" class="form-control input-sm" id="csCampaignSearch" placeholder="Search campaigns" aria-label="Search campaigns"></div>');
+                        $("#campaignList").after('<p class="cs-li-empty" id="csListEmpty" style="display:none;">No campaigns match.</p>');
+                    }
 
                     // One request supplies the Overview tab AND every list badge,
                     // replacing the previous per-campaign summary calls.
@@ -3133,33 +3203,9 @@ function viewCampaignSet(id) {
                                 campaignSetSummaryById[campaign.id] = campaign;
                             });
 
-                            // Fill the left-hand list badges from the same payload.
-                            $(".campaign-list-item").each(function () {
-                                var $item = $(this);
-                                var campaign = campaignSetSummaryById[$item.data("campaign-id")];
-                                if (!campaign) {
-                                    return;
-                                }
-                                var stats = campaign.stats || {};
-                                $item.find(".campaign-stats-container").show();
-                                $item.find(".stat-sent").text(stats.sent || 0);
-                                $item.find(".stat-clicked").text(stats.clicked || 0);
-                                $item.find(".stat-submitted").text(stats.submitted_data || 0);
-                                if (campaign.type === "email") {
-                                    $item.find(".stat-opened").text(stats.opened || 0);
-                                    $item.find(".stat-reported").text(stats.email_reported || 0);
-                                    $item.find(".stat-replied").text(stats.replied || 0);
-                                }
-                            });
-
-                            // The detail panel was already rendered (synchronously, from
-                            // cs.campaigns.forEach's .first().trigger("click")) before this
-                            // summary response arrived, so its targets count was written as
-                            // "Unavailable". Now that campaignSetSummaryById is populated,
-                            // re-render whichever campaign is currently selected so its
-                            // targets count fills in. showCampaignSummary() removes any
-                            // existing ".campaign-summary" before appending a new one, so this
-                            // re-invoke replaces the stale panel rather than stacking a second.
+                            // The detail panel rendered before this response, with its numbers
+                            // still empty. Re-render the selected campaign so they fill in.
+                            // showCampaignSummary() replaces the old panel rather than stacking.
                             const $activeItem = $(".campaign-list-item.active");
                             if ($activeItem.length) {
                                 const activeIndex = $activeItem.data("index");
@@ -3360,103 +3406,668 @@ function deleteCampaignFromSet(campaignId, campaignSetId, isLastCampaign) {
 }
 
 // Shows a summary of the campaign instead of the form
-function showCampaignSummary(campaign, index, useSharedSettings, campaignSetId, isLastCampaign) {
-    // Hide the form
-    $(`#campaign_form_${index}`).hide();
-    
-    // Remove all existing summaries to prevent stacking
-    $(".campaign-summary").remove();
-    
-    // Create the summary container
-    const $summaryContainer = $(`<div id="campaign_summary_${index}" class="campaign-summary" style="text-align: left; margin: 15px;"></div>`);
-    
-    // Build the summary content directly in the container (no extra frame)
-    let summaryContent = "";
-    
-    // Only show fields that were actually set
-    summaryContent += "<h4>" + escapeHtml(campaign.name) + "</h4>";
-    summaryContent += "<strong>Type:</strong> " + (campaign.type === "email" ? "Email" : "SMS") + "<br>";
-    
-    // Email-specific or SMS-specific fields
-    if (campaign.type === "email" || !campaign.type) {
-        if (campaign.template && campaign.template.name) {
-            summaryContent += "<strong>Email Template:</strong> " + escapeHtml(campaign.template.name) + "<br>";
-        }
-        if (campaign.smtp && campaign.smtp.name) {
-            summaryContent += "<strong>Sending Profile:</strong> " + escapeHtml(campaign.smtp.name) + "<br>";
-        }
-    } else if (campaign.type === "sms") {
-        if (campaign.sms_template && campaign.sms_template.name) {
-            summaryContent += "<strong>SMS Template:</strong> " + escapeHtml(campaign.sms_template.name) + "<br>";
-        }
-        if (campaign.sms && campaign.sms.name) {
-            summaryContent += "<strong>SMS Sending Profile:</strong> " + escapeHtml(campaign.sms.name) + "<br>";
-        }
-    }
-    
-    // Targets come from the set summary already in memory. getCampaignStats
-    // computes this as len(results), which is exactly what the old
-    // api.campaignId.results(...).length call was measuring — so this is the
-    // same number without the request.
-    if (campaign.id) {
-        var cached = campaignSetSummaryById[campaign.id];
-        var totalTargets = cached && cached.stats ? cached.stats.total : null;
-        summaryContent += "<strong>Targets:</strong> " +
-            (totalTargets === null ? "Unavailable" : totalTargets + " total targets") + "<br>";
-    }
-    
-    // Landing page
-    if (campaign.page && campaign.page.name) {
-        summaryContent += "<strong>Landing Page:</strong> " + escapeHtml(campaign.page.name) + "<br>";
-    }
-    
-    // URL
-    if (campaign.url && campaign.url.trim() !== "") {
-        summaryContent += "<strong>URL:</strong> " + escapeHtml(campaign.url) + "<br>";
-    }
-    
-    // URL parameter
-    if (campaign.urlparam && campaign.urlparam.trim() !== "") {
-        summaryContent += "<strong>URL Parameter:</strong> " + escapeHtml(campaign.urlparam) + "<br>";
-    }
-    
-    // QR code size
-    if (campaign.qrsize && campaign.qrsize !== 0) {
-        summaryContent += "<strong>QR Code Size:</strong> " + campaign.qrsize + "<br>";
-    }
-    
-    // HTTP Basic Auth
-    if (campaign.basicauth) {
-        summaryContent += "<strong>HTTP Basic Auth:</strong> Enabled<br>";
-    }
-    
-    // Launch date
-    if (campaign.launch_date && campaign.launch_date !== "0001-01-01T00:00:00Z") {
-        summaryContent += "<strong>Launch Date:</strong> " + moment(campaign.launch_date).format('MMMM Do YYYY, h:mm:ss a') + "<br>";
-    }
-    
-    // Send by date
-    if (campaign.send_by_date && campaign.send_by_date !== "0001-01-01T00:00:00Z") {
-        summaryContent += "<strong>Send By Date:</strong> " + moment(campaign.send_by_date).format('MMMM Do YYYY, h:mm:ss a') + "<br>";
-    }
-    
-    // Status if available
-    if (campaign.status) {
-        summaryContent += "<strong>Status:</strong> " + campaign.status + "<br>";
-    }
-    
-    // Results link if the campaign has an ID
-    if (campaign.id) {
-        summaryContent += `<div style="margin-top: 15px;"><a href="/campaigns/${campaign.id}" class="btn btn-primary"><i class="fa fa-bar-chart"></i> View Full Results</a></div>`;
-    }
-    
-    // Add the summary to the container
-    $summaryContainer.html(summaryContent);
-    
-    // Add the summary to the campaign detail area
-    $("#campaignDetail").append($summaryContainer);
-    $summaryContainer.show();
+// Same colours as the Campaigns list
+var CS_STATUS_LABELS = {
+    "In progress": "label-primary",
+    "Queued": "label-info",
+    "Completed": "label-success",
+    "Emails Sent": "label-success",
+    "Error": "label-danger"
+};
+
+// The detail tab and preview kind are kept while switching campaigns
+var csDetailTab = "overview";
+var csPreviewMode = "message";
+// Bumped on every render so a slow response for a previous campaign is dropped
+var csPreviewSeq = 0;
+var csPreviewCache = {};
+// Whether the full-screen preview is open, so renders also fill it
+var csFullOpen = false;
+// Shows the search box once the list is long enough to need one
+var CS_SEARCH_THRESHOLD = 6;
+
+function csValidDate(d) {
+    return d && d !== "0001-01-01T00:00:00Z";
 }
+
+// The api.* helpers are synchronous, which would freeze the modal while a preview loads
+function csFetch(kind, id) {
+    var key = kind + ":" + id;
+    if (csPreviewCache[key]) return csPreviewCache[key];
+    var paths = { template: "/templates/", sms: "/sms_templates/", page: "/pages/" };
+    var request = $.ajax({
+        url: "/api" + paths[kind] + id,
+        method: "GET",
+        dataType: "json",
+        beforeSend: function (xhr) {
+            xhr.setRequestHeader("Authorization", "Bearer " + user.api_key);
+        }
+    });
+    // Cache before attaching fail, or a request that fails at once stays cached
+    csPreviewCache[key] = request;
+    request.fail(function () {
+        if (csPreviewCache[key] === request) delete csPreviewCache[key];
+    });
+    return request;
+}
+
+function csSampleData() {
+    var now = new Date();
+    return {
+        FirstName: "John",
+        LastName: "Doe",
+        Email: "john.doe@example.com",
+        Phone: "+15551234567",
+        Position: "IT Manager",
+        Custom: "Custom value",
+        From: "Phishing Team",
+        URL: "https://example.com?rid=abc12345",
+        TrackingURL: "https://example.com/track?rid=abc12345",
+        Tracker: "",
+        QR: "[QR code]",
+        RId: "abc12345",
+        BaseURL: "https://example.com",
+        CurrentDateTime: now.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }),
+        CurrentDate: now.toLocaleString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+        CurrentTime: now.toLocaleString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
+        CurrentTime24: now.toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false })
+    };
+}
+
+function csFillSample(s, url) {
+    var data = csSampleData();
+    if (url) data.URL = url;
+    $.each(data, function (key, value) {
+        s = s.replace(new RegExp("{{\\s*\\." + key + "\\s*}}", "g"), value);
+    });
+    return s;
+}
+
+// The phished link as a target would see it, with a sample rid
+function csSampleUrl(campaign) {
+    var base = $.trim(campaign.url || "");
+    if (!base) return "";
+    var param = $.trim(campaign.urlparam || "") || "rid";
+    return base + (base.indexOf("?") === -1 ? "?" : "&") + encodeURIComponent(param) + "=abc12345";
+}
+
+// Previews are pictures of the message: nothing inside can be clicked, focused or typed in
+function csWriteFrame(frame, html) {
+    frame.setAttribute("inert", "");
+    frame.setAttribute("tabindex", "-1");
+    frame.setAttribute("aria-hidden", "true");
+    frame.setAttribute("scrolling", "no");
+    var doc = frame.contentDocument || frame.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    // The frame is sized to its content, so its own scrollbars would only get in the way
+    var style = doc.createElement("style");
+    style.textContent = "html,body{overflow:hidden !important}";
+    (doc.head || doc.documentElement).appendChild(style);
+    // Images and fonts change the size once they load
+    if (frame.contentWindow) frame.contentWindow.addEventListener("load", csFitFrames);
+    csFitFrames();
+    setTimeout(csFitFrames, 300);
+}
+
+function csContentHeight(frame) {
+    try {
+        var doc = frame.contentDocument;
+        return Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0);
+    } catch (e) {
+        return 0;
+    }
+}
+
+function csSafeHtml(html, url) {
+    return disableLinksOnly(sanitizeHTML(csFillSample(html || "", url)));
+}
+
+function csPreviewMessage(text) {
+    return '<div class="cs-pv-message"><i class="fa fa-info-circle" aria-hidden="true"></i> ' + text + '</div>';
+}
+
+function csLoading(what) {
+    return '<div class="cs-pv-loading"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Loading ' + what + '</div>';
+}
+
+// Landing pages are laid out at desktop width. Emails use their own width, at least the panel's.
+var CS_PAGE_WIDTH = 1280;
+
+// Each frame is drawn at full size and scaled down to the panel width, so it never
+// scrolls itself. Only the box around it scrolls, like a long screenshot.
+function csFitFrames() {
+    $(".cs-pv-canvas").each(function () {
+        var canvas = this;
+        var frame = $(canvas).find("iframe")[0];
+        var width = canvas.clientWidth;
+        if (!frame || !width || !frame.contentDocument) return;
+        var desktop = $(canvas).data("layout") === "desktop";
+
+        frame.style.transform = "none";
+        frame.style.width = (desktop ? CS_PAGE_WIDTH : width) + "px";
+        var layoutWidth = desktop ? CS_PAGE_WIDTH :
+            Math.max(width, frame.contentDocument.documentElement.scrollWidth);
+        frame.style.width = layoutWidth + "px";
+        // Shrink first, or scrollHeight reports the old frame height instead of the content
+        frame.style.height = "1px";
+        var scale = Math.min(1, width / layoutWidth);
+        var fill = desktop ? $(canvas).parent().height() / scale : 0;
+        var h = Math.max(csContentHeight(frame), fill);
+
+        frame.style.height = h + "px";
+        frame.style.transform = scale < 1 ? "scale(" + scale + ")" : "none";
+        canvas.style.height = Math.ceil(h * scale) + "px";
+    });
+}
+
+// Metadata as labelled columns side by side, each pair is [label, html value]
+function csMetaCols(cols) {
+    return '<div class="cs-pv-meta-cols">' + cols.map(function (c) {
+        return '<div class="cs-pv-meta-col"><span class="cs-pv-k">' + c[0] + '</span><span class="cs-pv-v">' + c[1] + '</span></div>';
+    }).join("") + '</div>';
+}
+
+// Each renderer fills two places: the metadata card and the rendered preview below it
+function csRenderEmail(v, campaign, seq) {
+    if (!campaign.template || !campaign.template.id) {
+        v.meta.empty();
+        v.body.html(csPreviewMessage("The email template for this campaign was deleted."));
+        return;
+    }
+    v.meta.empty();
+    v.body.html(csLoading("email"));
+    csFetch("template", campaign.template.id).done(function (t) {
+        if (seq !== csPreviewSeq) return;
+        var url = csSampleUrl(campaign);
+        var from = $.trim(t.envelope_sender || "") ||
+            (campaign.smtp && campaign.smtp.name ? "From address of " + campaign.smtp.name : "From address of the sending profile");
+        // Just a count here, the Attachment stop on the path lists the files
+        var files = t.attachments || [];
+        var fileCount = '<span title="' + escapeHtml(files.map(function (a) { return a.name; }).join(", ")) + '">' +
+            '<i class="fa fa-paperclip" aria-hidden="true"></i> ' + files.length + (files.length === 1 ? " file" : " files") + '</span>';
+        v.meta.html(
+            '<div class="cs-pv-subject">' + escapeHtml(csFillSample(t.subject || "") || "(No subject)") + '</div>' +
+            csMetaCols([
+                ["From", escapeHtml(csFillSample(from))],
+                ["To", "John Doe &lt;john.doe@example.com&gt;"]
+            ].concat(files.length ? [["Attachments", fileCount]] : [])));
+        v.body.html('<div class="cs-pv-scroll cs-pv-paper"><div class="cs-pv-canvas"><iframe sandbox="allow-same-origin" title="Email preview"></iframe></div></div>');
+        var html = $.trim(t.html || "") ? t.html :
+            "<pre style='white-space:pre-wrap;font-family:sans-serif'>" + escapeHtml(t.text || "") + "</pre>";
+        csWriteFrame(v.body.find("iframe")[0], csSafeHtml(html, url));
+    }).fail(function () {
+        if (seq !== csPreviewSeq) return;
+        v.body.html(csPreviewMessage("Could not load the email template."));
+    });
+}
+
+function csRenderSms(v, campaign, seq) {
+    v.meta.empty();
+    if (!campaign.sms_template || !campaign.sms_template.id) {
+        v.body.html(csPreviewMessage("The SMS template for this campaign was deleted."));
+        return;
+    }
+    v.body.html(csLoading("message"));
+    csFetch("sms", campaign.sms_template.id).done(function (t) {
+        if (seq !== csPreviewSeq) return;
+        var from = $.trim(t.from || "");
+        v.meta.html(csMetaCols([
+            ["From", escapeHtml(from || "Sender set by the SMS profile")],
+            ["To", "+15551234567"]
+        ]));
+        var text = escapeHtml(csFillSample(t.text || "", csSampleUrl(campaign)))
+            .replace(/(https?:\/\/[^\s<]+)/g, '<span class="st-link">$1</span>');
+        var clock = new Date().toLocaleString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+        // Just the conversation, the phone around it only cost space here
+        v.body.html(
+            '<div class="cs-pv-sms"><div class="st-thread">' +
+            '<div class="st-day"><span>Today ' + clock + '</span></div>' +
+            '<div class="st-bubble">' + text + '</div>' +
+            '<div class="st-read">Read ' + clock + '</div>' +
+            '</div></div>');
+    }).fail(function () {
+        if (seq !== csPreviewSeq) return;
+        v.body.html(csPreviewMessage("Could not load the SMS template."));
+    });
+}
+
+function csRenderPage(v, campaign, seq) {
+    var url = csSampleUrl(campaign);
+    v.meta.html(csMetaCols([
+        ["Page", escapeHtml(campaign.page && campaign.page.name ? campaign.page.name : "None")],
+        ["Link", escapeHtml(url || "No URL set")]
+    ]));
+    if (!campaign.page || !campaign.page.id) {
+        v.body.html(csPreviewMessage(campaign.page && campaign.page.name === "[Deleted]" ?
+            "The landing page for this campaign was deleted." : "This campaign has no landing page."));
+        return;
+    }
+    v.body.html(csLoading("landing page"));
+    csFetch("page", campaign.page.id).done(function (p) {
+        if (seq !== csPreviewSeq) return;
+        v.body.html(
+            '<div class="cs-pv-browser">' +
+            '<div class="cs-pv-browser-bar"><span class="cs-pv-dots"><i></i><i></i><i></i></span>' +
+            '<span class="cs-pv-address"><i class="fa fa-lock" aria-hidden="true"></i> ' + escapeHtml(url || "No URL set") + '</span></div>' +
+            '<div class="cs-pv-scroll cs-pv-browser-body"><div class="cs-pv-canvas" data-layout="desktop"><iframe sandbox="allow-same-origin" title="Landing page preview"></iframe></div></div>' +
+            '</div>');
+        csWriteFrame(v.body.find("iframe")[0], csSafeHtml(p.html, url));
+    }).fail(function () {
+        if (seq !== csPreviewSeq) return;
+        v.body.html(csPreviewMessage("Could not load the landing page."));
+    });
+}
+
+// The full-screen overlay mirrors the inline preview, so both render through here
+function csPreviewViews() {
+    var views = [{ meta: $("#csPreviewMeta"), body: $("#csPreviewBody") }];
+    if (csFullOpen) views.push({ meta: $("#csPreviewFullMeta"), body: $("#csPreviewFullBody") });
+    return views;
+}
+
+function csRenderPreview(campaign) {
+    // SMS has no attachment stop to show
+    if (csPreviewMode === "attachment" && campaign.type === "sms") csPreviewMode = "message";
+    var seq = ++csPreviewSeq;
+    $(".cs-flow-step[data-mode]").each(function () {
+        var on = $(this).data("mode") === csPreviewMode;
+        $(this).toggleClass("active", on).attr("aria-pressed", on ? "true" : "false");
+    });
+    csPreviewViews().forEach(function (v) {
+        if (csPreviewMode === "page") {
+            csRenderPage(v, campaign, seq);
+        } else if (csPreviewMode === "attachment") {
+            csRenderAttachments(v, campaign, seq);
+        } else if (campaign.type === "sms") {
+            csRenderSms(v, campaign, seq);
+        } else {
+            csRenderEmail(v, campaign, seq);
+        }
+    });
+}
+
+function csShowDetailTab(tab) {
+    if (tab !== "overview" && tab !== "preview") tab = "overview";
+    csDetailTab = tab;
+    $(".cs-dt-tab").each(function () {
+        var on = $(this).data("tab") === tab;
+        $(this).toggleClass("active", on).attr("aria-selected", on ? "true" : "false").attr("tabindex", on ? "0" : "-1");
+    });
+    $(".cs-dt-pane").each(function () {
+        $(this).toggleClass("active", $(this).data("tab") === tab);
+    });
+    // Frames measure 0 while their pane is hidden
+    if (tab === "preview") csFitFrames();
+}
+
+function csHost(url) {
+    var m = /^[a-z]+:\/\/([^/?#]+)/i.exec(url || "");
+    return m ? m[1] : "";
+}
+
+function csCount(n, word) {
+    return '<b>' + n + '</b> ' + word;
+}
+
+var CS_MACRO_FILE = /\.(docm|dotm|xlsm|xltm|xlam|xlsb|pptm|potm|ppsm|ppam)$/i;
+
+function csFlowStep(attrs, icon, key, value, sub, extraClass) {
+    var tag = attrs ? "button" : "div";
+    return '<' + tag + (attrs ? ' type="button" ' + attrs : '') + ' class="cs-flow-step' + (extraClass || '') + '">' +
+        '<span class="cs-flow-ico"><i class="fa ' + icon + '" aria-hidden="true"></i></span>' +
+        '<span class="cs-flow-txt"><span class="cs-flow-k">' + key + '</span>' +
+        '<span class="cs-flow-v">' + value + '</span>' +
+        '<span class="cs-flow-s">' + sub + '</span></span>' +
+        '</' + tag + '>';
+}
+
+function csFlowLink(icon, label, extraClass) {
+    return '<div class="cs-flow-link' + (extraClass || '') + '"><span class="cs-flow-line"></span>' +
+        '<span class="cs-flow-label"><i class="fa ' + icon + '" aria-hidden="true"></i> ' + label + '</span></div>';
+}
+
+// The journey a target takes. The link route is always there. When the email carries
+// attachments a second lane branches off: opening the file and, for macro-enabled
+// documents, running the macro. Stops with something to preview are buttons, and the
+// connectors carry how many targets made it that far.
+function csFlowHtml(campaign, stats) {
+    var isSms = campaign.type === "sms";
+    var hasPage = campaign.page && campaign.page.id;
+    var n = function (k) { return stats ? (stats[k] || 0) : "–"; };
+    var templateName = isSms
+        ? (campaign.sms_template && campaign.sms_template.name) || ""
+        : (campaign.template && campaign.template.name) || "";
+    var messageStats = isSms
+        ? csCount(n("sent"), "sent")
+        : csCount(n("sent"), "sent") + ', ' + csCount(n("opened"), "opened");
+
+    var linkLane = '<div class="cs-flow-lane">' +
+        csFlowLink(isSms ? "fa-hand-pointer-o" : "fa-mouse-pointer", csCount(n("clicked"), isSms ? "tapped" : "clicked")) +
+        csFlowStep('data-mode="page"' + (hasPage ? '' : ' disabled'), "fa-globe", "Landing page",
+            // The capture icon follows the page name
+            escapeHtml(hasPage ? campaign.page.name : "None") + '<span class="cs-flow-fill-cap"></span>',
+            '<span class="cs-flow-fill-page">' + escapeHtml(csHost(campaign.url)) + '</span>') +
+        csFlowLink("fa-exclamation-circle", csCount(n("submitted_data"), "submitted"), " cs-flow-fill-submit") +
+        csFlowStep(null, "fa-share", "Redirect", '<span class="cs-flow-fill-redirect-host"></span>', "After submitting", " cs-flow-end cs-flow-fill-redirect") +
+        '</div>';
+
+    // Filled in once the template is loaded. The lane, the macro stop and the redirect stay
+    // hidden until classes on .cs-flow reveal them.
+    var attachmentLane = isSms ? '' : '<div class="cs-flow-lane cs-flow-lane-att">' +
+        csFlowLink("fa-paperclip", csCount(n("opened_attachment"), "opened")) +
+        csFlowStep('data-mode="attachment"', "fa-paperclip", "Attachment",
+            '<span class="cs-flow-fill-att-name"></span>', '<span class="cs-flow-fill-att-sub"></span>') +
+        csFlowLink("fa-file-code-o", csCount(n("macro_executed"), "ran macro"), " cs-flow-fill-macro") +
+        csFlowStep(null, "fa-file-code-o", "Macro", "Executed", "After enabling content", " cs-flow-end cs-flow-fill-macro") +
+        '</div>';
+
+    return '<div class="cs-flow" role="group" aria-label="Target journey">' +
+        csFlowStep('data-mode="message"', isSms ? "fa-mobile" : "fa-envelope", isSms ? "SMS" : "Email",
+            '<span class="cs-flow-fill-message">' + escapeHtml(templateName) + '</span>', messageStats, " cs-flow-start") +
+        '<div class="cs-flow-lanes">' + linkLane + attachmentLane + '</div>' +
+        '</div>';
+}
+
+// Fills in what only the fetched template and page know: the subject, the attachments and
+// what the page captures
+function csFillFlow(campaign) {
+    var isSms = campaign.type === "sms";
+    var msg = isSms ? campaign.sms_template : campaign.template;
+    if (msg && msg.id) {
+        csFetch(isSms ? "sms" : "template", msg.id).done(function (t) {
+            var line = isSms ? $.trim(t.from || "") : $.trim(csFillSample(t.subject || ""));
+            if (line) $(".cs-flow-fill-message").text(line).attr("title", line);
+            var files = isSms ? [] : (t.attachments || []);
+            if (!files.length) return;
+            $(".cs-flow-fill-att-name").text(files[0].name).attr("title", files.map(function (f) { return f.name; }).join(", "));
+            $(".cs-flow-fill-att-sub").text(files.length > 1 ? "+" + (files.length - 1) + " more" :
+                (t.track_attachments ? "Opens tracked" : "Opens not tracked"));
+            var macro = files.some(function (f) { return CS_MACRO_FILE.test(f.name || ""); });
+            $(".cs-flow").addClass("cs-flow-split").toggleClass("cs-flow-has-macro", macro);
+        });
+    }
+    if (campaign.page && campaign.page.id) {
+        csFetch("page", campaign.page.id).done(function (p) {
+            // An icon beside the label, the sentence never fitted next to the host
+            if (p.capture_credentials) {
+                var what = p.capture_passwords ? "Captures credentials" : "Captures form data";
+                $(".cs-flow-fill-cap").html('<i class="fa ' + (p.capture_passwords ? "fa-key" : "fa-pencil-square-o") +
+                    ' cs-flow-cap" title="' + what + '" aria-label="' + what + '" role="img"></i>');
+            }
+            var redirect = $.trim(p.redirect_url || "");
+            if (p.capture_credentials && redirect) {
+                $(".cs-flow-fill-redirect-host").text(csHost(redirect) || redirect).attr("title", redirect);
+                $(".cs-flow").addClass("cs-flow-has-redirect");
+            }
+        });
+    }
+}
+
+function csFileSize(base64) {
+    var bytes = Math.floor((base64 || "").length * 3 / 4);
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+function csFileIcon(name) {
+    var ext = (/\.([a-z0-9]+)$/i.exec(name || "") || [])[1] || "";
+    ext = ext.toLowerCase();
+    if (/^(doc|docx|docm|dotm|rtf)$/.test(ext)) return "fa-file-word-o";
+    if (/^(xls|xlsx|xlsm|xltm|xlam|xlsb|csv)$/.test(ext)) return "fa-file-excel-o";
+    if (/^(ppt|pptx|pptm|potm|ppsm|ppam)$/.test(ext)) return "fa-file-powerpoint-o";
+    if (ext === "pdf") return "fa-file-pdf-o";
+    if (/^(zip|rar|7z|gz|iso|img)$/.test(ext)) return "fa-file-archive-o";
+    if (/^(png|jpe?g|gif|svg|webp)$/.test(ext)) return "fa-file-image-o";
+    if (/^(html?|js|hta|lnk|exe|bat|ps1|vbs)$/.test(ext)) return "fa-file-code-o";
+    return "fa-file-o";
+}
+
+// Office files cannot be rendered here, so the attachment stop lists what the email carries
+function csRenderAttachments(v, campaign, seq) {
+    v.meta.empty();
+    if (!campaign.template || !campaign.template.id) {
+        v.body.html(csPreviewMessage("The email template for this campaign was deleted."));
+        return;
+    }
+    v.body.html(csLoading("attachments"));
+    csFetch("template", campaign.template.id).done(function (t) {
+        if (seq !== csPreviewSeq) return;
+        var files = t.attachments || [];
+        // The attachment stop is hidden for this email, so show the message instead
+        if (!files.length) {
+            csPreviewMode = "message";
+            csRenderPreview(campaign);
+            return;
+        }
+        v.meta.html(csMetaCols([
+            ["Files", String(files.length)],
+            ["Open tracking", t.track_attachments ? "On" : "Off"]
+        ]));
+        v.body.html('<div class="cs-pv-files">' + files.map(function (f) {
+            var macro = CS_MACRO_FILE.test(f.name || "");
+            return '<div class="cs-pv-file">' +
+                '<i class="fa ' + csFileIcon(f.name) + '" aria-hidden="true"></i>' +
+                '<span class="cs-pv-file-name">' + escapeHtml(f.name || "Unnamed file") + '</span>' +
+                (macro ? '<span class="cs-pv-file-tag">Macro-enabled</span>' : '') +
+                '<span class="cs-pv-file-size">' + csFileSize(f.content) + '</span>' +
+                '</div>';
+        }).join("") + '</div>');
+    }).fail(function () {
+        if (seq !== csPreviewSeq) return;
+        v.body.html(csPreviewMessage("Could not load the attachments."));
+    });
+}
+
+function showCampaignSummary(campaign, index, useSharedSettings, campaignSetId, isLastCampaign) {
+    $(`#campaign_form_${index}`).hide();
+    $(".campaign-summary").remove();
+
+    var isSms = campaign.type === "sms";
+    var cached = campaign.id ? campaignSetSummaryById[campaign.id] : null;
+    var stats = cached && cached.stats ? cached.stats : null;
+    var status = campaign.status || (cached && cached.status) || "";
+    var url = $.trim(campaign.url || "");
+
+    // Every result as a card, same cards as the set Overview. Email gets the full eight.
+    var st = stats || {};
+    var tile = function (key, icon, cls, label, value) {
+        return csKpiCard(stats, "target", key, icon, cls, label, value);
+    };
+    var tiles = tile("sent", "fa-paper-plane", "cs-stat-sent", "Sent", st.sent) +
+        (isSms ? "" : tile("opened", "fa-envelope-open-o", "cs-stat-opened", "Opened", st.opened)) +
+        tile("clicked", "fa-mouse-pointer", "cs-stat-clicked", "Clicked", st.clicked) +
+        tile("submitted", "fa-exclamation-circle", "cs-stat-submitted", "Submitted", st.submitted_data) +
+        (isSms ? "" :
+            tile("attachment", "fa-paperclip", "cs-stat-attachment-opened", "Attachment opened", st.opened_attachment) +
+            tile("macro", "fa-file-code-o", "cs-stat-macro-executed", "Macro executed", st.macro_executed) +
+            tile("replied", "fa-reply", "cs-stat-replied", "Replied", st.replied) +
+            tile("reported", "fa-bullhorn", "cs-stat-reported", "Reported", st.email_reported));
+
+    // Configuration: what the campaign sends on the left, where it links and when it ran on the right
+    function cfgRow(icon, label, value) {
+        return value ? '<div class="cs-cfg-row"><i class="fa ' + icon + '" aria-hidden="true"></i>' +
+            '<span class="cs-cfg-k">' + label + '</span><span class="cs-cfg-v">' + value + '</span></div>' : "";
+    }
+    var fmt = function (d) { return moment(d).format("MMM Do YYYY, h:mm a"); };
+    var setupRows =
+        cfgRow(isSms ? "fa-mobile" : "fa-envelope-o", "Type", isSms ? "SMS" : "Email") +
+        cfgRow("fa-file-text-o", isSms ? "SMS template" : "Email template", isSms
+            ? (campaign.sms_template && campaign.sms_template.name ? escapeHtml(campaign.sms_template.name) : "")
+            : (campaign.template && campaign.template.name ? escapeHtml(campaign.template.name) : "")) +
+        cfgRow("fa-server", isSms ? "SMS profile" : "Sending profile", isSms
+            ? (campaign.sms && campaign.sms.name ? escapeHtml(campaign.sms.name) : "")
+            : (campaign.smtp && campaign.smtp.name ? escapeHtml(campaign.smtp.name) : "")) +
+        cfgRow("fa-window-maximize", "Landing page", campaign.page && campaign.page.name ? escapeHtml(campaign.page.name) : "") +
+        cfgRow("fa-qrcode", "QR code size", campaign.qrsize ? escapeHtml(String(campaign.qrsize)) + " px" : "") +
+        cfgRow("fa-lock", "HTTP basic auth", campaign.basicauth ? "Enabled" : "");
+    var urlCard =
+        '<section class="cs-cfg-card"><h6><i class="fa fa-link" aria-hidden="true"></i> Landing page URL</h6>' +
+        (url
+            // A read-only field, so the full URL can be scrolled through by dragging or with the arrow keys
+            ? '<div class="cs-cfg-url"><input type="text" readonly value="' + escapeHtml(url) + '" title="' + escapeHtml(url) + '" aria-label="Landing page URL" spellcheck="false">' +
+              '<button type="button" class="btn btn-link cs-ds-copy" data-url="' + escapeHtml(url) + '" title="Copy URL" aria-label="Copy URL">' +
+              '<i class="fa fa-clone" aria-hidden="true"></i></button></div>' +
+              (campaign.urlparam ? '<p class="cs-cfg-sub cs-cfg-param"><i class="fa fa-tag" aria-hidden="true"></i> URL parameter <code>' + escapeHtml(campaign.urlparam) + '</code></p>' : '')
+            : '<p class="cs-cfg-sub">No URL set</p>') +
+        '</section>';
+    var whenCard =
+        '<section class="cs-cfg-card"><h6><i class="fa fa-calendar" aria-hidden="true"></i> Launched</h6>' +
+        '<p class="cs-cfg-when">' + (csValidDate(campaign.launch_date) ? fmt(campaign.launch_date) : "Not launched yet") + '</p>' +
+        (csValidDate(campaign.send_by_date) ? '<p class="cs-cfg-sub">Send by <b>' + fmt(campaign.send_by_date) + '</b></p>' : '') +
+        '</section>';
+    var details = '<div class="cs-cfg">' +
+        '<section class="cs-cfg-card"><h6><i class="fa fa-cog" aria-hidden="true"></i> Setup</h6><div class="cs-cfg-rows">' + setupRows + '</div></section>' +
+        '<div class="cs-cfg-side">' + urlCard + whenCard + '</div>' +
+        '</div>';
+
+    var overview =
+        '<div class="cs-ds-status-head"><h5 class="cs-ds-h">Status</h5>' +
+        (stats ? '<span class="cs-target-pill"><i class="fa fa-users" aria-hidden="true"></i> ' + csPlural(stats.total, "target", "targets") + '</span>' : '') +
+        // Errors are about delivery, not engagement, so they sit with the target count
+        (st.error ? '<span class="cs-target-pill cs-error-pill" title="Sending failed for ' + csPlural(st.error, "target", "targets") + '">' +
+            '<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> ' + csPlural(st.error, "error", "errors") + '</span>' : '') +
+        '</div>' +
+        '<div class="cs-kpis cs-kpis-campaign' + (isSms ? " cs-kpis-3" : "") + '">' + tiles + '</div>' +
+        '<h5 class="cs-ds-h">Configuration</h5>' + details;
+
+    var preview =
+        '<div class="cs-pv-head">' + csFlowHtml(campaign, stats) +
+        '<button type="button" class="btn btn-default btn-sm cs-pv-expand" title="Full screen" aria-label="Full screen preview"><i class="fa fa-expand" aria-hidden="true"></i></button>' +
+        '</div>' +
+        '<div class="cs-pv-meta" id="csPreviewMeta"></div>' +
+        '<div class="cs-pv-body" id="csPreviewBody"></div>';
+
+    var tabs = [["overview", "Overview"], ["preview", "Preview"]];
+    var html =
+        '<div class="campaign-summary cs-ds" id="campaign_summary_' + index + '">' +
+        '<div class="cs-ds-head">' +
+        '<div class="cs-ds-title"><h4>' + escapeHtml(campaign.name) + '</h4>' +
+        (status ? '<span class="label cs-ov-status ' + (CS_STATUS_LABELS[status] || "label-default") + '">' + escapeHtml(status) + '</span>' : '') +
+        '</div>' +
+        (campaign.id ? '<a href="/campaigns/' + campaign.id + '" class="btn btn-primary btn-sm"><i class="fa fa-bar-chart" aria-hidden="true"></i> View results</a>' : '') +
+        '</div>' +
+        '<div class="cs-dt-tabs" role="tablist" aria-label="Campaign details">' +
+        tabs.map(function (t) {
+            return '<button type="button" class="cs-dt-tab" role="tab" id="csTab-' + t[0] + '" aria-controls="csPane-' + t[0] + '" data-tab="' + t[0] + '">' + t[1] + '</button>';
+        }).join("") +
+        '</div>' +
+        '<div class="cs-dt-pane" role="tabpanel" id="csPane-overview" aria-labelledby="csTab-overview" data-tab="overview">' + overview + '</div>' +
+        '<div class="cs-dt-pane cs-dt-pane-preview" role="tabpanel" id="csPane-preview" aria-labelledby="csTab-preview" data-tab="preview">' + preview + '</div>' +
+        '</div>';
+
+    $("#campaignDetail").append(html);
+    $(".campaign-detail-placeholder").hide();
+    $("#campaignDetail").data("csCampaign", campaign);
+    if (csFullOpen) {
+        $("#csPvFullFlow").html(csFlowHtml(campaign, stats));
+        $("#csPvFullTitle").text(campaign.name);
+    }
+    csShowDetailTab(csDetailTab);
+    csFillFlow(campaign);
+    csRenderPreview(campaign);
+}
+
+function csOpenFullPreview() {
+    var campaign = $("#campaignDetail").data("csCampaign");
+    if (!campaign) return;
+    if (!$("#csPvFull").length) {
+        // Inside #modal (not its transformed dialog), so it covers the window and Bootstrap
+        // keeps focus where it is
+        $("#modal").append(
+            '<div class="cs-pv-full" id="csPvFull" role="dialog" aria-modal="true" aria-labelledby="csPvFullTitle" style="display:none;">' +
+            '<div class="cs-pv-full-head">' +
+            '<h4 id="csPvFullTitle"></h4>' +
+            '<button type="button" class="btn btn-default btn-sm cs-pv-full-close"><i class="fa fa-compress" aria-hidden="true"></i> Exit full screen</button>' +
+            '</div>' +
+            '<div class="cs-pv-full-flow" id="csPvFullFlow"></div>' +
+            '<div class="cs-pv-meta" id="csPreviewFullMeta"></div>' +
+            '<div class="cs-pv-body" id="csPreviewFullBody"></div>' +
+            '</div>');
+        // Bound on the overlay itself so it runs before Bootstrap's handler on #modal,
+        // letting Esc leave full screen without closing the modal
+        $("#csPvFull").on("keydown", function (e) {
+            if (e.key === "Escape") {
+                e.stopPropagation();
+                csCloseFullPreview();
+            }
+        });
+    }
+    var cached = campaign.id ? campaignSetSummaryById[campaign.id] : null;
+    $("#csPvFullFlow").html(csFlowHtml(campaign, cached && cached.stats ? cached.stats : null));
+    $("#csPvFullTitle").text(campaign.name);
+    csFullOpen = true;
+    $("#csPvFull").show();
+    $("#csPvFull .cs-pv-full-close").focus();
+    csFillFlow(campaign);
+    csRenderPreview(campaign);
+}
+
+function csCloseFullPreview() {
+    csFullOpen = false;
+    $("#csPvFull").hide();
+    $("#csPreviewFullMeta, #csPreviewFullBody, #csPvFullFlow").empty();
+    $("#campaignDetail .cs-pv-expand").focus();
+    csFitFrames();
+}
+
+// Narrows the campaign list by name
+function csFilterCampaigns(query) {
+    var q = $.trim(query).toLowerCase();
+    var shown = 0;
+    $("#campaignList .campaign-list-item").each(function () {
+        var match = q === "" || $(this).find(".campaign-list-item-text").text().toLowerCase().indexOf(q) !== -1;
+        $(this).toggle(match);
+        if (match) shown++;
+    });
+    $("#csListEmpty").toggle(shown === 0);
+}
+
+$(document).on("click", ".cs-dt-tab", function () {
+    csShowDetailTab($(this).data("tab"));
+});
+
+// Arrow keys move between the detail tabs, as in any tab list
+$(document).on("keydown", ".cs-dt-tab", function (e) {
+    var $tabs = $(".cs-dt-tab");
+    var i = $tabs.index(this);
+    var next = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : null;
+    if (next === null) return;
+    e.preventDefault();
+    var $t = $tabs.eq((next + $tabs.length) % $tabs.length);
+    csShowDetailTab($t.data("tab"));
+    $t.focus();
+});
+
+$(document).on("click", ".cs-flow-step[data-mode]", function () {
+    var campaign = $("#campaignDetail").data("csCampaign");
+    csPreviewMode = $(this).data("mode");
+    if (campaign) csRenderPreview(campaign);
+});
+
+$(document).on("click", ".cs-pv-expand", csOpenFullPreview);
+$(document).on("click", ".cs-pv-full-close", csCloseFullPreview);
+
+$(document).on("input", "#csCampaignSearch", function () {
+    csFilterCampaigns($(this).val());
+});
+
+$(document).on("click", ".cs-ds-copy", function () {
+    var $btn = $(this);
+    var done = function () {
+        $btn.find(".fa").removeClass("fa-clone").addClass("fa-check");
+        setTimeout(function () { $btn.find(".fa").removeClass("fa-check").addClass("fa-clone"); }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText($btn.data("url")).then(done);
+    }
+});
+
+// Frames measure 0 while their tab is hidden, so size them again once it shows
+$(document).on("shown.bs.tab", 'a[href="#campaignsTab"]', csFitFrames);
+$(window).on("resize", csFitFrames);
 
 // Copies an existing campaign set
 function copyCampaignSet(id) {
@@ -3841,3 +4452,345 @@ function deleteDraftCampaignSet(id) {
         }
     });
 }
+
+// ── Creating or editing a set: three steps over the existing panes ──
+// Setup is the General Settings pane, Campaigns the Campaigns pane, and Review a read-only
+// summary. The panes, saving, drafts and launch are unchanged. Viewing a launched set keeps
+// its own tabs, so all of this is skipped while the modal has .cs-viewing.
+
+var CS_STEP_PANES = { 1: "#generalSettings", 2: "#campaignsTab", 3: "#reviewTab" };
+var csCurrentStep = 1;
+
+function csWizardActive() {
+    return !$("#modal").hasClass("cs-viewing");
+}
+
+function csGoStep(n) {
+    $('#csMainTabs a[href="' + CS_STEP_PANES[n] + '"]').tab("show");
+}
+
+// Follows whichever pane is showing, so the existing code that switches panes keeps the
+// steps in sync
+function csSyncStep(pane) {
+    var n = pane === "#campaignsTab" ? 2 : pane === "#reviewTab" ? 3 : 1;
+    csCurrentStep = n;
+    $("#modal").removeClass("cs-step-1 cs-step-2 cs-step-3").addClass("cs-step-" + n);
+    $("#csSteps .cs-step").each(function () {
+        var s = $(this).data("step");
+        $(this).toggleClass("active", s === n).toggleClass("done", s < n);
+        // The line after a passed step fills in
+        $(this).closest("li").toggleClass("cs-step-passed", s < n);
+        if (s === n) $(this).attr("aria-current", "step"); else $(this).removeAttr("aria-current");
+    });
+    if (!csWizardActive()) return;
+    if (n === 1) csAutoOpenAdvanced();
+    if (n === 2) csUpdateReadiness();
+    if (n === 3) csRenderReview();
+}
+
+// Reads the shared switches the same way launchCampaignSet does
+function csSharedFlags() {
+    var all = $("#useSharedSettings").is(":checked");
+    return {
+        page: all || $("#useSharedPage").is(":checked"),
+        url: all || $("#useSharedURL").is(":checked"),
+        urlparam: all || $("#useSharedURLParam").is(":checked"),
+        qrsize: all || $("#useSharedQRSize").is(":checked"),
+        basicauth: all || $("#useSharedHTTPAuth").is(":checked"),
+        schedule: all || $("#useSharedSchedule").is(":checked")
+    };
+}
+
+// The Advanced settings, only those in use: a value when shared, or set per campaign
+function csAdvancedReviewRows(shared) {
+    var rows = "";
+    var add = function (label, isShared, value) {
+        if (!isShared) rows += csReviewRow(label, "Set per campaign", false);
+        else if (value) rows += csReviewRow(label, value, false);
+    };
+    add("URL parameter", shared.urlparam, escapeHtml(csFieldValue($("#urlparam"))));
+    add("QR code size", shared.qrsize, csFieldValue($("#qrsize")) ? escapeHtml(csFieldValue($("#qrsize"))) + " px" : "");
+    add("HTTP auth", shared.basicauth, $("#basicauth").is(":checked") ? "Enabled" : "");
+    return rows;
+}
+
+function csFieldValue($el) {
+    var v = $el.val();
+    if ($.isArray(v)) return v.length ? v : "";
+    return v ? $.trim(String(v)) : "";
+}
+
+// What launch would reject for the set itself
+function csSetIssues(shared) {
+    var issues = [];
+    if (!csFieldValue($("#name"))) issues.push({ text: "Name", field: "#name" });
+    if (shared.page && !csFieldValue($("#page"))) issues.push({ text: "Landing page", field: "#page" });
+    if (shared.url && !csURLReady(csFieldValue($("#url")))) issues.push({ text: "URL", field: "#url" });
+    return issues;
+}
+
+// What launch would reject for one campaign
+function csCampaignIssues($form, shared) {
+    var issues = [];
+    var sms = $form.find(".campaign-type").val() === "sms";
+    var need = function (sel, text) {
+        if (!csFieldValue($form.find(sel))) issues.push({ text: text, field: sel });
+    };
+    need(".campaign-name", "Name");
+    need(sms ? ".sms-template" : ".email-template", sms ? "SMS template" : "Email template");
+    need(sms ? ".sms-profile" : ".email-profile", sms ? "SMS profile" : "Sending profile");
+    need(".groups", "Groups");
+    if (!shared.page) need(".campaign-page", "Landing page");
+    if (!shared.url && !csURLReady(csFieldValue($form.find(".campaign-url")))) issues.push({ text: "URL", field: ".campaign-url" });
+    return issues;
+}
+
+// A URL still holding a template placeholder such as [DOMAIN] would be refused at launch
+function csURLReady(url) {
+    return !!url && !hasURLPlaceholder(url);
+}
+
+function csFormIndex(form) {
+    return String(form.id || "").replace("campaign_form_", "");
+}
+
+// Ready or Incomplete on each campaign in the Campaigns step
+function csUpdateReadiness() {
+    if (!csWizardActive()) return;
+    csUpdateGroupCounts();
+    csUpdateOverrideHeads();
+    var shared = csSharedFlags();
+    $("#campaignDetail .campaign-detail-form").each(function () {
+        var issues = csCampaignIssues($(this), shared);
+        var $item = $('#campaignList .campaign-list-item[data-index="' + csFormIndex(this) + '"]');
+        var $pill = $item.find(".cs-ready");
+        if (!$pill.length) $pill = $('<span class="label cs-ready"></span>').appendTo($item);
+        $pill.toggleClass("cs-ready-ok", !issues.length).toggleClass("cs-ready-todo", issues.length > 0)
+            .text(issues.length ? "Incomplete" : "Ready")
+            .attr("title", issues.length ? "Missing: " + issues.map(function (i) { return i.text; }).join(", ") : "Ready to launch");
+    });
+}
+
+var csReadinessTimer = null;
+function csQueueReadiness() {
+    clearTimeout(csReadinessTimer);
+    csReadinessTimer = setTimeout(csUpdateReadiness, 150);
+}
+
+// "Email template" reads "email template" mid-sentence, but SMS and URL keep their capitals
+function csLowerFirst(text) {
+    return /^[A-Z]{2}/.test(text) ? text : text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+function csSelectedText($select) {
+    return $select.find("option:selected").map(function () { return $(this).text(); }).get().join(", ");
+}
+
+function csReviewRow(label, value, missing) {
+    return '<div class="cs-rv-row' + (missing ? ' cs-rv-missing' : '') + '"><span class="cs-rv-k">' + label + '</span>' +
+        '<span class="cs-rv-v">' + (missing ? '<i class="fa fa-exclamation-circle" aria-hidden="true"></i> Missing' : value) + '</span></div>';
+}
+
+function csFixButton(attrs) {
+    return '<button type="button" class="btn btn-default btn-xs cs-rv-fix" ' + attrs + '>Fix</button>';
+}
+
+// The summary on the Review step, with every problem launch would stop on at once
+function csRenderReview() {
+    var shared = csSharedFlags();
+    var setIssues = csSetIssues(shared);
+    var missing = function (list, field) { return list.some(function (i) { return i.field === field; }); };
+    var total = setIssues.length;
+
+    var schedule = shared.schedule
+        ? escapeHtml($("#launch_date").val() || "Now") +
+          ($("#send_by_date").val() ? ", sending until " + escapeHtml($("#send_by_date").val()) : "") +
+          ", " + escapeHtml(csSelectedText($("#send_order")))
+        : "Set per campaign";
+
+    var setCard =
+        '<section class="cs-rv-card"><header><h6><i class="fa fa-cog" aria-hidden="true"></i> Setup</h6>' +
+        (setIssues.length ? csFixButton('data-step="1" data-field="' + setIssues[0].field + '"') : '') + '</header>' +
+        csReviewRow("Name", escapeHtml($("#name").val()), missing(setIssues, "#name")) +
+        csReviewRow("Landing page", shared.page ? escapeHtml(csSelectedText($("#page"))) : "Set per campaign", missing(setIssues, "#page")) +
+        csReviewRow("URL", shared.url ? escapeHtml($("#url").val()) : "Set per campaign", missing(setIssues, "#url")) +
+        csAdvancedReviewRows(shared) +
+        csReviewRow("Schedule", schedule, false) +
+        '</section>';
+
+    // One card per campaign: what is missing and a Fix link, or Ready with what it sends
+    var incomplete = 0;
+    var forms = $("#campaignDetail .campaign-detail-form");
+    var campaignCards = forms.map(function () {
+        var $f = $(this);
+        var idx = csFormIndex(this);
+        var sms = $f.find(".campaign-type").val() === "sms";
+        var issues = csCampaignIssues($f, shared);
+        total += issues.length;
+        if (issues.length) incomplete++;
+        var name = $.trim($f.find(".campaign-name").val()) ||
+            $('#campaignList .campaign-list-item[data-index="' + idx + '"] .campaign-list-item-text').text() ||
+            "Campaign " + (parseInt(idx, 10) + 1);
+        var status, detail;
+        if (issues.length) {
+            var missing = issues.map(function (i) { return csLowerFirst(i.text); }).join(", ");
+            status = '<div class="cs-rv-cstatus cs-rv-warn"><i class="fa fa-exclamation-circle" aria-hidden="true"></i> ' +
+                issues.length + (issues.length === 1 ? " missing field" : " missing fields") + '</div>';
+            detail = escapeHtml(missing.charAt(0).toUpperCase() + missing.slice(1));
+        } else {
+            status = '<div class="cs-rv-cstatus cs-rv-ok"><i class="fa fa-check-circle" aria-hidden="true"></i> Ready</div>';
+            detail = [csSelectedText($f.find(sms ? ".sms-template" : ".email-template")),
+                csSelectedText($f.find(sms ? ".sms-profile" : ".email-profile")),
+                csSelectedText($f.find(".groups"))].filter(function (p) { return p; }).map(escapeHtml).join('<span class="cs-rv-sep"></span>');
+        }
+        return '<div class="cs-rv-ccard' + (issues.length ? ' cs-rv-todo' : '') + '">' +
+            '<div class="cs-rv-chead"><i class="fa ' + (sms ? "fa-mobile" : "fa-envelope-o") + ' cs-rv-type" aria-hidden="true"></i>' +
+            '<span class="cs-rv-name" title="' + escapeHtml(name) + '">' + escapeHtml(name) + '</span></div>' +
+            status + '<div class="cs-rv-detail">' + detail + '</div>' +
+            (issues.length ? '<button type="button" class="btn btn-default btn-xs cs-rv-fix cs-rv-cfix" data-step="2" data-index="' + idx +
+                '" data-field="' + issues[0].field + '">Fix</button>' : '') +
+            '</div>';
+    }).get().join("");
+
+    var campaignsSummary = !forms.length ? "" : incomplete
+        ? '<span class="cs-rv-csum cs-rv-warn"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> ' + incomplete + " incomplete</span>"
+        : '<span class="cs-rv-csum cs-rv-ok"><i class="fa fa-check-circle" aria-hidden="true"></i> All ready</span>';
+    var banner = total
+        ? '<div class="cs-rv-banner cs-rv-banner-todo"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> ' +
+          total + (total === 1 ? " thing" : " things") + ' to fix before launching</div>'
+        : '<div class="cs-rv-banner cs-rv-banner-ok"><i class="fa fa-check-circle" aria-hidden="true"></i> Everything is set. Ready to launch.</div>';
+
+    $("#csReview").html(banner + setCard +
+        '<section class="cs-rv-campaigns"><header><h6>Campaigns (' + forms.length + ')</h6>' + campaignsSummary + '</header>' +
+        (campaignCards ? '<div class="cs-rv-grid">' + campaignCards + '</div>' : '<p class="cs-rv-empty">No campaigns yet.</p>') + '</section>');
+}
+
+// Fix: jump to the step and the field that needs attention
+$(document).on("click", ".cs-rv-fix", function () {
+    var step = $(this).data("step"), field = $(this).data("field"), idx = $(this).data("index");
+    csGoStep(step);
+    setTimeout(function () {
+        var $target;
+        if (step === 2) {
+            $('#campaignList .campaign-list-item[data-index="' + idx + '"]').trigger("click");
+            $target = $("#campaign_form_" + idx).find(field);
+        } else {
+            $target = $(field);
+        }
+        if (!$target || !$target.length) return;
+        // A folded section would hide the field, so unfold it first
+        csSetSectionOpen($target.closest(".cs-cf-section"), true);
+        if ($target.hasClass("select2-hidden-accessible")) $target.select2("open"); else $target.focus();
+    }, 200);
+});
+
+$(document).on("shown.bs.tab", '#csMainTabs a[data-toggle="tab"]', function (e) {
+    csSyncStep($(e.target).attr("href"));
+});
+$(document).on("click", "#csSteps .cs-step", function () {
+    csGoStep($(this).data("step"));
+});
+// Launch shows on every step. Pressed before the Review step, it goes to Review first, so the
+// set is always checked before it launches. Capture phase, so it runs before the launch
+// handlers the existing code binds on the button itself.
+document.addEventListener("click", function (e) {
+    var btn = e.target.closest && e.target.closest("#launchButton");
+    if (!btn || !csWizardActive() || csCurrentStep === 3) return;
+    e.preventDefault();
+    e.stopPropagation();
+    csGoStep(3);
+}, true);
+// Opening for new, edit or copy starts wherever the existing code put the panes
+$(document).on("shown.bs.modal", "#modal", function () {
+    var active = $("#modal .tab-content > .tab-pane.active").attr("id");
+    csSyncStep(active ? "#" + active : "#generalSettings");
+    if (csWizardActive()) csAutoOpenAdvanced(true);
+});
+$(document).on("hidden.bs.modal", "#modal", function () {
+    $("#reviewTab").removeClass("active");
+    $("#csMainTabs .cs-review-nav").removeClass("active");
+});
+$(document).on("input change", "#campaignDetail :input, #generalSettings :input", csQueueReadiness);
+$(document).on("click", ".shared-toggle-btn, #setAllShared, #setAllPerCampaign, .cs-type-btn", csQueueReadiness);
+
+// ── Form contents: the Advanced fold, suggested names, target counts, copied setup ──
+
+function csSetAdvancedOpen(open) {
+    $("#csAdvanced").toggle(open);
+    $("#csAdvancedToggle").attr("aria-expanded", open ? "true" : "false")
+        .find(".fa").toggleClass("fa-caret-right", !open).toggleClass("fa-caret-down", open);
+}
+
+// Opens the fold when one of its settings is in use, so nothing set is ever hidden. Only a
+// fresh open closes it, so a fold opened by hand stays open between steps.
+function csAutoOpenAdvanced(fresh) {
+    var inUse = csFieldValue($("#urlparam")) || csFieldValue($("#qrsize")) || $("#basicauth").is(":checked") ||
+        !$("#useSharedURLParam").is(":checked") || !$("#useSharedQRSize").is(":checked") || !$("#useSharedHTTPAuth").is(":checked");
+    if (inUse) csSetAdvancedOpen(true);
+    else if (fresh) csSetAdvancedOpen(false);
+}
+
+// "52 targets in 2 groups" under each campaign's Groups
+function csUpdateGroupCounts() {
+    $("#campaignDetail .campaign-detail-form").each(function () {
+        var $selected = $(this).find(".groups option:selected");
+        var known = $selected.filter(function () { return $(this).attr("data-targets") !== undefined; });
+        var total = 0;
+        known.each(function () { total += parseInt($(this).attr("data-targets"), 10) || 0; });
+        var text = "";
+        if ($selected.length && known.length === $selected.length) {
+            text = total + (total === 1 ? " target" : " targets") +
+                ($selected.length > 1 ? " in " + $selected.length + " groups" : "");
+        }
+        $("#groups_count_" + csFormIndex(this)).text(text);
+    });
+}
+
+// The URL & Tracking and Schedule sections only show when something in them is set per campaign
+function csUpdateOverrideHeads() {
+    $("#campaignDetail .campaign-settings-override").each(function () {
+        var anyField = $(this).find(".form-group").filter(function () { return this.style.display !== "none"; }).length > 0;
+        $(this).toggle(anyField);
+    });
+}
+
+// A new campaign starts with the selected one's type, sending profile and groups
+function csCopyCampaignSetup($from, index) {
+    var $to = $("#campaign_form_" + index);
+    if (!$to.length) return;
+    if ($from.find(".campaign-type").val() === "sms") $to.find('.cs-type-btn[data-type="sms"]').trigger("click");
+    [".email-profile", ".sms-profile", ".groups"].forEach(function (sel) {
+        var v = $from.find(sel).val();
+        if (v && v.length) $to.find(sel).val(v).trigger("change");
+    });
+    $to.find(".campaign-randomize-send-order").prop("checked", $from.find(".campaign-randomize-send-order").is(":checked"));
+    csQueueReadiness();
+}
+
+// Picking a template fills an empty name with the template's name. A name typed by hand
+// is never replaced.
+$(document).on("change", ".campaign-detail-form .email-template, .campaign-detail-form .sms-template", function () {
+    var $form = $(this).closest(".campaign-detail-form");
+    var $name = $form.find(".campaign-name");
+    var current = $.trim($name.val());
+    if (current && current !== $name.data("csSuggested")) return;
+    var picked = $.trim($(this).find("option:selected").text());
+    if (!picked) return;
+    $name.val(picked).data("csSuggested", picked).trigger("input");
+});
+
+$(document).on("click", "#csAdvancedToggle", function () {
+    csSetAdvancedOpen(!$("#csAdvanced").is(":visible"));
+});
+
+// Campaign form sections fold from their header
+function csSetSectionOpen($section, open) {
+    if (!$section.length) return;
+    $section.toggleClass("cs-cf-collapsed", !open);
+    $section.find("> .cs-cf-head").attr("aria-expanded", open ? "true" : "false");
+}
+
+$(document).on("click", ".cs-cf-head", function () {
+    var $section = $(this).closest(".cs-cf-section");
+    csSetSectionOpen($section, $section.hasClass("cs-cf-collapsed"));
+});

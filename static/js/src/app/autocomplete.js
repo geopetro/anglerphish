@@ -1,52 +1,104 @@
 var TEMPLATE_TAGS = [{
     id: 1,
-    name: 'RId',
-    description: 'The unique ID for the recipient.'
-},
-{
-    id: 2,
+    group: 'Recipient',
     name: 'FirstName',
     description: 'The recipient\'s first name.'
 },
 {
-    id: 3,
+    id: 2,
+    group: 'Recipient',
     name: 'LastName',
     description: 'The recipient\'s last name.'
 },
 {
+    id: 3,
+    group: 'Recipient',
+    name: 'Email',
+    description: 'The recipient\'s email address.'
+},
+{
     id: 4,
+    group: 'Recipient',
+    name: 'Phone',
+    description: 'The recipient\'s phone number.'
+},
+{
+    id: 5,
+    group: 'Recipient',
     name: 'Position',
     description: 'The recipient\'s position.'
 },
 {
-    id: 5,
-    name: 'From',
-    description: 'The address emails are sent from.'
-},
-{
     id: 6,
-    name: 'TrackingURL',
-    description: 'The URL to track emails being opened.'
+    group: 'Recipient',
+    name: 'Custom',
+    description: 'The recipient\'s custom field.'
 },
 {
     id: 7,
-    name: 'Tracker',
-    description: 'An HTML tag that adds a hidden tracking image (recommended instead of TrackingURL).'
+    group: 'Recipient',
+    name: 'RId',
+    description: 'The unique ID for the recipient.'
 },
 {
     id: 8,
+    group: 'Links and tracking',
     name: 'URL',
-    description: 'The URL to your Gophish listener.'
+    description: 'The phishing URL for this recipient.'
 },
 {
     id: 9,
+    group: 'Links and tracking',
     name: 'BaseURL',
     description: 'The base URL with the path and rid parameter stripped. Useful for making links to static files.'
 },
 {
     id: 10,
-    name: 'Custom',
-    description: 'Custom variable'
+    group: 'Links and tracking',
+    name: 'Tracker',
+    description: 'An HTML tag that adds a hidden tracking image (recommended instead of TrackingURL).'
+},
+{
+    id: 11,
+    group: 'Links and tracking',
+    name: 'TrackingURL',
+    description: 'The URL to track emails being opened.'
+},
+{
+    id: 12,
+    group: 'Links and tracking',
+    name: 'QR',
+    description: 'An image tag with a QR code that points to the phishing URL.'
+},
+{
+    id: 13,
+    group: 'Sender',
+    name: 'From',
+    description: 'The address emails are sent from.'
+},
+{
+    id: 14,
+    group: 'Date and time',
+    name: 'CurrentDateTime',
+    description: 'Current date and time, e.g. Nov 23, 2025 7:39 PM.'
+},
+{
+    id: 15,
+    group: 'Date and time',
+    name: 'CurrentDate',
+    description: 'Current date, e.g. November 23, 2025.'
+},
+{
+    id: 16,
+    group: 'Date and time',
+    name: 'CurrentTime',
+    description: 'Current time (12-hour), e.g. 7:39 PM.'
+},
+{
+    id: 17,
+    group: 'Date and time',
+    name: 'CurrentTime24',
+    description: 'Current time (24-hour), e.g. 19:39.'
 }
 ];
 
@@ -59,7 +111,7 @@ return CKEDITOR.plugins.textMatch.match(range, matchCallback);
 }
 
 var matchCallback = function (text, offset) {
-var pattern = /\{{2}\.?([A-z]|\})*$/,
+var pattern = /\{{2}\.?([A-Za-z0-9]|\})*$/,
     match = text.slice(0, offset)
     .match(pattern);
 

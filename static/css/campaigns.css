@@ -20,7 +20,6 @@
 .cmp-form {
     flex: 1;
     min-width: 0;
-    counter-reset: cmp-step;
 }
 
 .cmp-side {
@@ -109,23 +108,11 @@
     margin-bottom: 0;
 }
 
-/* Sections are numbered by CSS so hidden ones (generic campaigns) are skipped */
-.cmp-step {
-    counter-increment: cmp-step;
-    display: inline-block;
-    width: 20px;
-    height: 20px;
-    line-height: 18px;
-    border: 1px solid currentColor;
-    border-radius: 50%;
+.cmp-ico {
+    width: 16px;
+    margin-right: 2px;
     text-align: center;
-    font-size: 11px;
-    font-weight: 700;
-    margin-right: 4px;
-}
-
-.cmp-step::before {
-    content: counter(cmp-step);
+    opacity: .75;
 }
 
 .cmp-advanced-toggle {
@@ -165,21 +152,53 @@
     padding: 10px 12px;
 }
 
-.cmp-checklist {
-    margin: 0;
+.cmp-ready-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
 }
 
-.cmp-checklist li {
-    padding: 3px 0;
-    cursor: pointer;
-}
-
-.cmp-checklist li .fa {
-    width: 16px;
-}
-
-.cmp-checklist li.cmp-todo {
+.cmp-ready-head span {
+    font-size: 12px;
     opacity: .75;
+}
+
+.cmp-ready-track {
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(127, 127, 127, .25);
+    overflow: hidden;
+}
+
+.cmp-ready-fill {
+    width: 0;
+    height: 100%;
+    border-radius: 3px;
+    background: #2ecc71;
+    transition: width .25s ease;
+}
+
+.cmp-ready-next {
+    display: block;
+    margin-top: 8px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font-size: 12px;
+    text-align: left;
+    opacity: .75;
+}
+
+.cmp-ready-next:not(:disabled):hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+.cmp-ready-next:disabled {
+    cursor: default;
+    opacity: 1;
 }
 
 .cmp-summary {

@@ -197,3 +197,15 @@
 .campaign-picker-filter label {
     font-weight: normal;
 }
+
+/* Space under the tabs so the active tab doesn't run into the panel's border */
+#generate-tab,
+#history-tab {
+    padding-top: 16px;
+}
+
+#history-tab .panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}

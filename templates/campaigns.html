@@ -121,10 +121,10 @@
                             </div>
                         </div>
 
-                        <!-- 1. Message (hidden for generic campaigns) -->
+                        <!-- Message (hidden for generic campaigns) -->
                         <div class="panel panel-default cmp-section" id="message_card">
                             <div class="panel-heading">
-                                <span class="cmp-step"></span> <strong>Message</strong>
+                                <i class="fa fa-envelope-o cmp-ico" aria-hidden="true"></i> <strong>Message</strong>
                                 <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="What targets receive and who it comes from"></i>
                             </div>
                             <div class="panel-body">
@@ -137,7 +137,7 @@
                                                 <select class="form-control" placeholder="Template Name" id="template">
                                                     <option></option>
                                                 </select>
-                                                <button type="button" class="btn btn-default" id="previewTemplateBtn" data-toggle="tooltip" title="Preview Template" disabled>
+                                                <button type="button" class="btn btn-primary" id="previewTemplateBtn" data-toggle="tooltip" title="Preview Template" disabled>
                                                     <i class="fa fa-eye"></i>
                                                 </button>
                                             </div>
@@ -149,7 +149,7 @@
                                                 <select class="form-control" placeholder="SMS Template Name" id="sms_template">
                                                     <option></option>
                                                 </select>
-                                                <button type="button" class="btn btn-default" id="previewSMSTemplateBtn" data-toggle="tooltip" title="Preview Template" disabled>
+                                                <button type="button" class="btn btn-primary" id="previewSMSTemplateBtn" data-toggle="tooltip" title="Preview Template" disabled>
                                                     <i class="fa fa-eye"></i>
                                                 </button>
                                             </div>
@@ -175,10 +175,10 @@
                             </div>
                         </div>
 
-                        <!-- 2. Targets (hidden for generic campaigns) -->
+                        <!-- Targets (hidden for generic campaigns) -->
                         <div class="panel panel-default cmp-section" id="groups_div">
                             <div class="panel-heading">
-                                <span class="cmp-step"></span> <strong>Targets</strong>
+                                <i class="fa fa-users cmp-ico" aria-hidden="true"></i> <strong>Targets</strong>
                                 <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Who receives it"></i>
                             </div>
                             <div class="panel-body">
@@ -191,10 +191,10 @@
                             </div>
                         </div>
 
-                        <!-- 3. Landing Page & Link -->
+                        <!-- Landing Page & Link -->
                         <div class="panel panel-default cmp-section" id="landing_card">
                             <div class="panel-heading">
-                                <span class="cmp-step"></span> <strong>Landing Page &amp; Link</strong>
+                                <i class="fa fa-link cmp-ico" aria-hidden="true"></i> <strong>Landing Page &amp; Link</strong>
                                 <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Where clicks go"></i>
                             </div>
                             <div class="panel-body">
@@ -206,7 +206,7 @@
                                                 <select class="form-control" placeholder="Landing Page" id="page">
                                                     <option></option>
                                                 </select>
-                                                <button type="button" class="btn btn-default" id="previewPageBtn" data-toggle="tooltip" title="Preview Landing Page" disabled>
+                                                <button type="button" class="btn btn-primary" id="previewPageBtn" data-toggle="tooltip" title="Preview Landing Page" disabled>
                                                     <i class="fa fa-eye"></i>
                                                 </button>
                                             </div>
@@ -218,7 +218,7 @@
                                             <div class="input-group">
                                                 <input type="text" class="form-control" placeholder="http://192.168.1.1" id="url" />
                                                 <span class="input-group-btn">
-                                                    <button type="button" class="btn btn-default" id="urlTemplateBtn" data-toggle="tooltip" title="Use URL Template">
+                                                    <button type="button" class="btn btn-primary" id="urlTemplateBtn" data-toggle="tooltip" title="Use URL Template">
                                                         <i class="fa fa-list"></i>
                                                     </button>
                                                 </span>
@@ -255,10 +255,10 @@
                             </div>
                         </div>
 
-                        <!-- 4. Schedule -->
+                        <!-- Schedule -->
                         <div class="panel panel-default cmp-section" id="schedule_card">
                             <div class="panel-heading">
-                                <span class="cmp-step"></span> <strong>Schedule</strong>
+                                <i class="fa fa-calendar cmp-ico" aria-hidden="true"></i> <strong>Schedule</strong>
                                 <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="When it starts"></i>
                             </div>
                             <div class="panel-body">
@@ -284,8 +284,11 @@
                     <div class="cmp-side">
                         <div class="cmp-side-inner">
                             <div class="panel panel-default">
-                                <div class="panel-heading"><strong>Ready to launch?</strong></div>
-                                <ul class="list-unstyled panel-body cmp-checklist" id="cmp_checklist"></ul>
+                                <div class="panel-body cmp-ready">
+                                    <div class="cmp-ready-head"><strong>Launch readiness</strong><span id="cmp_ready_count"></span></div>
+                                    <div class="cmp-ready-track"><div class="cmp-ready-fill" id="cmp_ready_fill"></div></div>
+                                    <button type="button" class="cmp-ready-next" id="cmp_ready_next"></button>
+                                </div>
                             </div>
                             <div class="panel panel-default">
                                 <div class="panel-heading"><strong>Summary</strong></div>
@@ -407,8 +410,11 @@
         </div>
     </div>
 </div>
-{{end}} {{define "scripts"}}
+{{end}} {{define "styles"}}
 <link href="/css/campaigns.css" rel="stylesheet" type="text/css">
+{{end}}
+
+{{define "scripts"}}
 <script src="/js/dist/app/template_preview.min.js"></script>
 <script src="/js/dist/app/campaigns.min.js"></script>
 {{end}}

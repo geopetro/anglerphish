@@ -2,6 +2,7 @@ package mailer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/textproto"
@@ -170,6 +171,19 @@ func sendMail(ctx context.Context, dialer Dialer, ms []Mail) {
 
 		err = gomail.SendCustomFrom(sender, smtp_from, message)
 		if err != nil {
+			var tmp interface{ Retryable() bool }
+			if errors.As(err, &tmp) {
+				log.WithFields(logrus.Fields{
+					"retryable": tmp.Retryable(),
+					"email":     message.GetHeader("To")[0],
+				}).Warn(err)
+				if tmp.Retryable() {
+					m.Backoff(err)
+				} else {
+					m.Error(err)
+				}
+				continue
+			}
 			if te, ok := err.(*textproto.Error); ok {
 				switch {
 				// If it's a temporary error, we should backoff and try again later.

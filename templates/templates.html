@@ -96,80 +96,128 @@
 {{template "template_preview"}}
 
 <!-- Email Template Modal -->
-<div class="modal fade" id="emailModal" tabindex="-1" role="dialog" aria-labelledby="emailModalLabel">
+<div class="modal fade" id="emailModal" tabindex="-1" role="dialog" aria-labelledby="templateModalLabel">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <!-- New Template Modal -->
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="dismiss()"><span
                         aria-hidden="true">&times;</span></button>
-                <h4 class="modal-title" id="templateModalLabel">New Template</h4>
+                <h4 class="modal-title" id="templateModalLabel">New Email Template</h4>
             </div>
             <div class="modal-body">
                 <div class="row" id="modal.flashes"></div>
-                <label class="control-label" for="name">Name:</label>
-                <div class="form-group">
-                    <input type="text" class="form-control" ng-model="template.name" placeholder="Template name" id="name"
-                        autofocus />
+                <div class="form-group et-name">
+                    <label class="control-label" for="name">Name <span class="et-req" aria-hidden="true">*</span></label>
+                    <input type="text" class="form-control" placeholder="Template name" id="name" autofocus />
                 </div>
-                <div class="form-group">
-                    <button class="btn btn-danger" data-toggle="modal" data-backdrop="static" data-target="#importEmailModal"><i
-                            class="fa fa-envelope"></i>
-                        Import Email</button>
-                </div>
-                <label class="control-label" for="envelope-sender">Envelope Sender: <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="This sender is shown to the user by most email clients. Defaults to the SMTP From as defined in the Sending Profile."></i></label>
-                <div class="form-group">
-                    <input type="text" class="form-control" placeholder="First Last &lt;test@example.com&gt;" id="envelope-sender" />
-                </div>
-                <label class="control-label" for="subject">Subject:</label>
-                <div class="form-group">
-                    <input type="text" class="form-control" placeholder="Email Subject" id="subject" />
-                </div>
-                <!-- Nav tabs -->
-                <ul class="nav nav-tabs" role="tablist">
-                    <li class="active" role="text"><a href="#text" aria-controls="text" role="tab" data-toggle="tab">Text</a></li>
-                    <li role="html"><a href="#html" aria-controls="html" role="tab" data-toggle="tab">HTML</a></li>
-                </ul>
-                <!-- Tab panes -->
-                <div class="tab-content">
-                    <div role="tabpanel" class="tab-pane active" id="text">
-                        <textarea rows="10" id="text_editor" class="gophish-editor form-control" placeholder="Plaintext" style="resize: vertical;"></textarea>
+                <div class="et-layout">
+                    <section class="et-card et-content" aria-labelledby="etContentTitle">
+                        <header class="et-card-head">
+                            <h5 id="etContentTitle" class="sr-only">Content</h5>
+                            <ul class="nav nav-tabs et-tabs" role="tablist">
+                                <li class="active" role="presentation"><a href="#et-tab-html" aria-controls="et-tab-html" role="tab" data-toggle="tab"><i class="fa fa-code" aria-hidden="true"></i> HTML</a></li>
+                                <li role="presentation"><a href="#et-tab-text" aria-controls="et-tab-text" role="tab" data-toggle="tab"><i class="fa fa-align-left" aria-hidden="true"></i> Text</a></li>
+                                <li role="presentation"><a href="#et-tab-preview" aria-controls="et-tab-preview" role="tab" data-toggle="tab"><i class="fa fa-eye" aria-hidden="true"></i> Preview</a></li>
+                            </ul>
+                            <div class="et-tools">
+                                <div class="dropdown" id="etInsertVar">
+                                    <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        <i class="fa fa-code" aria-hidden="true"></i> Insert variable <span class="caret"></span>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-right et-var-menu" id="etVarMenu"></ul>
+                                </div>
+                                <button type="button" class="btn btn-default btn-sm" id="etImportToggle" aria-expanded="false" aria-controls="etImportPanel">
+                                    <i class="fa fa-download" aria-hidden="true"></i> Import email
+                                </button>
+                            </div>
+                        </header>
+                        <div class="et-import" id="etImportPanel" style="display:none;">
+                            <label class="control-label" for="email_content">Raw email source</label>
+                            <textarea rows="8" id="email_content" class="form-control" placeholder="Paste the full source of an email (headers and body)"></textarea>
+                            <div class="et-import-actions">
+                                <div class="checkbox checkbox-primary">
+                                    <input id="convert_links_checkbox" type="checkbox" checked>
+                                    <label for="convert_links_checkbox">Change links to point to the landing page</label>
+                                </div>
+                                <span>
+                                    <button type="button" class="btn btn-default btn-sm" id="etImportCancel">Cancel</button>
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="importEmail()">Import</button>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="tab-content et-editor-area">
+                            <div role="tabpanel" class="tab-pane active" id="et-tab-html">
+                                <textarea id="html_editor"></textarea>
+                            </div>
+                            <div role="tabpanel" class="tab-pane" id="et-tab-text">
+                                <textarea id="text_editor" class="gophish-editor form-control" placeholder="Plain text version of the email"></textarea>
+                            </div>
+                            <div role="tabpanel" class="tab-pane" id="et-tab-preview">
+                                <div class="et-preview-subject"><i class="fa fa-envelope-o" aria-hidden="true"></i> <span id="etPreviewSubject"></span></div>
+                                <iframe id="etPreviewFrame" sandbox="allow-same-origin" title="Email preview"></iframe>
+                            </div>
+                        </div>
+                        <p class="et-warn" id="etUrlWarning" style="display:none;" role="status">
+                            <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> No <code>{{"{{"}}.URL{{"}}"}}</code> found, so clicks will not be tracked.
+                        </p>
+                    </section>
+
+                    <div class="et-rail">
+                        <section class="et-card" aria-labelledby="etDetailsTitle">
+                            <header class="et-card-head"><i class="fa fa-envelope" aria-hidden="true"></i><h5 id="etDetailsTitle">Details</h5></header>
+                            <div class="et-card-body">
+                                <div class="form-group">
+                                    <label class="control-label" for="subject">Subject</label>
+                                    <input type="text" class="form-control" placeholder="Email subject" id="subject" />
+                                </div>
+                                <div class="form-group">
+                                    <label class="control-label" for="envelope-sender">Envelope sender</label>
+                                    <input type="text" class="form-control" placeholder="First Last &lt;test@example.com&gt;" id="envelope-sender" />
+                                    <p class="et-hint">Shown by most email clients. Defaults to the From address of the Sending Profile.</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="et-card" aria-labelledby="etTrackingTitle">
+                            <header class="et-card-head"><i class="fa fa-crosshairs" aria-hidden="true"></i><h5 id="etTrackingTitle">Tracking</h5></header>
+                            <div class="et-card-body">
+                                <div class="checkbox checkbox-primary">
+                                    <input id="use_tracker_checkbox" type="checkbox" checked>
+                                    <label for="use_tracker_checkbox">Add tracking image</label>
+                                    <p class="et-hint">Records when the email is opened.</p>
+                                </div>
+                                <div class="checkbox checkbox-primary">
+                                    <input id="track_attachments_checkbox" type="checkbox">
+                                    <label for="track_attachments_checkbox">Track attachment opens</label>
+                                    <p class="et-hint">Records when a recipient opens an attachment.</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="et-card" aria-labelledby="etDeliveryTitle">
+                            <header class="et-card-head"><i class="fa fa-paper-plane" aria-hidden="true"></i><h5 id="etDeliveryTitle">Delivery</h5></header>
+                            <div class="et-card-body">
+                                <div class="checkbox checkbox-primary">
+                                    <input id="embed_remote_images_checkbox" type="checkbox">
+                                    <label for="embed_remote_images_checkbox">Embed images inline (CID)</label>
+                                    <p class="et-hint">Sends images embedded in the email.</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="et-card" aria-labelledby="etAttachTitle">
+                            <header class="et-card-head"><i class="fa fa-paperclip" aria-hidden="true"></i><h5 id="etAttachTitle">Attachments <span class="et-count" id="etAttachCount">0</span></h5></header>
+                            <div class="et-card-body">
+                                <label class="et-drop" id="etDropZone" for="attachmentUpload">
+                                    <i class="fa fa-cloud-upload" aria-hidden="true"></i>
+                                    <span>Drop files here or <u>browse</u></span>
+                                    <input id="attachmentUpload" type="file" multiple>
+                                </label>
+                                <ul class="et-files" id="etFileList"></ul>
+                            </div>
+                        </section>
                     </div>
-                    <div role="tabpanel" class="tab-pane" id="html">
-                        <textarea id="html_editor"></textarea>
-                    </div>
                 </div>
-                <div class="checkbox checkbox-primary">
-                    <input id="use_tracker_checkbox" type="checkbox" checked>
-                    <label for="use_tracker_checkbox">Add Tracking Image</label>
-                </div>
-                <div class="checkbox checkbox-primary">
-                    <input id="embed_remote_images_checkbox" type="checkbox">
-                    <label for="embed_remote_images_checkbox">Embed images inline (CID)</label>
-                </div>
-                <div class="checkbox checkbox-primary">
-                    <input id="track_attachments_checkbox" type="checkbox">
-                    <label for="track_attachments_checkbox">Track attachment opens</label>
-                </div>
-                <span class="btn btn-danger btn-file"><i class="fa fa-plus"></i> Add Files
-                    <input id="attachmentUpload" type="file" onchange="attach(this.files)" multiple>
-                </span>
-                <br />
-                <br />
-                <table id="attachmentsTable" class="table">
-                    <thead>
-                        <tr>
-                            <th class="col-md-1 no-sort"></th>
-                            <th class="col-md-10">Name</th>
-                            <th class="col-md-1 no-sort"></th>
-                            <th class="datatable_hidden no-sort">Content</th>
-                            <th class="datatable_hidden no-sort">Type</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                </table>
-                <hr>
             </div>
             <div class="modal-footer">
                 <button type="button" data-dismiss="modal" class="btn btn-default" onclick="dismiss()">Cancel</button>
@@ -179,10 +227,9 @@
     </div>
 </div>
 <!-- SMS Template Modal -->
-<div class="modal fade" id="smsModal" tabindex="-1" role="dialog" aria-labelledby="smsModalLabel">
+<div class="modal fade" id="smsModal" tabindex="-1" role="dialog" aria-labelledby="smsTemplateModalLabel">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <!-- New SMS Template Modal -->
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="dismissSMS()"><span
                         aria-hidden="true">&times;</span></button>
@@ -190,23 +237,87 @@
             </div>
             <div class="modal-body">
                 <div class="row" id="smsModal.flashes"></div>
-                <label class="control-label" for="smsName">Name:</label>
-                <div class="form-group">
-                    <input type="text" class="form-control" placeholder="Template name" id="smsName" autofocus />
+                <div class="st-layout">
+                    <div class="st-form">
+                        <section class="et-card" aria-labelledby="stDetailsTitle">
+                            <header class="et-card-head"><i class="fa fa-mobile" aria-hidden="true"></i><h5 id="stDetailsTitle">Details</h5></header>
+                            <div class="et-card-body">
+                                <div class="form-group">
+                                    <label class="control-label" for="smsName">Name <span class="et-req" aria-hidden="true">*</span></label>
+                                    <input type="text" class="form-control" placeholder="Template name" id="smsName" autofocus />
+                                </div>
+                                <div class="form-group">
+                                    <label class="control-label" for="smsFrom">From</label>
+                                    <input type="text" class="form-control" placeholder="e.g. MyCompany or +1234567890" id="smsFrom" />
+                                    <p class="et-hint">Optional sender ID or phone number. Overrides the From value in the SMS Profile.</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="et-card" aria-labelledby="stMessageTitle">
+                            <header class="et-card-head">
+                                <i class="fa fa-comment" aria-hidden="true"></i><h5 id="stMessageTitle">Message <span class="et-req" aria-hidden="true">*</span></h5>
+                                <div class="dropdown">
+                                    <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        <i class="fa fa-code" aria-hidden="true"></i> Insert variable <span class="caret"></span>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-right et-var-menu" id="stVarMenu"></ul>
+                                </div>
+                            </header>
+                            <div class="et-card-body">
+                                <div class="form-group">
+                                    <label class="sr-only" for="smsText">Message text</label>
+                                    <textarea rows="9" id="smsText" class="form-control" placeholder="Hi {{"{{"}}.FirstName{{"}}"}}, your parcel is waiting: {{"{{"}}.URL{{"}}"}}"></textarea>
+                                    <div class="st-meter" aria-live="polite">
+                                        <span><strong id="smsCharCount">0</strong> characters</span>
+                                        <span><strong id="smsCount">0</strong> <span id="smsCountLabel">messages</span></span>
+                                        <span class="st-encoding" id="smsEncoding" title="">GSM-7</span>
+                                        <span class="st-left" id="smsLeft"></span>
+                                    </div>
+                                    <p class="et-hint">Variables such as <code>{{"{{"}}.URL{{"}}"}}</code> expand when the message is sent, so the final length is usually longer.</p>
+                                </div>
+                                <p class="et-warn st-warn" id="stUrlWarning" style="display:none;" role="status">
+                                    <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> No <code>{{"{{"}}.URL{{"}}"}}</code> found, so clicks will not be tracked.
+                                </p>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="st-preview" aria-label="Live preview">
+                        <div class="st-phone">
+                            <div class="st-notch"></div>
+                            <div class="st-screen">
+                                <div class="st-status">
+                                    <span id="stStatusTime">9:41</span>
+                                    <span class="st-status-icons"><i class="fa fa-signal" aria-hidden="true"></i><i class="fa fa-wifi" aria-hidden="true"></i><i class="fa fa-battery-full" aria-hidden="true"></i></span>
+                                </div>
+                                <div class="st-header">
+                                    <i class="fa fa-chevron-left st-blue" aria-hidden="true"></i>
+                                    <span class="st-avatar" id="stAvatar">?</span>
+                                    <div class="st-contact">
+                                        <div class="st-sender" id="stSender">Sender</div>
+                                        <div class="st-sub" id="stSub">SMS/MMS</div>
+                                    </div>
+                                    <i class="fa fa-video-camera st-blue" aria-hidden="true"></i>
+                                    <i class="fa fa-info-circle st-blue" aria-hidden="true"></i>
+                                </div>
+                                <div class="st-thread" id="stThread">
+                                    <div class="st-day"><span id="stDay">Today</span></div>
+                                    <div class="st-bubble" id="stBubble"></div>
+                                    <div class="st-read" id="stRead">Read</div>
+                                    <div class="st-empty" id="stEmpty">Start typing to see the message here.</div>
+                                </div>
+                                <div class="st-compose">
+                                    <span class="st-round st-plus"><i class="fa fa-plus" aria-hidden="true"></i></span>
+                                    <span class="st-compose-field">Text Message</span>
+                                    <span class="st-round st-mic"><i class="fa fa-microphone" aria-hidden="true"></i></span>
+                                </div>
+                                <div class="st-home"><span></span></div>
+                            </div>
+                        </div>
+                        <p class="et-hint st-preview-hint">Preview uses sample values for variables.</p>
+                    </div>
                 </div>
-                <label class="control-label" for="smsFrom">From (Optional): <i class="fa fa-question-circle" data-toggle="tooltip" data-placement="right" title="Optional sender ID or phone number. If set, this overrides the From value in the SMS Profile."></i></label>
-                <div class="form-group">
-                    <input type="text" class="form-control" placeholder="e.g., MyCompany or +1234567890" id="smsFrom" />
-                </div>
-                <label class="control-label" for="smsText">Message Text:</label>
-                <div class="form-group">
-                    <textarea rows="5" id="smsText" class="form-control" placeholder="SMS Message Text" style="resize: vertical;"></textarea>
-                </div>
-                <div class="form-group">
-                    <span id="smsCharCount">0</span> characters
-                    <span id="smsCount">1</span> SMS message(s)
-                </div>
-                <hr>
             </div>
             <div class="modal-footer">
                 <button type="button" data-dismiss="modal" class="btn btn-default" onclick="dismissSMS()">Cancel</button>
@@ -216,33 +327,11 @@
     </div>
 </div>
 
-<!-- Import Email Modal -->
-<div class="modal fade" id="importEmailModal" tabindex="-1" role="dialog" aria-labelledby="importEmailModalLabel">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <!-- New Email Modal -->
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                <h4 class="modal-title" id="importEmailModalLabel">Import Email</h4>
-            </div>
-            <div class="modal-body">
-                <div class="row" id="modal.flashes"></div>
-                <label class="control-label" for="email">Email Content:</label>
-                <div class="form-group">
-                    <textarea rows="10" id="email_content" class="gophish-editor form-control" placeholder="Raw Email Source"></textarea>
-                </div>
-                <div class="checkbox checkbox-primary">
-                    <input id="convert_links_checkbox" type="checkbox" checked>
-                    <label for="convert_links_checkbox">Change Links to Point to Landing Page</label>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" data-dismiss="modal" class="btn btn-default">Cancel</button>
-                <button type="button" class="btn btn-primary" id="modalSubmit" onclick="importEmail()">Import</button>
-            </div>
-        </div>
-    </div>
-</div>
+{{end}}
+
+{{define "styles"}}
+<link href="/css/templates.css" rel="stylesheet" type="text/css">
+<link href="/css/phone-preview.css" rel="stylesheet" type="text/css">
 {{end}}
 
 {{define "scripts"}}

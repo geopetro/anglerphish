@@ -11,9 +11,11 @@
     margin-bottom: 20px;
 }
 
+/* Creating or editing: 30% list, 70% campaign form. Viewing a set overrides this below. */
 .split-view-left {
-    width: 45%;
-    min-width: 250px;
+    flex: none;
+    width: 30%;
+    min-width: 220px;
     margin-right: 20px;
 }
 
@@ -206,11 +208,6 @@
 
 /* ── Inline Shared Settings ── */
 
-.shared-settings-divider {
-    margin: 16px 0 10px;
-    border-color: #e0e0e0;
-}
-
 /* Header row: text on left, global buttons on right */
 .shared-settings-header-row {
     display: flex;
@@ -246,9 +243,6 @@
 }
 
 /* Schedule row may have taller content */
-.inline-setting-row-schedule {
-    align-items: flex-start;
-}
 
 .inline-setting-label-col {
     width: 160px;
@@ -268,8 +262,12 @@
 }
 
 /* When per-campaign is selected, dim the shared field */
+/* Per campaign: the shared field stays in place, locked, so the toggle beside it never moves */
 .inline-setting-field-col.field-disabled {
-    opacity: 0.35;
+    opacity: 0.5;
+}
+
+.inline-setting-field-col.field-disabled > * {
     pointer-events: none;
 }
 
@@ -322,12 +320,6 @@
 }
 
 /* Campaign Settings Override */
-.campaign-settings-override {
-    margin-top: 15px;
-    padding-top: 15px;
-    border-top: 1px dashed #ddd;
-}
-
 /* Modal XL size */
 .modal-xl {
     width: 90%;
@@ -362,18 +354,7 @@
 
 .cs-overview-header {
     margin-bottom: 16px;
-}
-
-.cs-overview-header .cs-overview-title {
-    font-size: 20px;
-    font-weight: 600;
-    margin-right: 8px;
-}
-
-.cs-overview-header .cs-overview-meta {
-    color: #777;
-    font-size: 13px;
-    margin-top: 4px;
+    padding-top: 14px;
 }
 
 .cs-overview-toggle-row {
@@ -388,113 +369,145 @@
     font-size: 14px;
 }
 
-/* ── Overview funnel ──
-   Sent/Opened/Clicked/Submitted share one track whose full width is the
-   contact count, so the narrowing reads as drop-off. Replied/Reported sit
-   below the rule as non-funnel signals. */
-.cs-funnel {
-    margin-bottom: 20px;
+/* ── Result cards, shared by the set Overview and each campaign's Overview ── */
+#overviewTab {
+    --cs-border: var(--dark-border, #dce4ec);
+    --cs-muted: var(--dark-text-secondary, #6b7b7c);
+    --cs-soft: var(--dark-bg-tertiary, #f4f6f8);
+    --cs-strong: var(--dark-text-primary, #2c3e50);
 }
 
-.cs-fn-scale {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: #8a94a0;
-    margin-bottom: 8px;
-}
-
-.cs-fn-row {
+.cs-kpis {
     display: grid;
-    grid-template-columns: 108px minmax(120px, 1fr) 56px 50px;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+}
+
+.cs-kpi {
+    position: relative;
+    display: flex;
     align-items: center;
     gap: 12px;
-    padding: 5px 0;
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--cs-border);
+    border-radius: 10px;
 }
 
-.cs-fn-label {
+/* Submitted is the risk, Reported the good outcome. They tint only once they happen. */
+.cs-kpi-alert {
+    border-color: #f05b4f;
+    background: rgba(240, 91, 79, .08);
+}
+
+.cs-kpi-good {
+    border-color: #2ecc71;
+    background: rgba(46, 204, 113, .08);
+}
+
+.cs-kpi-ico {
+    flex: none;
     display: flex;
     align-items: center;
-    gap: 7px;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: color-mix(in srgb, currentColor 16%, transparent);
+    font-size: 17px;
+}
+
+/* The stat colours are bright for dark backgrounds, and yellow or cyan on a pale tint is
+   hard to read on the light themes, so the glyph is darkened there. The dark themes keep
+   the bright colours. */
+.cs-kpi-ico .fa {
+    filter: brightness(.68) saturate(1.3);
+}
+
+body.dark-theme .cs-kpi-ico .fa,
+body.crimson-theme .cs-kpi-ico .fa,
+body.goldphish-theme .cs-kpi-ico .fa,
+body.lagocephalus-theme .cs-kpi-ico .fa,
+body.matrix-theme .cs-kpi-ico .fa {
+    filter: none;
+}
+
+.cs-kpi-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.cs-kpi-n {
+    white-space: nowrap;
+    font-size: 24px;
+    font-weight: bold;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    color: var(--cs-strong);
+}
+
+.cs-kpi-n small {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--cs-muted);
+}
+
+/* Labels are never cut. Rows share one height, so a wrapped label does not make its card
+   stand out. */
+.cs-kpi-l {
     font-size: 13px;
-    color: #52616f;
+    line-height: 1.3;
+    color: var(--cs-muted);
 }
 
-.cs-fn-label i {
-    width: 14px;
-    text-align: center;
+/* The share drops below the number when the card is too narrow for both */
+.cs-kpi-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0 8px;
 }
 
-.cs-fn-track {
-    position: relative;
-    height: 20px;
-    background: #eceff2;
+.cs-kpi-pct {
+    flex: none;
+    font-size: 14px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--cs-strong);
+}
+
+.cs-kpi-pct small {
+    font-size: 11px;
+    font-weight: normal;
+    color: var(--cs-muted);
+}
+
+/* Delivery progress lives inside the Sent card */
+.cs-kpi-sent {
+    padding-bottom: 20px;
+}
+
+.cs-kpi-bar {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 7px;
+    height: 4px;
     border-radius: 2px;
+    background: var(--cs-soft);
     overflow: hidden;
 }
 
-.cs-fn-fill {
+.cs-kpi-bar span {
     display: block;
     height: 100%;
     border-radius: 2px;
+    background: #1abc9c;
 }
 
-.cs-fn-zero {
-    position: absolute;
-    left: 0;
-    top: 3px;
-    bottom: 3px;
-    width: 2px;
-    background: #cfd6dc;
-    border-radius: 2px;
-}
-
-.cs-fn-n {
-    text-align: right;
-    font-size: 15px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: #1f2933;
-}
-
-.cs-fn-n-outcome {
-    color: #f05b4f;
-}
-
-.cs-fn-n-good {
-    color: #45d6ef;
-}
-
-.cs-fn-pct {
-    text-align: right;
-    font-size: 12.5px;
-    color: #8a94a0;
-    font-variant-numeric: tabular-nums;
-}
-
-.cs-fn-rule {
-    height: 1px;
-    background: #e3e7eb;
-    border: 0;
-    margin: 12px 0 8px;
-}
-
-.cs-fn-sig-hd {
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #8a94a0;
-    margin-bottom: 2px;
-}
-
-/* Stat colour coding — same hues as the campaign-stat badges in the Campaigns
-   tab, reused for the funnel row icons and the breakdown table headers. */
-.cs-stat-total     { color: #95a5a6; }
+/* Stat colour coding, shared by the Overview and the campaign detail panel */
 .cs-stat-sent      { color: #1abc9c; }
 .cs-stat-opened    { color: #f9bf3b; }
 .cs-stat-attachment-opened { color: #f0ad4e; }
@@ -504,19 +517,1734 @@
 .cs-stat-submitted { color: #f05b4f; }
 .cs-stat-reported  { color: #45d6ef; }
 
-.cs-overview-table {
-    font-size: 13px;
+.cs-ov-summary {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    font-size: 14px;
 }
 
-.cs-overview-table td,
-.cs-overview-table th {
-    vertical-align: middle;
+.cs-ov-status {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .02em;
 }
 
-/* Long campaign names must not stretch the table */
-.cs-overview-table .cs-overview-campaign-name {
-    max-width: 260px;
+.cs-ov-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--dark-text-secondary, #6b7b7c);
+}
+
+.cs-ov-chip .fa {
+    opacity: .8;
+}
+
+.cs-ov-chip strong {
+    font-weight: 600;
+    color: var(--dark-text-primary, #2c3e50);
+}
+
+/* ── View mode: campaign list and detail panel with live preview ── */
+#modal.cs-viewing,
+.cs-pv-full {
+    --cs-border: var(--dark-border, #dce4ec);
+    --cs-muted: var(--dark-text-secondary, #6b7b7c);
+    --cs-soft: var(--dark-bg-tertiary, #f4f6f8);
+    --cs-accent: var(--dark-accent, #2373b8);
+    --cs-strong: var(--dark-text-primary, #2c3e50);
+}
+
+#modal.cs-viewing .split-view-container {
+    height: calc(100vh - 260px);
+    min-height: 520px;
+}
+
+/* A fixed sidebar wide enough for real names, the detail panel takes the rest */
+#modal.cs-viewing .split-view-left {
+    flex: none;
+    width: 280px;
+    min-width: 0;
+}
+
+/* Sidebar */
+.cs-li-search {
+    position: relative;
+    padding: 8px 8px 0;
+}
+
+.cs-li-search .fa {
+    position: absolute;
+    top: 17px;
+    left: 18px;
+    color: var(--cs-muted);
+    pointer-events: none;
+}
+
+.cs-li-search .form-control {
+    padding-left: 30px;
+}
+
+.cs-li-empty {
+    margin: 12px;
+    text-align: center;
+    color: var(--cs-muted);
+}
+
+#modal.cs-viewing .campaign-list {
+    padding: 8px;
+}
+
+/* Overrides the themes' accent-filled .list-group-item.active, which is unreadable here */
+#modal.cs-viewing .campaign-list-item {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    grid-template-areas: "icon name" "icon meta";
+    align-items: start;
+    gap: 4px 10px;
+    margin-bottom: 6px;
+    padding: 10px 10px 10px 12px;
+    /* One even border all round. A transparent left border made the left edge vanish. */
+    border: 1px solid var(--cs-border) !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    color: inherit !important;
+}
+
+#modal.cs-viewing .campaign-list-item:hover {
+    background: var(--cs-soft) !important;
+}
+
+/* The accent bar is drawn inside the card, so it follows the rounded corners and nothing shifts */
+#modal.cs-viewing .campaign-list-item.active {
+    border-color: var(--cs-accent) !important;
+    background: color-mix(in srgb, var(--cs-accent) 14%, transparent) !important;
+    box-shadow: inset 4px 0 0 var(--cs-accent), 0 2px 8px rgba(0, 0, 0, .15);
+}
+
+#modal.cs-viewing .campaign-list-item:focus-visible {
+    outline: 2px solid var(--cs-accent);
+    outline-offset: 1px;
+}
+
+#modal.cs-viewing .campaign-list-item-icon {
+    grid-area: icon;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    margin: 0;
+    border-radius: 8px;
+    background: var(--cs-soft);
+    color: var(--cs-accent);
+    font-size: 16px;
+}
+
+#modal.cs-viewing .campaign-list-item.active .campaign-list-item-icon {
+    background: var(--cs-accent);
+    color: #fff;
+}
+
+/* Full names, up to two lines */
+#modal.cs-viewing .campaign-list-item-text {
+    grid-area: name;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.cs-li-meta {
+    grid-area: meta;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.cs-li-status {
+    flex: none;
+    font-size: 10px;
+}
+
+.cs-li-type {
+    font-size: 12px;
+    color: var(--cs-muted);
+}
+
+/* Detail panel */
+#modal.cs-viewing .split-view-right > .panel > .panel-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.cs-ds {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 2px;
+}
+
+.cs-ds-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.cs-ds-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    min-width: 0;
+}
+
+.cs-ds-title h4 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: bold;
+    overflow-wrap: anywhere;
+}
+
+/* Detail tabs */
+.cs-dt-tabs {
+    flex: none;
+    display: flex;
+    gap: 2px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--cs-border);
+}
+
+.cs-dt-tab {
+    margin-bottom: -1px;
+    padding: 9px 16px;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    background: none;
+    font-weight: 600;
+    color: var(--cs-muted);
+}
+
+.cs-dt-tab:hover {
+    color: var(--cs-strong);
+}
+
+.cs-dt-tab.active {
+    border-bottom-color: var(--cs-accent);
+    color: var(--cs-strong);
+}
+
+.cs-dt-tab:focus-visible {
+    outline: 2px solid var(--cs-accent);
+    outline-offset: -2px;
+}
+
+.cs-dt-pane {
+    display: none;
+    min-height: 0;
+}
+
+.cs-dt-pane.active {
+    display: block;
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* The preview pane fills the panel, the frame box inside it does the scrolling */
+.cs-dt-pane-preview.active {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+
+.cs-ds-copy {
+    flex: none;
+    padding: 0 4px;
+    color: var(--cs-muted);
+}
+
+/* Preview */
+.cs-pv-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+/* Metadata sits in its own card, apart from the rendered message */
+.cs-pv-meta {
+    flex: none;
+    margin-bottom: 10px;
+    padding: 12px 0;
+    border: 1px solid var(--cs-border);
+    border-radius: 8px;
+}
+
+.cs-pv-meta:empty {
+    display: none;
+}
+
+/* Labelled columns side by side with a divider between them, wrapping on narrow panels */
+.cs-pv-meta-cols {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    row-gap: 10px;
+}
+
+.cs-pv-meta-col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    padding: 0 16px;
+    border-left: 1px solid var(--cs-border);
+}
+
+.cs-pv-meta-col:first-child {
+    border-left: 0;
+}
+
+.cs-pv-k {
+    font-size: 12px;
+    color: var(--cs-muted);
+}
+
+.cs-pv-v {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.cs-pv-subject {
+    margin: 0 16px 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--cs-border);
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.cs-pv-body {
+    flex: 1;
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--cs-border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--cs-soft);
+}
+
+.cs-pv-loading,
+.cs-pv-message {
+    margin: auto;
+    padding: 20px;
+    text-align: center;
+    color: var(--cs-muted);
+}
+
+/* The one scrolling box around a frame */
+.cs-pv-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.cs-pv-paper {
+    background: #fff;
+}
+
+.cs-pv-canvas {
+    position: relative;
+    overflow: hidden;
+}
+
+.cs-pv-canvas iframe {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    border: 0;
+    background: #fff;
+    transform-origin: 0 0;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* SMS: the conversation only, on the phone's light thread background */
+.cs-pv-sms {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    height: 100%;
+    padding: 24px 16px;
+    overflow-y: auto;
+}
+
+.cs-pv-sms .st-thread {
+    flex: none;
+    width: 100%;
+    max-width: 380px;
+    padding: 18px 16px;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #f0f0f0 0%, #e8e8e8 100%);
+    color: #000;
+    overflow: visible;
+}
+
+.cs-pv-sms .st-bubble {
+    max-width: 85%;
+}
+
+.cs-pv-browser {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #fff;
+}
+
+.cs-pv-browser-bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border-bottom: 1px solid #d0d3d8;
+    background: #e8eaed;
+}
+
+.cs-pv-dots {
+    display: flex;
+    gap: 5px;
+}
+
+.cs-pv-dots i {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #c4c7cc;
+}
+
+.cs-pv-address {
+    flex: 1;
+    min-width: 0;
+    padding: 3px 10px;
+    border-radius: 12px;
+    background: #fff;
+    font-size: 12px;
+    color: #444;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.cs-pv-address .fa {
+    color: #1e8e3e;
+}
+
+/* Full-screen preview. A child of #modal, which is fixed to the viewport. */
+.cs-pv-full {
+    position: fixed;
+    inset: 16px;
+    z-index: 1080;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 18px 18px;
+    border: 1px solid var(--cs-border);
+    border-radius: 10px;
+    background: var(--dark-bg-secondary, #fff);
+    color: var(--cs-strong);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, .45);
+}
+
+.cs-pv-full-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+}
+
+.cs-pv-full-head h4 {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: bold;
+}
+
+.cs-pv-full .cs-pv-body {
+    min-height: 0;
+}
+
+/* Narrow screens stack, so the panel scrolls and the preview gets a fixed height */
+@media (max-width: 1100px) {
+    #modal.cs-viewing .split-view-left {
+        width: 240px;
+    }
+
+    .cs-dt-pane-preview.active {
+        overflow: visible;
+    }
+
+    .cs-dt-pane-preview .cs-pv-body {
+        flex: none;
+        height: 440px;
+    }
+}
+
+/* Overview: status numbers, then the configuration */
+.cs-ds-h {
+    margin: 4px 0 10px;
+    font-size: 13px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--cs-muted);
+}
+
+.cs-ds-h span {
+    margin-left: 6px;
+    font-weight: normal;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+/* Preview journey: the message, then the link route and, for emails with attachments, a
+   second lane for opening the file and running its macro */
+.cs-pv-head {
+    align-items: center;
+}
+
+.cs-flow {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+/* Two classes, so it wins over the generic .cs-flow-step flex further down */
+.cs-flow-step.cs-flow-start {
+    flex: 0 0 210px;
+}
+
+.cs-flow-lanes {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.cs-flow-lane {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+/* Hidden until the template or page shows they apply. Scoped under .cs-flow so these win
+   over the generic step and connector display rules further down. */
+.cs-flow .cs-flow-lane-att,
+.cs-flow .cs-flow-fill-macro,
+.cs-flow .cs-flow-fill-submit,
+.cs-flow .cs-flow-fill-redirect {
+    display: none;
+}
+
+.cs-flow.cs-flow-split .cs-flow-lane-att,
+.cs-flow.cs-flow-has-macro .cs-flow-fill-macro,
+.cs-flow.cs-flow-has-redirect .cs-flow-fill-submit,
+.cs-flow.cs-flow-has-redirect .cs-flow-fill-redirect {
+    display: flex;
+}
+
+/* The branch: a short stub out of the message, then a bracket down to both lanes */
+.cs-flow-split .cs-flow-lanes {
+    margin-left: 18px;
+}
+
+.cs-flow-split .cs-flow-lanes::before,
+.cs-flow-split .cs-flow-lanes::after {
+    content: "";
+    position: absolute;
+    opacity: .55;
+}
+
+.cs-flow-split .cs-flow-lanes::before {
+    top: calc((100% - 10px) / 4);
+    bottom: calc((100% - 10px) / 4);
+    left: 0;
+    border-left: 1.5px dashed var(--cs-accent);
+}
+
+.cs-flow-split .cs-flow-lanes::after {
+    top: 50%;
+    left: -18px;
+    width: 18px;
+    border-top: 1.5px dashed var(--cs-accent);
+}
+
+.cs-flow-split .cs-flow-lane > .cs-flow-link:first-child .cs-flow-line {
+    left: 0;
+}
+
+.cs-flow-step {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 8px 12px;
+    border: 1px solid var(--cs-border);
+    border-radius: 10px;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    transition: border-color .15s ease, background-color .15s ease;
+}
+
+button.cs-flow-step:hover:not(:disabled) {
+    border-color: var(--cs-accent);
+}
+
+.cs-flow-step:focus-visible {
+    outline: 2px solid var(--cs-accent);
+    outline-offset: 2px;
+}
+
+.cs-flow-step.active {
+    border-color: var(--cs-accent);
+    background: color-mix(in srgb, var(--cs-accent) 12%, transparent);
+}
+
+.cs-flow-step:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+/* Where a route ends, there is nothing to preview there */
+.cs-flow-end {
+    flex-grow: .85;
+    border-style: dashed;
+}
+
+.cs-flow-ico {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--cs-soft);
+    color: var(--cs-accent);
+    font-size: 14px;
+}
+
+.cs-flow-step.active .cs-flow-ico {
+    background: var(--cs-accent);
+    color: #fff;
+}
+
+.cs-flow-txt {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.3;
+}
+
+.cs-flow-k {
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--cs-muted);
+}
+
+.cs-flow-v {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.cs-flow-s {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--cs-muted);
+}
+
+.cs-flow-s b {
+    color: var(--cs-strong);
+}
+
+.cs-flow-cap {
+    margin-left: 7px;
+    font-size: 13px;
+    color: #e67e22;
+    cursor: default;
+}
+
+/* Connector: a dashed line with an arrow head and how many targets took that step */
+/* Sized to its label, with room on the right that the arrow head always keeps */
+.cs-flow-link {
+    position: relative;
+    flex: 0 0 auto;
+    padding: 0 16px 0 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+}
+
+.cs-flow-line {
+    position: absolute;
+    top: 50%;
+    left: 6px;
+    right: 8px;
+    border-top: 1.5px dashed var(--cs-accent);
+    opacity: .55;
+}
+
+.cs-flow-line::after {
+    content: "";
+    position: absolute;
+    top: -5px;
+    right: -8px;
+    border-left: 7px solid var(--cs-accent);
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+}
+
+.cs-flow-label {
+    position: relative;
+    padding: 1px 8px;
+    border-radius: 10px;
+    background: var(--dark-bg-secondary, #fff);
+    box-shadow: 0 0 0 1px var(--cs-border);
+    font-size: 11px;
+    white-space: nowrap;
+    color: var(--cs-muted);
+}
+
+.cs-flow-label b {
+    color: var(--cs-strong);
+}
+
+.cs-flow-label .fa {
+    color: var(--cs-accent);
+}
+
+.cs-pv-expand {
+    flex: none;
+    align-self: center;
+    margin-left: 10px;
+}
+
+.cs-pv-full-flow {
+    flex: none;
+    margin-bottom: 12px;
+}
+
+/* Attachment stop: the files the email carries */
+.cs-pv-files {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    overflow-y: auto;
+}
+
+.cs-pv-file {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--cs-border);
+    border-radius: 10px;
+    background: var(--dark-bg-secondary, #fff);
+}
+
+.cs-pv-file > .fa {
+    font-size: 20px;
+    color: var(--cs-accent);
+}
+
+.cs-pv-file-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.cs-pv-file-tag {
+    flex: none;
+    padding: 1px 8px;
+    border: 1px solid #c0392b;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #e74c3c;
+}
+
+.cs-pv-file-size {
+    flex: none;
+    font-size: 12px;
+    color: var(--cs-muted);
+}
+
+/* Narrow preview: the path turns vertical, top to bottom. Measured on the pane, since the
+   sidebar and modal width decide the room, not the window. */
+.cs-dt-pane-preview {
+    container: csprev / inline-size;
+}
+
+@container csprev (max-width: 680px) {
+    .cs-flow,
+    .cs-flow-lane {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .cs-flow-step.cs-flow-start {
+        flex: none;
+    }
+
+    .cs-flow-split .cs-flow-lanes {
+        margin-left: 0;
+        gap: 4px;
+    }
+
+    .cs-flow-split .cs-flow-lanes::before,
+    .cs-flow-split .cs-flow-lanes::after {
+        display: none;
+    }
+
+    /* Stacked, the attachment route would read as continuing from the redirect, so it starts
+       as its own route below a divider */
+    .cs-flow.cs-flow-split .cs-flow-lane-att {
+        margin-top: 8px;
+        padding-top: 10px;
+        border-top: 1px dashed var(--cs-border);
+    }
+
+    .cs-flow-lane-att > .cs-flow-link:first-child {
+        flex-basis: auto;
+        justify-content: flex-start;
+        margin-bottom: 6px;
+    }
+
+    .cs-flow-lane-att > .cs-flow-link:first-child .cs-flow-line {
+        display: none;
+    }
+
+    .cs-flow-step {
+        flex: none;
+    }
+
+    .cs-flow-link {
+        flex-basis: 30px;
+        padding: 0;
+    }
+
+    .cs-flow-line,
+    .cs-flow-split .cs-flow-lane > .cs-flow-link:first-child .cs-flow-line {
+        top: 3px;
+        bottom: 9px;
+        left: 50%;
+        right: auto;
+        border-top: 0;
+        border-left: 1.5px dashed var(--cs-accent);
+    }
+
+    .cs-flow-line::after {
+        top: auto;
+        right: auto;
+        bottom: -8px;
+        left: -4.5px;
+        border-top: 7px solid var(--cs-accent);
+        border-left: 4px solid transparent;
+        border-right: 4px solid transparent;
+        border-bottom: 0;
+    }
+
+    .cs-pv-expand {
+        align-self: flex-start;
+    }
+}
+
+/* Campaign Overview status: the set Overview's cards, four to a row, Sent highlighted */
+.cs-ds-status-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 4px 0 12px;
+}
+
+.cs-ds-status-head .cs-ds-h {
+    margin: 0;
+}
+
+.cs-target-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 11px;
+    border-radius: 14px;
+    background: var(--cs-soft);
+    font-size: 13px;
+    color: var(--cs-strong);
+}
+
+/* A fixed four columns, so eight cards always make two full rows. Every row is as tall as
+   the tallest card, so all cards match. */
+.cs-kpis-campaign {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
+}
+
+/* SMS has three cards */
+.cs-kpis-campaign.cs-kpis-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 991px) {
+    .cs-kpis-campaign,
+    .cs-kpis-campaign.cs-kpis-3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.cs-kpis-campaign .cs-kpi-sent {
+    padding-bottom: 14px;
+    border-color: #1abc9c;
+    background: rgba(26, 188, 156, .08);
+}
+
+.cs-kpis-campaign + .cs-ds-h {
+    margin-top: 24px;
+}
+
+/* Campaign configuration: Setup on the left, link and timing on the right */
+.cs-cfg {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+    align-items: start;
+}
+
+.cs-cfg-side {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+.cs-cfg-card {
+    min-width: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--cs-border);
+    border-radius: 10px;
+}
+
+.cs-cfg-card h6 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--cs-strong);
+}
+
+.cs-cfg-card h6 .fa {
+    color: var(--cs-accent);
+}
+
+.cs-cfg-row {
+    display: grid;
+    grid-template-columns: 18px minmax(110px, auto) minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 9px 0;
+    border-top: 1px solid var(--cs-border);
+    font-size: 14px;
+}
+
+.cs-cfg-row:first-child {
+    border-top: 0;
+    padding-top: 2px;
+}
+
+.cs-cfg-row .fa {
+    text-align: center;
+    color: var(--cs-muted);
+}
+
+.cs-cfg-k {
+    color: var(--cs-muted);
+}
+
+.cs-cfg-v {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: var(--cs-strong);
+}
+
+.cs-cfg-url {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 8px 7px 12px;
+    border: 1px solid var(--cs-border);
+    border-radius: 8px;
+    background: var(--cs-soft);
+    font-size: 13px;
+}
+
+.cs-cfg-url input {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-overflow: ellipsis;
+    cursor: text;
+}
+
+.cs-cfg-url:focus-within {
+    border-color: var(--cs-accent);
+}
+
+.cs-cfg-when {
+    margin: 0;
+    font-size: 14px;
+    color: var(--cs-strong);
+}
+
+.cs-cfg-sub {
+    margin: 8px 0 0;
+    font-size: 13px;
+    color: var(--cs-muted);
+}
+
+.cs-cfg-sub b {
+    font-weight: 600;
+    color: var(--cs-strong);
+}
+
+.cs-cfg-param {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cs-cfg-param .fa {
+    color: var(--cs-accent);
+}
+
+.cs-cfg-param code {
+    padding: 1px 8px;
+    border: 1px solid var(--cs-border);
+    border-radius: 6px;
+    background: var(--cs-soft);
+    font-size: 12px;
+    color: var(--cs-strong);
+}
+
+.cs-error-pill {
+    border: 1px solid #e74c3c;
+    background: rgba(231, 76, 60, .12);
+    color: #e74c3c;
+    font-weight: 600;
+}
+
+/* The set Overview uses the campaign grid, and its Sent card keeps room for the delivery bar */
+.cs-kpis-set {
+    margin-bottom: 20px;
+}
+
+.cs-kpis-set .cs-kpi-sent {
+    padding-bottom: 20px;
+}
+
+/* Set Overview: every campaign on one row, with the dashboard's stage dots */
+.cs-ov-table {
+    margin: 0;
+    font-size: 14px;
+}
+
+.cs-ov-table th,
+.cs-ov-table td {
+    vertical-align: middle !important;
+}
+
+.cs-ov-table th {
+    font-weight: 600;
+    color: var(--cs-muted);
+}
+
+.cs-ov-open {
+    max-width: 320px;
+    padding: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--cs-strong);
+    text-align: left;
+}
+
+.cs-ov-open .fa {
+    width: 16px;
+    color: var(--cs-muted);
+}
+
+.cs-ov-num {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Creating or editing a set: steps over the existing panes ── */
+#modal {
+    --cs-wz-accent: var(--dark-accent, #2373b8);
+    --cs-wz-border: var(--dark-border, #dce4ec);
+    --cs-wz-muted: var(--dark-text-secondary, #5f6b6d);
+    --cs-wz-soft: var(--dark-bg-tertiary, #f4f6f8);
+    --cs-wz-strong: var(--dark-text-primary, #2c3e50);
+}
+
+/* Steps replace the tabs while creating or editing. Viewing a launched set keeps the tabs. */
+#modal:not(.cs-viewing) #csMainTabs,
+#csMainTabs .cs-review-nav,
+#modal.cs-viewing #csSteps {
+    display: none !important;
+}
+
+/* Step bar: an icon circle per step, joined by a line that fills in as you move along */
+.cs-steps {
+    display: flex;
+    align-items: center;
+    margin: 4px 0 14px;
+    padding: 0;
+    list-style: none;
+}
+
+.cs-steps > li {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.cs-steps > li:last-child {
+    flex: none;
+}
+
+.cs-steps > li:not(:last-child)::after {
+    content: "";
+    flex: 1;
+    height: 2px;
+    margin: 0 14px;
+    border-radius: 1px;
+    background: var(--cs-wz-border);
+    transition: background-color .2s ease;
+}
+
+.cs-steps > li.cs-step-passed::after {
+    background: var(--cs-wz-accent);
+}
+
+.cs-step {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 2px;
+    border: 0;
+    border-radius: 20px;
+    background: none;
+    color: var(--cs-wz-muted);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.cs-step:hover {
+    color: var(--cs-wz-strong);
+}
+
+.cs-step:focus-visible {
+    outline: 2px solid var(--cs-wz-accent);
+    outline-offset: 2px;
+}
+
+.cs-step-num {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 2px solid var(--cs-wz-border);
+    border-radius: 50%;
+    font-size: 14px;
+    transition: background-color .2s ease, border-color .2s ease, color .2s ease;
+}
+
+.cs-step.active {
+    color: var(--cs-wz-strong);
+}
+
+.cs-step.active .cs-step-num {
+    border-color: var(--cs-wz-accent);
+    background: var(--cs-wz-accent);
+    color: #fff;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--cs-wz-accent) 20%, transparent);
+}
+
+.cs-step.done {
+    color: var(--cs-wz-strong);
+}
+
+.cs-step.done .cs-step-num {
+    border-color: var(--cs-wz-accent);
+    background: var(--cs-wz-accent);
+    color: #fff;
+}
+
+/* Narrow modals keep the circles and the line, and drop the labels */
+@media (max-width: 767px) {
+    .cs-step-label {
+        display: none;
+    }
+}
+
+/* Ready or Incomplete on each campaign while editing */
+.cs-ready {
+    flex: none;
+    margin-left: 8px;
+    font-size: 10px;
+}
+
+.cs-ready-ok {
+    background: #27ae60;
+}
+
+.cs-ready-todo {
+    background: #d35400;
+}
+
+/* Review step */
+.cs-rv-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border: 1px solid;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.cs-rv-banner-ok {
+    border-color: #27ae60;
+    background: rgba(39, 174, 96, .1);
+    color: var(--cs-wz-strong);
+}
+
+.cs-rv-banner-ok .fa {
+    color: #27ae60;
+}
+
+.cs-rv-banner-todo {
+    border-color: #e67e22;
+    background: rgba(230, 126, 34, .1);
+    color: var(--cs-wz-strong);
+}
+
+.cs-rv-banner-todo .fa {
+    color: #e67e22;
+}
+
+.cs-rv-card {
+    margin-bottom: 14px;
+    padding: 14px 16px 20px;
+    border: 1px solid var(--cs-wz-border);
+    border-radius: 10px;
+}
+
+/* Room under the last card, so it does not sit on the edge of the panel */
+#csReview {
+    padding: 14px 0 12px;
+}
+
+.cs-rv-card header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.cs-rv-card h6 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--cs-wz-strong);
+}
+
+.cs-rv-card h6 .fa {
+    color: var(--cs-wz-accent);
+}
+
+.cs-rv-row {
+    display: grid;
+    grid-template-columns: 130px minmax(0, 1fr);
+    gap: 12px;
+    padding: 8px 0;
+    border-top: 1px solid var(--cs-wz-border);
+    font-size: 14px;
+}
+
+.cs-rv-k {
+    color: var(--cs-wz-muted);
+}
+
+.cs-rv-v {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: var(--cs-wz-strong);
+}
+
+.cs-rv-missing .cs-rv-v {
+    font-weight: 600;
+    color: #d35400;
+}
+
+.cs-rv-type {
+    flex: none;
+    width: 18px;
+    text-align: center;
+    color: var(--cs-wz-muted);
+}
+
+.cs-rv-name {
+    font-weight: 600;
+    color: var(--cs-wz-strong);
+}
+
+.cs-rv-detail {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: var(--cs-wz-muted);
+}
+
+.cs-rv-sep::before {
+    content: "/";
+    margin: 0 6px;
+    opacity: .6;
+}
+
+.cs-rv-empty {
+    margin: 8px 0 0;
+    color: var(--cs-wz-muted);
+}
+
+/* Setup: the shared settings in three cards. Links, a folded Advanced card, and Schedule. */
+.shared-settings-header {
+    font-size: 16px;
+    color: var(--cs-wz-strong);
+}
+
+.shared-settings-header > .fa {
+    margin-right: 6px;
+    color: var(--cs-wz-muted);
+}
+
+.cs-set-desc {
+    margin-left: 10px;
+    font-size: 13px;
+    font-weight: normal;
+    color: var(--cs-wz-muted);
+}
+
+/* Room under the last card, so Schedule does not sit on the edge of the panel */
+#granularSettingsSection {
+    padding-bottom: 16px;
+}
+
+/* No overflow hidden, the date picker opens outside the card */
+.cs-set-card {
+    margin-bottom: 14px;
+    border: 1px solid var(--cs-wz-border);
+    border-radius: 10px;
+}
+
+.cs-set-card .inline-setting-row {
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--cs-wz-border);
+}
+
+.cs-set-card .inline-setting-row:last-child {
+    border-bottom: 0;
+}
+
+.cs-set-card .inline-setting-label-col,
+.cs-set-card .inline-setting-toggle-col {
+    padding-top: 0;
+    align-items: center;
+}
+
+/* Rows under a card header sit indented, beneath the header text */
+.cs-set-card-body .inline-setting-row {
+    padding-left: 42px;
+}
+
+.cs-set-card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 16px;
+    border: 0;
+    border-bottom: 1px solid var(--cs-wz-border);
+    border-radius: 10px 10px 0 0;
+    background: var(--cs-wz-soft);
+    font-size: 15px;
+    font-weight: bold;
+    text-align: left;
+    color: var(--cs-wz-strong);
+}
+
+.cs-set-card-head > .fa {
+    width: 16px;
+    text-align: center;
+    color: var(--cs-wz-muted);
+}
+
+/* The Advanced header is a button. Closed, it is the whole card. */
+.cs-advanced-toggle:focus-visible {
+    outline: 2px solid var(--cs-wz-accent);
+    outline-offset: -2px;
+}
+
+.cs-advanced-toggle[aria-expanded="false"] {
+    border-bottom: 0;
+    border-radius: 10px;
+}
+
+.cs-advanced-hint {
+    font-size: 13px;
+    font-weight: normal;
+    color: var(--cs-wz-muted);
+}
+
+.cs-set-ico {
+    width: 18px;
+    margin-right: 8px;
+    text-align: center;
+    color: var(--cs-wz-muted);
+}
+
+.cs-set-optional {
+    font-weight: normal;
+    color: var(--cs-wz-muted);
+}
+
+.cs-set-check {
+    margin: 2px 0 0;
+}
+
+.cs-set-url-length:empty,
+.cs-set-url-length:has(> span:empty) {
+    display: none;
+}
+
+.cs-set-url-length {
+    margin-top: 4px;
+}
+
+/* An icon inside the date fields */
+.cs-input-icon {
+    position: relative;
+}
+
+.cs-input-icon > .fa {
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    z-index: 3;
+    transform: translateY(-50%);
+    color: var(--cs-wz-muted);
+    pointer-events: none;
+}
+
+.cs-input-icon > .form-control {
+    padding-left: 36px;
+}
+
+/* Campaigns: each campaign's form in folding sections. General, Content, Targeting, and
+   URL & Tracking and Schedule when something is set per campaign. */
+.cs-cf-section {
+    margin-bottom: 12px;
+    border: 1px solid var(--cs-wz-border);
+    border-radius: 10px;
+}
+
+.cs-cf-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 16px;
+    border: 0;
+    border-bottom: 1px solid var(--cs-wz-border);
+    border-radius: 10px 10px 0 0;
+    background: var(--cs-wz-soft);
+    text-align: left;
+    color: var(--cs-wz-strong);
+}
+
+.cs-cf-head:focus-visible {
+    outline: 2px solid var(--cs-wz-accent);
+    outline-offset: -2px;
+}
+
+.cs-cf-ico {
+    width: 18px;
+    text-align: center;
+    color: var(--cs-wz-muted);
+}
+
+.cs-cf-title {
+    font-size: 15px;
+    font-weight: bold;
+}
+
+.cs-cf-hint {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right;
+    font-size: 13px;
+    color: var(--cs-wz-muted);
+}
+
+.cs-cf-chev {
+    font-size: 12px;
+    color: var(--cs-wz-muted);
+    transition: transform .15s ease;
+}
+
+.cs-cf-body {
+    padding: 14px 16px 4px;
+}
+
+/* Folded: the header alone, with a downward chevron */
+.cs-cf-collapsed .cs-cf-body {
+    display: none;
+}
+
+.cs-cf-collapsed .cs-cf-head {
+    border-bottom: 0;
+    border-radius: 10px;
+}
+
+.cs-cf-collapsed .cs-cf-chev {
+    transform: rotate(180deg);
+}
+
+/* General: name takes the room, type sits beside it */
+.cs-cf-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+}
+
+.cs-cf-grow {
+    flex: 1;
+    min-width: 0;
+}
+
+.cs-cf-type .btn {
+    min-width: 96px;
+}
+
+.cs-cf-cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 18px;
+}
+
+.cs-cf-cols-3 {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+
+/* Hidden groups (Email or SMS ones) must not take a grid cell */
+.cs-cf-cols > .form-group[style*="display: none"] {
+    display: none !important;
+}
+
+.cs-cf-req {
+    color: #e74c3c;
+}
+
+.cs-cf-check label {
+    font-weight: normal;
+}
+
+@media (max-width: 991px) {
+    .cs-cf-row,
+    .cs-cf-cols,
+    .cs-cf-cols-3 {
+        display: block;
+    }
+}
+
+.cs-groups-count {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: var(--cs-wz-muted);
+}
+
+.cs-groups-count:empty {
+    display: none;
+}
+
+/* Review: the set's campaigns as a grid of cards */
+.cs-rv-campaigns header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 6px 0 10px;
+}
+
+.cs-rv-campaigns h6 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--cs-wz-strong);
+}
+
+.cs-rv-csum {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.cs-rv-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 12px;
+}
+
+.cs-rv-ccard {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    padding: 14px 16px 10px;
+    border: 1px solid var(--cs-wz-border);
+    border-radius: 10px;
+}
+
+.cs-rv-ccard.cs-rv-todo {
+    border-color: color-mix(in srgb, #e67e22 45%, var(--cs-wz-border));
+}
+
+.cs-rv-chead {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.cs-rv-chead .cs-rv-type {
+    flex: none;
+    color: var(--cs-wz-muted);
+}
+
+.cs-rv-chead .cs-rv-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: bold;
+    color: var(--cs-wz-strong);
+}
+
+.cs-rv-cstatus {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.cs-rv-warn {
+    color: #e67e22;
+}
+
+.cs-rv-ok {
+    color: #27ae60;
+}
+
+.cs-rv-ccard .cs-rv-detail {
+    flex: 1;
+    overflow: visible;
+    white-space: normal;
+    font-size: 12px;
+    color: var(--cs-wz-muted);
+}
+
+/* Same small button as the Setup card's Fix, at the card's bottom right */
+.cs-rv-cfix {
+    align-self: flex-end;
+}
+
+/* Row actions in the campaign set list: equal widths whatever the icon, with an even gap */
+.cs-row-actions {
+    display: inline-flex;
+    gap: 6px;
+}
+
+.cs-row-actions .btn {
+    width: 42px;
+    padding-left: 0;
+    padding-right: 0;
+    text-align: center;
 }

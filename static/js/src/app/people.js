@@ -186,6 +186,7 @@ function renderPeople(rows) {
         // Table, then info and paging; the page has its own search box.
         dom: "rt<\"people-table-footer\"ip>",
         pageLength: 25,
+        autoWidth: false,
         order: [[6, "desc"]],
         language: {
             info: "Showing _START_–_END_ of _TOTAL_ people",

@@ -53,6 +53,7 @@ func (s *ModelsSuite) TearDownTest(c *check.C) {
 	db.Delete(IMAP{})
 	db.Delete(OIDCSettings{})
 	db.Delete(ReportSettings{})
+	db.Delete(DMISettings{})
 	auth.SetActiveOIDCClient(nil)
 
 	// Reset users table to default state.

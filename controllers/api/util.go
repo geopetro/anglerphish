@@ -83,7 +83,13 @@ func (as *Server) SendTestEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If a complete sending profile is provided use it
-	if err := s.SMTP.Validate(); err != nil {
+	if s.SMTP.IsDMI() {
+		// Stored DMI credentials are never sent to the browser, so load them here.
+		if err := s.SMTP.PrepareDMITest(s.UserId); err != nil {
+			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusBadRequest)
+			return
+		}
+	} else if err := s.SMTP.Validate(); err != nil {
 		// Otherwise get the SMTP requested by name
 		smtp, lookupErr := models.GetSMTPByName(s.SMTP.Name, s.UserId)
 		// If the Sending Profile doesn't exist, let's err on the side

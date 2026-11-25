@@ -73,6 +73,12 @@ func (m *MailLog) Backoff(reason error) error {
 	m.SendAttempt++
 	backoffDuration := math.Pow(2, float64(m.SendAttempt))
 	m.SendDate = m.SendDate.Add(time.Minute * time.Duration(backoffDuration))
+	var hint interface{ RetryDelay() time.Duration }
+	if errors.As(reason, &hint) {
+		if earliest := time.Now().UTC().Add(hint.RetryDelay()); earliest.After(m.SendDate) {
+			m.SendDate = earliest
+		}
+	}
 	err = db.Save(m).Error
 	if err != nil {
 		return err

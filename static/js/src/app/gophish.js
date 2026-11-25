@@ -54,6 +54,33 @@ function escapeHtml(text) {
 }
 window.escapeHtml = escapeHtml
 
+var URL_DOMAIN_PLACEHOLDER = "[DOMAIN]"
+
+// Matches a placeholder like [DOMAIN] left in a campaign URL
+function hasURLPlaceholder(url) {
+    return /\[[A-Z_]+\]/.test(url || "")
+}
+
+// Fills a URL field from a URL template. A preset keeps the scheme and host
+// already typed in the field, otherwise [DOMAIN] is left selected to type over.
+function applyURLTemplate(field, url) {
+    var $field = $(field)
+    var typed = $.trim($field.val()).match(/^https?:\/\/[^\/?#\s\[\]]+/i)
+    var preset = "https://" + URL_DOMAIN_PLACEHOLDER
+    if (typed && url.indexOf(preset) === 0) {
+        url = url.split(preset).join(typed[0])
+    }
+    $field.val(url).trigger("input")
+    var at = url.indexOf(URL_DOMAIN_PLACEHOLDER)
+    if (at !== -1) {
+        // The template picker is still closing, focus once it has gone
+        $("#urlTemplateModal").one("hidden.bs.modal", function () {
+            $field.focus()
+            $field[0].setSelectionRange(at, at + URL_DOMAIN_PLACEHOLDER.length)
+        })
+    }
+}
+
 function unescapeHtml(html) {
     return $("<div/>").html(html).text()
 }
@@ -281,6 +308,26 @@ var api = {
         // delete() - Deletes a SMTP at DELETE /smtp/:id
         delete: function (id) {
             return query("/smtp/" + id, "DELETE", {}, false)
+        },
+        // dmiRegenerate() - Regenerates the certificate with POST /smtp/:id/dmi/certificate
+        dmiRegenerate: function (id) {
+            return query("/smtp/" + id + "/dmi/certificate", "POST", {}, true)
+        },
+        // dmiTest() - Tests a mailbox with POST /smtp/:id/dmi/test
+        dmiTest: function (id, mailbox) {
+            return query("/smtp/" + id + "/dmi/test", "POST", { mailbox: mailbox }, true)
+        }
+    },
+    // dmiSettings contains the endpoints for /dmi_settings (admin only)
+    dmiSettings: {
+        get: function () {
+            return query("/dmi_settings", "GET", {}, true)
+        },
+        put: function (googleKey) {
+            return query("/dmi_settings", "PUT", { google_key: googleKey }, true)
+        },
+        delete: function () {
+            return query("/dmi_settings", "DELETE", {}, true)
         }
     },
     // IMAP contains the endpoints for /imap/

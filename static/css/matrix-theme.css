@@ -15,7 +15,8 @@ html.matrix-theme {
     --dark-bg-secondary: #0b160b;
     --dark-bg-tertiary: #122412;
     --dark-bg-card: #0a120a;
-    --dark-bg-input: #0b160b;
+    --dark-bg-input: #152515;
+    --dark-bg-heading: #0f2b0f;
     --dark-border: #0f4a0f;
     --dark-text-primary: #e8f5e9;
     --dark-text-secondary: #a9c9ad;
@@ -457,7 +458,7 @@ body.matrix-theme .panel {
 }
 
 body.matrix-theme .panel-default > .panel-heading {
-    background-color: var(--dark-bg-secondary) !important;
+    background-color: var(--dark-bg-heading) !important;
     border-color: var(--dark-border) !important;
     color: var(--dark-text-primary) !important;
 }
@@ -552,38 +553,6 @@ body.matrix-theme .shared-settings-header {
 
 body.matrix-theme .campaign-list-item:hover {
     background-color: #0b160b;
-}
-
-/* Campaign Set Overview tab */
-body.matrix-theme .cs-overview-header .cs-overview-meta,
-body.matrix-theme .cs-fn-scale,
-body.matrix-theme .cs-fn-pct,
-body.matrix-theme .cs-fn-sig-hd {
-    color: var(--dark-text-muted);
-}
-
-body.matrix-theme .cs-fn-label {
-    color: var(--dark-text-secondary);
-}
-
-body.matrix-theme .cs-fn-n {
-    color: var(--dark-text-primary);
-}
-
-body.matrix-theme .cs-fn-track {
-    background: var(--dark-bg-input);
-}
-
-body.matrix-theme .cs-fn-zero {
-    background: var(--dark-border);
-}
-
-body.matrix-theme .cs-fn-rule {
-    background: var(--dark-border);
-}
-
-body.matrix-theme .cs-overview-table {
-    color: var(--dark-text-primary);
 }
 
 body.matrix-theme .panel-danger > .panel-heading {
