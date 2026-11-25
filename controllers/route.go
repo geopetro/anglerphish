@@ -19,6 +19,7 @@ import (
 	mid "github.com/gophish/gophish/middleware"
 	"github.com/gophish/gophish/middleware/ratelimit"
 	"github.com/gophish/gophish/models"
+	"github.com/gophish/gophish/telemetry"
 	"github.com/gophish/gophish/util"
 	"github.com/gophish/gophish/worker"
 	"github.com/gorilla/csrf"
@@ -26,6 +27,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/jordan-wright/unindexed"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // AdminServerOption is a functional option that is used to configure the
@@ -189,6 +191,15 @@ func (as *AdminServer) registerRoutes() {
 
 	// Setup logging
 	adminHandler = handlers.CombinedLoggingHandler(log.Writer(), adminHandler)
+
+	// Setup OTel telemetry: request metrics for every admin request.
+	adminHandler = telemetry.Metrics(adminHandler)
+
+	// Wrap the handler so every admin request produces an OTel span.
+	adminHandler = otelhttp.NewHandler(adminHandler, "gophish.admin",
+		otelhttp.WithSpanNameFormatter(func(operation string, r *http.Request) string {
+			return r.Method + " " + telemetry.RoutePattern(r)
+		}))
 	as.server.Handler = adminHandler
 }
 

@@ -22,5 +22,11 @@
 	},
 	"reports": {
 		"storage_path": "./reports/files"
+	},
+	"telemetry": {
+		"enable": true,
+		"otlp_endpoint": "",
+		"service_name": "gophish",
+		"disable_metrics": false
 	}
 }

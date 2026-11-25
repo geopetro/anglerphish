@@ -20,11 +20,13 @@ import (
 	log "github.com/gophish/gophish/logger"
 	"github.com/gophish/gophish/mailer"
 	"github.com/gophish/gophish/models"
+	"github.com/gophish/gophish/telemetry"
 	"github.com/gophish/gophish/util"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/jordan-wright/unindexed"
 	bm "github.com/microcosm-cc/bluemonday"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // ErrInvalidRequest is thrown when a request with an invalid structure is
@@ -144,7 +146,15 @@ func (ps *PhishingServer) registerRoutes() {
 
 	// Setup logging
 	phishHandler = handlers.CombinedLoggingHandler(log.Writer(), phishHandler)
-	ps.server.Handler = phishHandler
+
+	// Setup OTel telemetry: request metrics for every phishing event.
+	phishHandler = telemetry.Metrics(phishHandler)
+
+	// Wrap the handler so every phishing request produces an OTel span.
+	ps.server.Handler = otelhttp.NewHandler(phishHandler, "gophish.phish",
+		otelhttp.WithSpanNameFormatter(func(operation string, r *http.Request) string {
+			return r.Method + " " + telemetry.RoutePattern(r)
+		}))
 }
 
 // TrackHandler tracks emails as they are opened, updating the status for the given Result

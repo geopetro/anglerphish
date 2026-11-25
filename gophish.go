@@ -26,6 +26,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -41,6 +42,7 @@ import (
 	log "github.com/gophish/gophish/logger"
 	"github.com/gophish/gophish/middleware"
 	"github.com/gophish/gophish/models"
+	"github.com/gophish/gophish/telemetry"
 	"github.com/gophish/gophish/webhook"
 )
 
@@ -97,6 +99,12 @@ func main() {
 	err = log.Setup(conf.Logging)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	// Set up OTel telemetry (traces, metrics and logs). Telemetry is enabled
+	// through the "telemetry" block of config.json.
+	if err := telemetry.Setup(conf.Telemetry); err != nil {
+		log.Warnf("Telemetry setup: %v", err)
 	}
 
 	// Provide the option to disable the built-in mailer
@@ -179,5 +187,7 @@ func main() {
 	if *mode == modePhish || *mode == modeAll {
 		phishServer.Shutdown()
 	}
+	// Flush OTel telemetry (traces, metrics and logs) on shutdown.
+	telemetry.Shutdown(context.Background())
 
 }

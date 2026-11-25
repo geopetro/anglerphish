@@ -33,6 +33,17 @@ type Reports struct {
 	StoragePath string `json:"storage_path"`
 }
 
+// Telemetry represents the OpenTelemetry configuration details. When enabled,
+// traces, metrics and logs are exported over OTLP when a collector endpoint is
+// configured, otherwise telemetry is collected with in-process (no-op)
+// providers and logs are bridged to the logger.
+type Telemetry struct {
+	Enable         bool   `json:"enable"`
+	OTLPEndpoint   string `json:"otlp_endpoint"`
+	ServiceName    string `json:"service_name"`
+	DisableMetrics bool   `json:"disable_metrics"`
+}
+
 // Config represents the configuration information.
 type Config struct {
 	AdminConf      AdminServer `json:"admin_server"`
@@ -45,6 +56,7 @@ type Config struct {
 	ContactAddress string      `json:"contact_address"`
 	Logging        *log.Config `json:"logging"`
 	ReportsConf    Reports     `json:"reports"`
+	Telemetry      *Telemetry  `json:"telemetry"`
 	// LegacyOIDCBlock is true when the file has an ignored top-level "oidc" key.
 	LegacyOIDCBlock bool `json:"-"`
 }
